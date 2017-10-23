@@ -22,7 +22,10 @@ endif
 
 .PHONY: all clean
 
-all:
+setup:
+	stack setup
+
+all: setup
 	stack build
 	mkdir -p $(BINDIR)
 	cp `stack path --dist-dir`/build/c4/c4 $(BINDIR)
