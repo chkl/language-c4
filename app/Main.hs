@@ -2,6 +2,7 @@
 module Main where
 
 import           System.Environment
+import           System.Exit        (exitFailure, exitSuccess)
 
 import           Data.List          (intercalate)
 import           Text.Parsec.Pos
@@ -36,8 +37,10 @@ tokenize :: String -> IO ()
 tokenize filename = do
   res <- parseFromFile lexer filename
   case res of
-    Left err     -> print err
-    Right tokens -> putStr $ prettyPrint tokens
+    Left err     -> do print err
+                       exitFailure
+    Right tokens -> do putStr $ prettyPrint tokens
+                       exitSuccess
 
 showHelp :: IO ()
 showHelp = print "Available options: --tokenize and --help"
