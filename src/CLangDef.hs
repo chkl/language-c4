@@ -33,6 +33,9 @@ cDigit = '0':cNonZeroDigit
 
 cNonZeroDigit :: [Char]
 cNonZeroDigit = ['1'..'9']
+
+cWhitespace :: [Char]
+cWhitespace = [' ',  '\t', '\n', '\r', '\f', '\v']
   
 cLangDef :: LanguageDef s
 cLangDef = emptyDef { T.commentStart = "/*"
