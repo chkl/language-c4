@@ -25,8 +25,15 @@ allCPunctuators =
   "/=", "%=", "+=", "-=", "<<=", ">>=", "&=", "^=", "|=", "##", "<:", ":>", "<%",
   "%>", "%:", "%:%:"]
 
-  
+cNonDigit :: [Char]
+cNonDigit =  ['_'] ++ ['A'..'Z'] ++ ['a'..'z']
 
+cDigit :: [Char]
+cDigit = '0':cNonZeroDigit 
+
+cNonZeroDigit :: [Char]
+cNonZeroDigit = ['1'..'9']
+  
 cLangDef :: LanguageDef s
 cLangDef = emptyDef { T.commentStart = "/*"
                        , T.commentEnd = "*/"
