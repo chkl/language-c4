@@ -13,7 +13,7 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Lib
+  exposed-modules:     Lib, Lexer, CLangDef
   build-depends:       base >= 4.7 && < 5
                      , parsec
                      , mtl
@@ -36,6 +36,9 @@ test-suite c4-test
   main-is:             Spec.hs
   build-depends:       base
                      , c4
+                     , hspec
+                     , parsec
+                     , QuickCheck
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010
 
