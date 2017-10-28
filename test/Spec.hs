@@ -7,17 +7,21 @@ import           Text.Parsec.Prim
 
 
 runLexer :: String -> Either ParseError [(Token, SourcePos)]
-runLexer = runParser lexer () "test"
+runLexer = runParser lexer () "test.c"
 
 runLexer_ :: String -> Either ParseError [Token]
 runLexer_ = fmap (map fst) . runLexer
+
+newPos' :: Int -> Int -> SourcePos
+newPos' = newPos "test.c"
 
 main :: IO ()
 main = hspec $
   describe "lexing" $ do
     it "should parse a single operator '+'" $ do
-      runLexer_ "+"     `shouldBe` Right [Punctuator "+"]
-      runLexer_ " +"    `shouldBe` Right [Punctuator "+"]
+      runLexer "+"     `shouldBe` Right [(Punctuator "+", newPos' 1 1)]
+      runLexer " +"    `shouldBe` Right [(Punctuator "+", newPos' 1 2)]
+      runLexer "  +"   `shouldBe` Right [(Punctuator "+", newPos' 1 3)]
 
     it "recognizes consecutive integers" $ do
       runLexer_ "1 2 3" `shouldBe` Right [DecConstant 1, DecConstant 2, DecConstant 3]

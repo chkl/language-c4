@@ -25,48 +25,39 @@ data Token = Keyword String
 tokenParser :: T.GenTokenParser String u Identity
 tokenParser = T.makeTokenParser cLangDef
 
+-- | Takes a parser and transforms it into a parser that first consumes all
+-- | whitespace, then reads the position and then return its original result
+-- | paired with that position
+withPosition :: Parsec String u a -> Parsec String u (a, SourcePos)
+withPosition p = do
+  _ <- T.whiteSpace tokenParser
+  pos <- getPosition
+  a <- p
+  return (a, pos)
+
 
 integerConstantToken :: Parsec String u (Token, SourcePos)
-integerConstantToken = do
-  i <- T.integer tokenParser
-  p <- getPosition
-  return (DecConstant i, p)
+integerConstantToken = withPosition $ DecConstant <$> T.integer tokenParser
 
 charConstantToken :: Parsec String u (Token, SourcePos)
-charConstantToken = do
+charConstantToken = withPosition $ do
   _ <- optional (oneOf "uUL" )
   _ <- char '\''
   c <- anyChar
   _ <- char '\''
-  p <- getPosition
-  return (CharConstant c, p)
+  return $ CharConstant c
 
 stringLiteralToken :: Parsec String u (Token, SourcePos)
-stringLiteralToken = do
-  _ <- T.whiteSpace tokenParser -- somehow the generated stringLiteral will not accept whitespaces
-  s <- T.stringLiteral tokenParser
-  p <- getPosition
-  return (StringLit s, p)
+stringLiteralToken = withPosition $ StringLit <$> T.stringLiteral tokenParser
 
 identifierToken :: Parsec String u (Token, SourcePos)
-identifierToken = do
-  s <- T.identifier tokenParser
-  p <- getPosition
-  return (Identifier s, p)
+identifierToken = withPosition $ Identifier <$> T.identifier tokenParser
 
 punctuatorToken :: Parsec String u (Token, SourcePos)
-punctuatorToken = do
-  _ <- T.whiteSpace tokenParser -- somehow the generated punctuatorToken will not accept whitespaces
-  s <- choice $ map (try.string) allCPunctuators
-  p <- getPosition
-  return (Punctuator s, p)
-
+punctuatorToken = withPosition $ Punctuator <$> choice (map (try.string) allCPunctuators)
 
 keywordToken :: Parsec String u (Token, SourcePos)
-keywordToken = do
-  s <- choice $ map (\ s -> (T.reserved tokenParser s >> return s)) allCKeywords
-  p <- getPosition
-  return (Keyword s, p)
+keywordToken = withPosition $ Keyword <$> choice (map (\ s -> (T.reserved tokenParser s >> return s)) allCKeywords)
 
 lexer :: Parser [(Token, SourcePos)]
 lexer = manyTill ( try integerConstantToken <|>
