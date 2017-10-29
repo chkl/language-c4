@@ -23,6 +23,13 @@ main = hspec $
       runLexer " +"    `shouldBe` Right [(Punctuator "+", newPos' 1 2)]
       runLexer "  +"   `shouldBe` Right [(Punctuator "+", newPos' 1 3)]
 
+    it "should work with 6.4p1 example 2" $ do
+      runLexer_ "x+++++y" `shouldBe` Right [ Identifier "x"
+                                           , Punctuator "++"
+                                           , Punctuator "++"
+                                           , Punctuator "+"
+                                           , Identifier "y" ]
+
     it "recognizes consecutive integers" $ do
       runLexer_ "1 2 3" `shouldBe` Right [DecConstant 1, DecConstant 2, DecConstant 3]
       runLexer_ "1"     `shouldBe` Right [DecConstant 1]

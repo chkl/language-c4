@@ -3,10 +3,14 @@ module CLangDef where
 import           Text.Parsec.Char
 import           Text.Parsec.Language
 import           Text.Parsec.Pos                          (SourcePos)
-import           Text.Parsec.Prim                         (Parsec, getPosition, (<|>))
+import           Text.Parsec.Prim                         (Parsec, getPosition,
+                                                           (<|>))
 import           Text.Parsec.String
 import qualified Text.Parsec.Token                        as T
 import           Text.ParserCombinators.Parsec.Combinator
+
+import           Data.List                                (sortBy)
+import           Data.Ord                                 (comparing)
 
 
 allCKeywords :: [String]
@@ -19,7 +23,7 @@ allCKeywords = ["auto", "if", "unsigned", "break", "inline", "void", "case",
 
 
 allCPunctuators :: [String]
-allCPunctuators =
+allCPunctuators = sortBy (flip $ comparing length) $
   map (\s -> [s]) ".&*+-~!/%<>^|?:;=,#" ++
   ["->", "++", "--", "<<", ">>", "<=", ">=", "==", "!=", "&&", "||", "...", "*=",
   "/=", "%=", "+=", "-=", "<<=", ">>=", "&=", "^=", "|=", "##", "<:", ":>", "<%",
@@ -29,14 +33,14 @@ cNonDigit :: [Char]
 cNonDigit =  ['_'] ++ ['A'..'Z'] ++ ['a'..'z']
 
 cDigit :: [Char]
-cDigit = '0':cNonZeroDigit 
+cDigit = '0':cNonZeroDigit
 
 cNonZeroDigit :: [Char]
 cNonZeroDigit = ['1'..'9']
 
 cWhitespace :: [Char]
 cWhitespace = [' ',  '\t', '\n', '\r', '\f', '\v']
-  
+
 cLangDef :: LanguageDef s
 cLangDef = emptyDef { T.commentStart = "/*"
                        , T.commentEnd = "*/"
