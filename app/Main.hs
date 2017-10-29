@@ -5,6 +5,7 @@ import           System.Environment
 import           System.Exit        (exitFailure, exitSuccess)
 
 import           Data.List          (intercalate)
+import           Text.Parsec.Error
 import           Text.Parsec.Pos
 import           Text.Parsec.String
 
@@ -31,13 +32,22 @@ instance PrettyPrint Token where
 instance PrettyPrint [(Token, SourcePos)] where
   prettyPrint = unlines . map prettyPrint'
     where prettyPrint' (t,p) = prettyPrint p ++ ": " ++ prettyPrint t
+
+instance PrettyPrint [Message] where
+  prettyPrint = showErrorMessages "or" "unknown parse error" "expecting" "unexpected" "end of input"
+
+
+instance PrettyPrint ParseError where
+  prettyPrint err = pos ++ ": error: " ++ drop 1 msg ++ "\n"
+    where pos = prettyPrint (errorPos err)
+          msg = prettyPrint (errorMessages err)
 --------------------------------------------------------------------------------
 
 tokenize :: String -> IO ()
 tokenize filename = do
   res <- parseFromFile lexer filename
   case res of
-    Left err     -> do print err
+    Left err     -> do putStr $ prettyPrint err
                        exitFailure
     Right tokens -> do putStr $ prettyPrint tokens
                        exitSuccess
