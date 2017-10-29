@@ -1,8 +1,8 @@
 import           Test.Hspec
 
 import           Lexer
-import           Text.Parsec.Pos
 import           Text.Parsec.Error
+import           Text.Parsec.Pos
 import           Text.Parsec.Prim
 
 
@@ -40,9 +40,14 @@ main = hspec $
       runLexer_ " \"foo\" \"bar\""   `shouldBe` Right [StringLit "foo", StringLit "bar"]
 
     it "ex01 should be parsed correctly" $
-        runLexer_ "42  if\n    \"bla\\n\"x+" `shouldBe` Right [DecConstant 42,
-                                                            Keyword "if",
-                                                            StringLit "bla\n",
-                                                            Identifier "x",
-                                                            Punctuator "+"]
+        runLexer_ "42  if\n    \"bla\\n\"x+" `shouldBe` Right [ DecConstant 42
+                                                              , Keyword "if"
+                                                              , StringLit "bla\n"
+                                                              , Identifier "x"
+                                                              , Punctuator "+" ]
+    it "should ignore all kinds of comments" $ do
+      runLexer_ "42 /* 12 comment */ id" `shouldBe` Right [ DecConstant 42,  Identifier "id" ]
+      runLexer_ "13\n// line comment id" `shouldBe` Right [ DecConstant 13 ]
+      runLexer_ "\"str\" // endline xx"  `shouldBe` Right [ StringLit "str"]
+      runLexer_ "xx\n//test\nyy"         `shouldBe` Right [ Identifier "xx", Identifier "yy"]
 
