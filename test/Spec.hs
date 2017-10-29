@@ -15,6 +15,12 @@ runLexer_ = fmap (map fst) . runLexer
 newPos' :: Int -> Int -> SourcePos
 newPos' = newPos "test.c"
 
+isLeft :: Either a b -> Bool
+isLeft  = either (const True) (const False)
+
+isRight :: Either a b -> Bool
+isRight = either (const False) (const True)
+
 main :: IO ()
 main = hspec $
   describe "lexing" $ do
@@ -23,7 +29,7 @@ main = hspec $
       runLexer " +"    `shouldBe` Right [(Punctuator "+", newPos' 1 2)]
       runLexer "  +"   `shouldBe` Right [(Punctuator "+", newPos' 1 3)]
 
-    it "should work with 6.4p1 example 2" $ do
+    it "parse x++++++y correctly (6.4p1 example 2)" $ do
       runLexer_ "x+++++y" `shouldBe` Right [ Identifier "x"
                                            , Punctuator "++"
                                            , Punctuator "++"
@@ -36,6 +42,14 @@ main = hspec $
       runLexer_ ""      `shouldBe` Right []
       runLexer_ "5\n23" `shouldBe` Right [DecConstant 5, DecConstant 23]
       runLexer_ "  5 23 -1" `shouldBe` Right [DecConstant 5, DecConstant 23, DecConstant (-1)]
+
+    it "should correctly handle character constants" $ do
+      runLexer_ "'c'"   `shouldBe` Right [CharConstant 'c' ]
+      runLexer_ "'\'"   `shouldSatisfy` isLeft
+      runLexer_ "'\\"   `shouldSatisfy` isLeft
+      runLexer_ "'\\x"  `shouldSatisfy` isLeft
+      runLexer_ "'\n'"  `shouldSatisfy` isLeft
+      runLexer_ "'\\n'"  `shouldBe` Right [CharConstant '\n']
 
     it "integers and identifiers and chars" $ do
       runLexer_ "'c' 3 identf" `shouldBe` Right [CharConstant 'c', DecConstant 3, Identifier "identf"]
@@ -57,4 +71,5 @@ main = hspec $
       runLexer_ "13\n// line comment id" `shouldBe` Right [ DecConstant 13 ]
       runLexer_ "\"str\" // endline xx"  `shouldBe` Right [ StringLit "str"]
       runLexer_ "xx\n//test\nyy"         `shouldBe` Right [ Identifier "xx", Identifier "yy"]
+
 

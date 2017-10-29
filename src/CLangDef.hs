@@ -54,3 +54,19 @@ cLangDef = emptyDef { T.commentStart = "/*"
                        , T.reservedOpNames = allCPunctuators
                        , T.caseSensitive = True
                        }
+
+-- | a simple map that maps the second character of a simple escape sequence
+-- | (e.g. the n in "\n") to the actual character that is represented by the
+-- | escape sequence.
+cSimpleEscapeSequences :: [(Char, Char)]
+cSimpleEscapeSequences =  [ ('\'', '\'')
+                          , ('"', '"')
+                          , ('?', '?' )
+                          , ('\\', '\\')
+                          , ('a', '\a')
+                          , ('b', '\b')
+                          , ('f', '\f')
+                          , ('n', '\n')
+                          , ('r', '\r')
+                          , ('t', '\t')
+                          , ('v', '\v') ]

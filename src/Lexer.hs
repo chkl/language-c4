@@ -4,15 +4,14 @@ module Lexer where
 import           Control.Monad.Identity
 import           Text.Parsec.Char
 import           Text.Parsec.Pos                          (SourcePos)
-import           Text.Parsec.Prim                         (Parsec, getPosition,
-                                                           try, (<|>))
+import           Text.Parsec.Prim
 import           Text.Parsec.String
 import qualified Text.Parsec.Token                        as T
 import           Text.ParserCombinators.Parsec.Combinator
 
 import           CLangDef
 
-
+-- TODO: (Question) Choose more appropriate internal representations? e.g. Vector 4 Byte for CharConstant?
 data Token = Keyword String
            | Identifier String
            | DecConstant Integer
@@ -21,6 +20,9 @@ data Token = Keyword String
            | Punctuator String
            deriving (Show, Eq)
 
+-- | like char but discards the parsed character
+char_ :: Char -> Parsec String u ()
+char_ c = void $ char c
 
 tokenParser :: T.GenTokenParser String u Identity
 tokenParser = T.makeTokenParser cLangDef
@@ -30,7 +32,7 @@ tokenParser = T.makeTokenParser cLangDef
 -- | paired with that position
 withPosition :: Parsec String u a -> Parsec String u (a, SourcePos)
 withPosition p = do
-  _ <- T.whiteSpace tokenParser
+  T.whiteSpace tokenParser
   pos <- getPosition
   a <- p
   return (a, pos)
@@ -41,11 +43,23 @@ integerConstantToken = withPosition $ DecConstant <$> T.integer tokenParser
 
 charConstantToken :: Parsec String u (Token, SourcePos)
 charConstantToken = withPosition $ do
-  _ <- optional (oneOf "uUL" )
-  _ <- char '\''
-  c <- anyChar
-  _ <- char '\''
+  optional (oneOf "uUL" )
+  char_ '\''
+  c <- cChar -- for full compliance this should be many
+  char_ '\''
   return $ CharConstant c
+
+-- | parses a c-char (see 6.4.4.4)
+cChar :: Parsec String u Char
+cChar = try allowedCharacter <|> try escapeSequence where
+  allowedCharacter = satisfy $ \c -> c `notElem` ['\\', '\'', '\n']
+  escapeSequence = do -- refer to 'simple escape sequence'
+    char_ '\\'
+    c <- oneOf $ map fst cSimpleEscapeSequences
+    case lookup c cSimpleEscapeSequences of
+      Just d  -> return d
+      Nothing -> unexpected  "not a valid escape sequence"
+
 
 stringLiteralToken :: Parsec String u (Token, SourcePos)
 stringLiteralToken = withPosition $ StringLit <$> T.stringLiteral tokenParser
