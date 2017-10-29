@@ -22,15 +22,15 @@ instance PrettyPrint SourcePos where
 instance PrettyPrint Token where
   prettyPrint (Keyword k)      = "keyword " ++ k
   prettyPrint (Identifier i)   = "identifier " ++ i
-  prettyPrint (DecConstant n)  = "constant "  ++ show n
-  prettyPrint (CharConstant c) = "??" -- TODO how is this called?
+  prettyPrint (DecConstant n)  = "integer-constant "  ++ show n
+  prettyPrint (CharConstant c) = "character-constant" ++ show c
   prettyPrint (StringLit s)    = "string-literal " ++ show s
   prettyPrint (Punctuator s)   = "punctuator " ++ s
 
 
 instance PrettyPrint [(Token, SourcePos)] where
   prettyPrint = unlines . map prettyPrint'
-    where prettyPrint' (t,p) = prettyPrint p ++ " " ++ prettyPrint t
+    where prettyPrint' (t,p) = prettyPrint p ++ ": " ++ prettyPrint t
 --------------------------------------------------------------------------------
 
 tokenize :: String -> IO ()
