@@ -35,6 +35,7 @@ withPosition p = do
   T.whiteSpace tokenParser
   pos <- getPosition
   a <- p
+  T.whiteSpace tokenParser
   return (a, pos)
 
 
@@ -51,9 +52,17 @@ charConstantToken = withPosition $ do
 
 -- | parses a c-char (see 6.4.4.4)
 cChar :: Parsec String u Char
-cChar = try allowedCharacter <|> try escapeSequence where
+cChar = try allowedCharacter <|> try simpleEscapeSequence where
   allowedCharacter = satisfy $ \c -> c `notElem` ['\\', '\'', '\n']
-  escapeSequence = do -- refer to 'simple escape sequence'
+
+-- | parses an s-char (see 6.4.5)
+sChar :: Parsec String u Char
+sChar = try allowedCharacter <|> try simpleEscapeSequence where
+  allowedCharacter = satisfy $ \c -> c `notElem` ['\\', '"', '\n']
+
+
+simpleEscapeSequence :: Parsec String u Char
+simpleEscapeSequence = do -- refer to 'simple escape sequence'
     char_ '\\'
     c <- oneOf $ map fst cSimpleEscapeSequences
     case lookup c cSimpleEscapeSequences of
@@ -62,7 +71,12 @@ cChar = try allowedCharacter <|> try escapeSequence where
 
 
 stringLiteralToken :: Parsec String u (Token, SourcePos)
-stringLiteralToken = withPosition $ StringLit <$> T.stringLiteral tokenParser
+stringLiteralToken = withPosition $ do
+  optional $ choice $ map string ["u8", "u", "U", "L"]
+  char_ '\"'
+  s <- many sChar
+  char_ '\"'
+  return $ StringLit s
 
 identifierToken :: Parsec String u (Token, SourcePos)
 identifierToken = withPosition $ Identifier <$> T.identifier tokenParser
@@ -72,6 +86,8 @@ punctuatorToken = withPosition $ Punctuator <$> choice (map (try.string) allCPun
 
 keywordToken :: Parsec String u (Token, SourcePos)
 keywordToken = withPosition $ Keyword <$> choice (map (\ s -> (T.reserved tokenParser s >> return s)) allCKeywords)
+
+
 
 lexer :: Parser [(Token, SourcePos)]
 lexer = manyTill ( try integerConstantToken <|>

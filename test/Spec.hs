@@ -55,10 +55,11 @@ main = hspec $
       runLexer_ "'c' 3 identf" `shouldBe` Right [CharConstant 'c', DecConstant 3, Identifier "identf"]
 
     it "simple string literals" $ do
-      runLexer_ " \"blah\""            `shouldBe` Right [StringLit "blah"]
+      runLexer_ " \"blah\""          `shouldBe` Right [StringLit "blah"]
       runLexer_ "\"foo\""            `shouldBe` Right [StringLit "foo"]
       runLexer_ " \"foo\"3"          `shouldBe` Right [StringLit "foo", DecConstant 3]
       runLexer_ " \"foo\" \"bar\""   `shouldBe` Right [StringLit "foo", StringLit "bar"]
+      runLexer_ "u8\"test\""         `shouldBe` Right [StringLit "test"]
 
     it "ex01 should be parsed correctly" $
         runLexer_ "42  if\n    \"bla\\n\"x+" `shouldBe` Right [ DecConstant 42
