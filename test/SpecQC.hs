@@ -6,29 +6,20 @@ import           Foreign.C.String                 (castCCharToChar)
 import           Foreign.C.Types                  (CChar)
 import           Data.List                        (isInfixOf)
 import           Test.QuickCheck
-import           Text.Parsec.Pos
-import           Text.Parsec.Error
-import           Text.Parsec.Prim
-
-runLexer :: String -> Either ParseError [(Token, SourcePos)]
-runLexer = runParser lexer () "test.c"
-
-runLexer_ :: String -> Either ParseError [Token]
-runLexer_ = fmap (map fst) . runLexer
 
 -- | Each generator produces a pair consisting of a string (to parse) as well
 -- | as the token that would result if that string were correctly parsed.
-genKeyword :: Gen (String, Token)
+genKeyword :: Gen (String, CToken)
 genKeyword = liftM (\k -> (k, Keyword k)) keyword
   where keyword = elements allCKeywords
 
-genIdent :: Gen (String , Token)
+genIdent :: Gen (String , CToken)
 genIdent = liftM (\i -> (i, Identifier i)) ident
   where ident    = liftM2 (:) nonDigit rest 
         nonDigit = elements cNonDigit 
         rest     = listOf $ elements (cNonDigit ++ cDigit)
 
-genDecConst :: Gen (String, Token)
+genDecConst :: Gen (String, CToken)
 genDecConst = liftM (\d -> (show d, DecConstant d)) decConst
   where decConst     = liftM (read :: String -> Integer) decConstStr 
         decConstStr  = liftM2 (:) nonZeroDigit digits
@@ -38,18 +29,18 @@ genDecConst = liftM (\d -> (show d, DecConstant d)) decConst
 -- | arbitary :: Gen CChar generates awful escaped characters.
 -- | (so, by extension, genStringLit generates awful strings). Maybe
 -- | it would be best to just limit the strings to mostly alphanumeric for readability.
-genCharConstant :: Gen (String, Token)
+genCharConstant :: Gen (String, CToken)
 genCharConstant = liftM (\c -> (show c, CharConstant c)) char
   where char  = liftM castCCharToChar cChar 
         cChar = arbitrary :: Gen CChar
 
-genStringLit :: Gen (String, Token)
+genStringLit :: Gen (String, CToken)
 genStringLit = liftM (\s -> (s, StringLit s)) str 
   where str   = listOf char
         char  = liftM castCCharToChar cChar 
         cChar = arbitrary :: Gen CChar
 
-genPunctuator :: Gen (String, Token)
+genPunctuator :: Gen (String, CToken)
 genPunctuator = liftM (\p -> (p, Punctuator p)) punctuator
   where punctuator = elements allCPunctuators 
 
@@ -82,7 +73,7 @@ genComment = oneof [genCommentBlock, genCommentInline]
 -- | Tokens are generated a little rigidly (and not comprehensively).
 -- | The structure is token - whitespace - maybe a comment - more whitespace. 
 -- | Probably can be improved.
-genToken :: Gen (String, Token)
+genToken :: Gen (String, CToken)
 genToken = do
   (s, t) <-  oneof [ genKeyword, genIdent, genDecConst
                    , genCharConstant, genStringLit
@@ -92,14 +83,34 @@ genToken = do
   ws2     <- genWhitespace
   return (s ++ ws1 ++ comment ++ ws2, t)
 
-genCFile :: Gen (String, [Token])
+genCFile :: Gen (String, [CToken])
 genCFile = do
-  stPairs <- resize 40 $ listOf1 genToken
+  stPairs <- resize 50 $ listOf1 genToken
   let f (accS, accT) (s, t) = (accS ++ s, accT ++ [t]) 
   let cFile = foldl f ("", []) stPairs
   return cFile 
+
+-- | Testing
+newtype KeywordG = KeywordG (String, CToken)
+  deriving (Show, Eq)
+
+newtype CFileG = CFileG (String, [CToken])
+  deriving (Show, Eq)
+
+instance Arbitrary KeywordG where
+  arbitrary = liftM KeywordG genKeyword
+
+instance Arbitrary CFileG where
+  arbitrary = liftM CFileG genCFile
   
-  
+prop_genKeyword keywordPair = Right [t] == runLexer_ s
+ where KeywordG (s, t) = keywordPair
+       types = keywordPair :: KeywordG
+
+prop_genCFile filePair = Right ts == runLexer_ s
+ where CFileG (s, ts) = filePair
+       types = filePair :: CFileG
+
 
 
 
