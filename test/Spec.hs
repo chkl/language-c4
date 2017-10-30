@@ -1,19 +1,17 @@
+{-# LANGUAGE OverloadedStrings #-}
 import           Test.Hspec
 
 import           Lexer
-import           Text.Parsec.Error
-import           Text.Parsec.Pos
-import           Text.Parsec.Prim
+import           Text.Megaparsec.Pos
 
+import CLangDef
 
-runLexer :: String -> Either ParseError [(Token, SourcePos)]
-runLexer = runParser lexer () "test.c"
+runLexer' = runLexer "test.c"
 
-runLexer_ :: String -> Either ParseError [Token]
-runLexer_ = fmap (map fst) . runLexer
+runLexer_ = fmap (map fst) . runLexer'
 
 newPos' :: Int -> Int -> SourcePos
-newPos' = newPos "test.c"
+newPos' l c = SourcePos "test.c" (mkPos l) (mkPos c)
 
 isLeft :: Either a b -> Bool
 isLeft  = either (const True) (const False)
@@ -25,9 +23,9 @@ main :: IO ()
 main = hspec $
   describe "lexing" $ do
     it "should parse a single operator '+'" $ do
-      runLexer "+"     `shouldBe` Right [(Punctuator "+", newPos' 1 1)]
-      runLexer " +"    `shouldBe` Right [(Punctuator "+", newPos' 1 2)]
-      runLexer "  +"   `shouldBe` Right [(Punctuator "+", newPos' 1 3)]
+      runLexer' "+"     `shouldBe` Right [(Punctuator "+", newPos' 1 1)]
+      runLexer' " +"    `shouldBe` Right [(Punctuator "+", newPos' 1 2)]
+      runLexer' "  +"   `shouldBe` Right [(Punctuator "+", newPos' 1 3)]
 
     it "parse x++++++y correctly (6.4p1 example 2)" $ do
       runLexer_ "x+++++y" `shouldBe` Right [ Identifier "x"
@@ -44,15 +42,15 @@ main = hspec $
       runLexer_ "  5 23 -1" `shouldBe` Right [DecConstant 5, DecConstant 23, DecConstant (-1)]
 
     it "should correctly handle character constants" $ do
-      runLexer_ "'c'"   `shouldBe` Right [CharConstant 'c' ]
+      runLexer_ "'c'"   `shouldBe` Right [CharConstant $ w 'c' ]
       runLexer_ "'\'"   `shouldSatisfy` isLeft
       runLexer_ "'\\"   `shouldSatisfy` isLeft
       runLexer_ "'\\x"  `shouldSatisfy` isLeft
       runLexer_ "'\n'"  `shouldSatisfy` isLeft
-      runLexer_ "'\\n'"  `shouldBe` Right [CharConstant '\n']
+      runLexer_ "'\\n'"  `shouldBe` Right [CharConstant $ w '\n']
 
     it "integers and identifiers and chars" $ do
-      runLexer_ "'c' 3 identf" `shouldBe` Right [CharConstant 'c', DecConstant 3, Identifier "identf"]
+      runLexer_ "'c' 3 identf" `shouldBe` Right [CharConstant (w 'c'), DecConstant 3, Identifier "identf"]
 
     it "simple string literals" $ do
       runLexer_ " \"blah\""          `shouldBe` Right [StringLit "blah"]

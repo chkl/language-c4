@@ -1,101 +1,144 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Lexer where
-import           Control.Monad.Identity
-import           Text.Parsec.Char
-import           Text.Parsec.Pos                          (SourcePos)
-import           Text.Parsec.Prim
-import           Text.Parsec.String
-import qualified Text.Parsec.Token                        as T
-import           Text.ParserCombinators.Parsec.Combinator
+module Lexer ( ErrorMsg(..)
+             , CToken(..)
+             , Parser
+             , ParseError
+             , runLexer
+             ) where
+
+import           Data.ByteString            (ByteString)
+import qualified Data.ByteString            as BS
+import           Data.Foldable              (asum)
+import           Data.Word                  (Word8)
+import           Text.Megaparsec            hiding (ParseError)
+import           Text.Megaparsec.Byte
+import qualified Text.Megaparsec.Byte.Lexer as L
+import qualified Text.Megaparsec.Error      as E
+
+
 
 import           CLangDef
 
--- TODO: (Question) Choose more appropriate internal representations? e.g. Vector 4 Byte for CharConstant?
-data Token = Keyword String
-           | Identifier String
-           | DecConstant Integer
-           | CharConstant Char
-           | StringLit String
-           | Punctuator String
+data CToken = Keyword ByteString
+            | Identifier ByteString
+            | DecConstant Integer
+            | CharConstant Word8
+            | StringLit ByteString
+            | Punctuator ByteString
            deriving (Show, Eq)
 
--- | like char but discards the parsed character
-char_ :: Char -> Parsec String u ()
-char_ c = void $ char c
+newtype ErrorMsg = ErrorMsg { toString :: String
+                         } deriving (Ord, Eq, Show)
 
-tokenParser :: T.GenTokenParser String u Identity
-tokenParser = T.makeTokenParser cLangDef
+instance ShowErrorComponent ErrorMsg where
+  showErrorComponent e = "error: " ++ toString e
 
--- | Takes a parser and transforms it into a parser that first consumes all
--- | whitespace, then reads the position and then return its original result
--- | paired with that position
-withPosition :: Parsec String u a -> Parsec String u (a, SourcePos)
-withPosition p = do
-  T.whiteSpace tokenParser
-  pos <- getPosition
-  a <- p
-  T.whiteSpace tokenParser
-  return (a, pos)
+type ParseError = E.ParseError Word8 ErrorMsg
+
+type Parser = Parsec ErrorMsg ByteString
+
+type PosParser a = Parser (a, SourcePos)
 
 
-integerConstantToken :: Parsec String u (Token, SourcePos)
-integerConstantToken = withPosition $ DecConstant <$> T.integer tokenParser
+-- | "space consumer"
+sc :: Parser ()
+sc = L.space space1 lineCmnt blockCmnt
+  where
+    lineCmnt  = L.skipLineComment "//"
+    blockCmnt = L.skipBlockComment "/*" "*/"
 
-charConstantToken :: Parsec String u (Token, SourcePos)
-charConstantToken = withPosition $ do
-  optional (oneOf "uUL" )
-  char_ '\''
-  c <- cChar -- for full compliance this should be many
-  char_ '\''
-  return $ CharConstant c
+-- `lexeme`, `integer` and `signedInteger` are basically pre-defined parsers of
+-- megaparsec.
 
--- | parses a c-char (see 6.4.4.4)
-cChar :: Parsec String u Char
-cChar = try allowedCharacter <|> try simpleEscapeSequence where
-  allowedCharacter = satisfy $ \c -> c `notElem` ['\\', '\'', '\n']
+lexeme :: Parser a -> Parser a
+lexeme = L.lexeme sc
 
--- | parses an s-char (see 6.4.5)
-sChar :: Parsec String u Char
-sChar = try allowedCharacter <|> try simpleEscapeSequence where
-  allowedCharacter = satisfy $ \c -> c `notElem` ['\\', '"', '\n']
+integer :: Parser Integer
+integer = lexeme L.decimal
+
+signedInteger :: Parser Integer
+signedInteger = L.signed sc integer
+
+--  wrap any parser in `posLexeme` to make it consume any trailing whitespace
+--  after the actual token Part of our conventions should be that every cToken
+--  parser consumes all trailing whitespace.
+--  It also embellishes the type a with the source position.
+posLexeme :: Parser a -> PosParser a
+posLexeme a = do
+  p <- getPosition
+  x <- lexeme a
+  return (x,p)
+
+integerConstant :: PosParser CToken
+integerConstant = posLexeme $ DecConstant <$> signedInteger
 
 
-simpleEscapeSequence :: Parsec String u Char
+charConstant :: PosParser CToken
+charConstant = posLexeme $ do
+  _ <- optional $ oneOf [w 'u', w 'U', w 'l']
+  _ <- char $ w '\''
+  x <- try simpleEscapeSequence <|> noneOf [w '\\', w '\'', w '\n']
+  _ <- char $ w '\''
+  return $ CharConstant (x :: Word8)
+
+
+
+
+simpleEscapeSequence :: Parser Word8
 simpleEscapeSequence = do -- refer to 'simple escape sequence'
-    char_ '\\'
+    _ <- char (w '\\')
     c <- oneOf $ map fst cSimpleEscapeSequences
     case lookup c cSimpleEscapeSequences of
       Just d  -> return d
-      Nothing -> unexpected  "not a valid escape sequence"
+      Nothing -> fail "not a valid escape sequence"
 
 
-stringLiteralToken :: Parsec String u (Token, SourcePos)
-stringLiteralToken = withPosition $ do
-  optional $ choice $ map string ["u8", "u", "U", "L"]
-  char_ '\"'
+stringLiteral :: PosParser CToken
+stringLiteral = posLexeme $ do
+  _ <- optional $ asum $ map string ["u8", "u", "U", "L"]
+  _ <- char $ w '\"'
   s <- many sChar
-  char_ '\"'
-  return $ StringLit s
+  _ <- char $ w '\"'
+  return $ StringLit $ BS.pack s
 
-identifierToken :: Parsec String u (Token, SourcePos)
-identifierToken = withPosition $ Identifier <$> T.identifier tokenParser
+-- | parses an s-char (see 6.4.5)
+sChar :: Parser Word8
+sChar = try allowedCharacter <|> try simpleEscapeSequence where
+  allowedCharacter = noneOf [w '\\', w '"', w '\n']
 
-punctuatorToken :: Parsec String u (Token, SourcePos)
-punctuatorToken = withPosition $ Punctuator <$> choice (map (try.string) allCPunctuators)
+identifierToken :: PosParser CToken
+identifierToken = posLexeme $ do
+  x <- letterChar
+  y <- many alphaNumChar
+  return $ Identifier (BS.pack (x : y))
 
-keywordToken :: Parsec String u (Token, SourcePos)
-keywordToken = withPosition $ Keyword <$> choice (map (\ s -> (T.reserved tokenParser s >> return s)) allCKeywords)
+
+punctuatorToken :: PosParser CToken
+punctuatorToken = posLexeme $ do
+  pun <- asum $ map string allCPunctuators
+  return $ Punctuator pun
+
+keywordToken :: PosParser CToken
+keywordToken = posLexeme $ do
+   k <- asum $ map string allCKeywords
+   return $ Keyword (k :: ByteString )
 
 
+cToken :: PosParser CToken
+cToken = try integerConstant <|>
+         try  stringLiteral <|>
+         try  charConstant <|>
+         try  keywordToken <|>
+         try  identifierToken <|>
+         try  punctuatorToken
 
-lexer :: Parser [(Token, SourcePos)]
-lexer = manyTill ( try integerConstantToken <|>
-                   try  stringLiteralToken <|>
-                   try  charConstantToken <|>
-                   try  keywordToken <|>
-                   try  identifierToken <|>
-                   try  punctuatorToken
-                 ) eof
+fullLexer :: Parser [(CToken, SourcePos)]
+fullLexer = sc *> many cToken <* eof
+
+
+runLexer :: String -> ByteString -> Either ParseError [(CToken, SourcePos)]
+runLexer = parse fullLexer
+
 
 
