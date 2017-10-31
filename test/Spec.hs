@@ -6,7 +6,6 @@ import           Control.Monad
 import           Lexer
 import           System.Environment
 import           System.Exit
-import           System.IO
 import           Test.QuickCheck
 import           Text.Megaparsec.Pos
 
@@ -91,6 +90,7 @@ unitTests = do
 
     it "integers and identifiers and chars" $ do
       runLexer_ "'c' 3 identf" `shouldBe` Right [CharConstant (w 'c'), DecConstant 3, Identifier "identf"]
+      runLexer_ "dogfx" `shouldBe` Right [Identifier "dogfx"]
 
     it "simple string literals" $ do
       runLexer_ " \"blah\""          `shouldBe` Right [StringLit "blah"]

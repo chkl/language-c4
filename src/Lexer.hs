@@ -107,11 +107,14 @@ sChar :: Parser Word8
 sChar = try allowedCharacter <|> try simpleEscapeSequence where
   allowedCharacter = noneOf [w '\\', w '"', w '\n']
 
-identifierToken :: PosParser CToken
-identifierToken = posLexeme $ do
+identifierOrKeywordToken :: PosParser CToken
+identifierOrKeywordToken = posLexeme $ do
   x <- letterChar <|> char (w '_')
   y <- many (alphaNumChar <|> char (w '_'))
-  return $ Identifier (BS.pack (x : y))
+  let name = BS.pack (x : y)
+  if name `elem` allCKeywords
+  then return $ Keyword name
+  else return $ Identifier name
 
 
 punctuatorToken :: PosParser CToken
@@ -119,18 +122,11 @@ punctuatorToken = posLexeme $ do
   pun <- asum $ map string allCPunctuators
   return $ Punctuator pun
 
-keywordToken :: PosParser CToken
-keywordToken = posLexeme $ do
-   k <- asum $ map string allCKeywords
-   return $ Keyword (k :: ByteString )
-
-
 cToken :: PosParser CToken
 cToken = try integerConstant <|>
          try  stringLiteral <|>
          try  charConstant <|>
-         try  keywordToken <|>
-         try  identifierToken <|>
+         try  identifierOrKeywordToken <|>
          try  punctuatorToken
 
 fullLexer :: Parser [(CToken, SourcePos)]
