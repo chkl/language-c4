@@ -1,12 +1,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 import           Test.Hspec
 
+import qualified Data.ByteString          as BS
 import           Control.Monad
 import           Lexer
+import           System.Environment
+import           System.Exit
+import           System.IO
 import           Test.QuickCheck
 import           Text.Megaparsec.Pos
 
 import           CLangDef
+
+import           SpecQC
 
 runLexer' = runLexer "test.c"
 
@@ -21,9 +27,25 @@ isLeft  = either (const True) (const False)
 isRight :: Either a b -> Bool
 isRight = either (const False) (const True)
 
+
+generateSampleFile :: IO ()
+generateSampleFile = do
+  samples <- sample' genCFile
+  BS.putStr (fst $ head samples)
+
 main :: IO ()
-main = hspec $
-  describe "lexing" $ do
+main = do
+  args <- getArgs
+  if ("--sample" `elem` args) then do
+    generateSampleFile
+    exitSuccess
+  else runTests
+
+runTests :: IO ()
+runTests = do
+  quickCheck prop_genKeyword
+--  quickCheck prop_genCFile
+  hspec $ describe "lexing" $ do
     it "should parse a single operator '+'" $ do
       runLexer' "+"     `shouldBe` Right [(Punctuator "+", newPos' 1 1)]
       runLexer' " +"    `shouldBe` Right [(Punctuator "+", newPos' 1 2)]
@@ -76,3 +98,4 @@ main = hspec $
     it "parse keywords correctly" $ do
       forM_ allCKeywords $ \k -> do
         runLexer_ k `shouldBe` Right [ Keyword k]
+

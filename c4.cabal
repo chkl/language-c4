@@ -42,6 +42,8 @@ test-suite c4-test
                      , c4
                      , megaparsec >= 6.2.0
                      , hspec
+                     , bytestring
+                     , bytestring-conversion
                      , QuickCheck
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010
