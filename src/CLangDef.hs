@@ -42,9 +42,6 @@ cNonZeroDigit = map (BS.singleton . w) ['1'..'9']
 cWhitespace :: [ByteString]
 cWhitespace = map (BS.singleton . w) [' ', '\t', '\n', '\r', '\f', '\v']
 
-cDisallowedChar :: [Word8]
-cDisallowedChar = [(w '\''), (w '\\'), (w '\n')]
-
 
 -- | a simple map that maps the second character of a simple escape sequence
 -- | (e.g. the n in "\n") to the actual character that is represented by the

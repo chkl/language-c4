@@ -47,7 +47,7 @@ genDecConst = do
 
 genCharConstant :: ExampleGen CToken
 genCharConstant = do
-  let allowedChar = flip notElem cDisallowedChar
+  let allowedChar = flip notElem [w '\'', w '\n', w '\\']
   char <- (arbitrary :: Gen Word8) `suchThat` allowedChar
   return ("'" <> BS.singleton char <> "'", CharConstant char)
 
@@ -55,7 +55,7 @@ genCharConstant = do
 -- TODO: Add escape sequences
 genStringLit :: ExampleGen CToken
 genStringLit = do
-  let allowedChar = flip notElem cDisallowedChar
+  let allowedChar = flip notElem [w '\"', w '\n', w '\\']
   s <- listOf1 $ (arbitrary :: Gen Word8) `suchThat` allowedChar
   let str = BS.pack s
   return ("\"" <> str <> "\"", StringLit str)
