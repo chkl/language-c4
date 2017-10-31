@@ -23,7 +23,7 @@ import           CLangDef
 data CToken = Keyword ByteString
             | Identifier ByteString
             | DecConstant Integer
-            | CharConstant Word8
+            | CharConstant ByteString
             | StringLit ByteString
             | Punctuator ByteString
            deriving (Show, Eq)
@@ -78,19 +78,20 @@ charConstant :: PosParser CToken
 charConstant = posLexeme $ do
   _ <- optional $ oneOf [w 'u', w 'U', w 'l']
   _ <- char $ w '\''
-  x <- try simpleEscapeSequence <|> noneOf [w '\\', w '\'', w '\n']
+  x <- try simpleEscapeSequence <|>
+       BS.singleton <$> noneOf [w '\\', w '\'', w '\n']
   _ <- char $ w '\''
-  return $ CharConstant (x :: Word8)
+  return $ CharConstant x
 
 
 
 
-simpleEscapeSequence :: Parser Word8
+simpleEscapeSequence :: Parser ByteString
 simpleEscapeSequence = do -- refer to 'simple escape sequence'
-    _ <- char (w '\\')
-    c <- oneOf $ map fst cSimpleEscapeSequences
-    case lookup c cSimpleEscapeSequences of
-      Just d  -> return d
+    c1 <- char (w '\\')
+    c2 <- anyChar
+    case lookup c2 cSimpleEscapeSequences of
+      Just _  -> return $ BS.pack [c1,c2]
       Nothing -> fail "not a valid escape sequence"
 
 
@@ -100,12 +101,12 @@ stringLiteral = posLexeme $ do
   _ <- char $ w '\"'
   s <- many sChar
   _ <- char $ w '\"'
-  return $ StringLit $ BS.pack s
+  return $ StringLit $ BS.concat s
 
 -- | parses an s-char (see 6.4.5)
-sChar :: Parser Word8
+sChar :: Parser ByteString
 sChar = try allowedCharacter <|> try simpleEscapeSequence where
-  allowedCharacter = noneOf [w '\\', w '"', w '\n']
+  allowedCharacter = BS.singleton <$> noneOf [w '\\', w '"', w '\n']
 
 identifierOrKeywordToken :: PosParser CToken
 identifierOrKeywordToken = posLexeme $ do

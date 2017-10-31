@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module SpecQC ( prop_genCFile
               , prop_genKeyword
@@ -13,7 +14,7 @@ module SpecQC ( prop_genCFile
 import           CLangDef
 import           Data.ByteString            (ByteString)
 import qualified Data.ByteString            as BS
-import           Data.ByteString.Conversion (toByteString)
+import           Data.ByteString.Conversion (ToByteString, toByteString)
 import           Data.ByteString.Lazy       (toStrict)
 import           Data.Monoid                ((<>))
 import           Data.Word                  (Word8)
@@ -49,11 +50,29 @@ genDecConst = do
   return (s, DecConstant i)
 
 
+newtype SimpleEscapeSequence = SimpleEscapeSequence ByteString
+  deriving ToByteString
+
+instance Arbitrary SimpleEscapeSequence where
+  arbitrary = do
+    c <- elements $ map fst cSimpleEscapeSequences
+    return $ SimpleEscapeSequence $ BS.pack [w '\\', c]
+
+newtype CChar = CChar ByteString
+  deriving ToByteString
+
+instance Arbitrary CChar where
+  arbitrary = do
+    let allowedChar = flip notElem [w '\'', w '\n', w '\\']
+    char <- (arbitrary :: Gen Word8) `suchThat` allowedChar
+    return $ CChar $ BS.singleton char
+
+
 genCharConstant :: ExampleGen CToken
 genCharConstant = do
-  let allowedChar = flip notElem [w '\'', w '\n', w '\\']
-  char <- (arbitrary :: Gen Word8) `suchThat` allowedChar
-  return ("'" <> BS.singleton char <> "'", CharConstant char)
+  s <- oneof [ toStrict.toByteString <$> (arbitrary :: Gen CChar)
+             , toStrict.toByteString <$> (arbitrary :: Gen SimpleEscapeSequence) ]
+  return ("'" <> s <> "'", CharConstant s)
 
 
 -- TODO: Add escape sequences

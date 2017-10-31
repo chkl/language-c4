@@ -31,9 +31,9 @@ instance PrettyPrint SourcePos where
 instance PrettyPrint CToken where
   prettyPrint (Keyword k)      = "keyword " <> k
   prettyPrint (Identifier i)   = "identifier " <> i
-  prettyPrint (DecConstant n)  = "integer-constant "  <> (C8.pack $ show n)
-  prettyPrint (CharConstant c) = "character-constant " <> prettyPrint c
-  prettyPrint (StringLit s)    = "string-literal " <>    (C8.pack $ show s)
+  prettyPrint (DecConstant n)  = "integer-constant "  <> C8.pack (show n)
+  prettyPrint (CharConstant c) = "character-constant '" <> c <> "'"
+  prettyPrint (StringLit s)    = "string-literal \"" <> s <> "\""
   prettyPrint (Punctuator s)   = "punctuator " <> s
 
 -- TODO: implement "print it out as you read it", so if there was a character

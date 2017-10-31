@@ -81,15 +81,15 @@ unitTests = do
       runLexer_ "  5 23 1" `shouldBe` Right [DecConstant 5, DecConstant 23, DecConstant 1]
 
     it "should correctly handle character constants" $ do
-      runLexer_ "'c'"   `shouldBe` Right [CharConstant $ w 'c' ]
+      runLexer_ "'c'"   `shouldBe` Right [CharConstant "c" ]
       runLexer_ "'\'"   `shouldSatisfy` isLeft
       runLexer_ "'\\"   `shouldSatisfy` isLeft
       runLexer_ "'\\x"  `shouldSatisfy` isLeft
       runLexer_ "'\n'"  `shouldSatisfy` isLeft
-      runLexer_ "'\\n'"  `shouldBe` Right [CharConstant $ w '\n']
+      runLexer_ "'\\n'"  `shouldBe` Right [CharConstant "\\n"]
 
     it "integers and identifiers and chars" $ do
-      runLexer_ "'c' 3 identf" `shouldBe` Right [CharConstant (w 'c'), DecConstant 3, Identifier "identf"]
+      runLexer_ "'c' 3 identf" `shouldBe` Right [CharConstant "c", DecConstant 3, Identifier "identf"]
       runLexer_ "dogfx" `shouldBe` Right [Identifier "dogfx"]
 
     it "simple string literals" $ do
@@ -102,7 +102,7 @@ unitTests = do
     it "ex01 should be parsed correctly" $
         runLexer_ "42  if\n    \"bla\\n\"x+" `shouldBe` Right [ DecConstant 42
                                                               , Keyword "if"
-                                                              , StringLit "bla\n"
+                                                              , StringLit "bla\\n"
                                                               , Identifier "x"
                                                               , Punctuator "+" ]
     it "should ignore all kinds of comments" $ do
