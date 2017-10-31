@@ -28,17 +28,20 @@ allCPunctuators = sortBy (flip $ comparing BS.length) $
   "/=", "%=", "+=", "-=", "<<=", ">>=", "&=", "^=", "|=", "##", "<:", ":>", "<%",
   "%>", "%:", "%:%:"]
 
-cNonDigit :: [Char]
-cNonDigit =  ['_'] ++ ['A'..'Z'] ++ ['a'..'z']
+cNonDigit :: [ByteString]
+cNonDigit =  map (BS.singleton . w) $ ['_'] ++ ['A'..'Z'] ++ ['a'..'z']
 
-cDigit :: [Char]
-cDigit = '0':cNonZeroDigit
+cDigit :: [ByteString]
+cDigit = map (BS.singleton . w) ['1'..'9']
 
-cNonZeroDigit :: [Char]
-cNonZeroDigit = ['1'..'9']
+cNonZeroDigit :: [ByteString]
+cNonZeroDigit = map (BS.singleton . w) ['1'..'9']
 
-cWhitespace :: [Char]
-cWhitespace = [' ',  '\t', '\n', '\r', '\f', '\v']
+cWhitespace :: [ByteString]
+cWhitespace = map (BS.singleton . w) [' ', '\t', '\n', '\r', '\f', '\v']
+
+cDisallowedChar :: [Word8]
+cDisallowedChar = [(w '\''), (w '\\'), (w '\n')]
 
 
 -- | a simple map that maps the second character of a simple escape sequence
