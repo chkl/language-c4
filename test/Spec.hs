@@ -13,8 +13,11 @@ import           CLangDef
 
 import           SpecQC
 
+-- some helper functions to write the tests more succinctly
+runLexer' :: BS.ByteString -> Either ParseError [(CToken, SourcePos)]
 runLexer' = runLexer "test.c"
 
+runLexer_ :: BS.ByteString -> Either ParseError [CToken]
 runLexer_ = fmap (map fst) . runLexer'
 
 newPos' :: Int -> Int -> SourcePos
@@ -22,39 +25,39 @@ newPos' l c = SourcePos "test.c" (mkPos l) (mkPos c)
 
 isLeft :: Either a b -> Bool
 isLeft  = either (const True) (const False)
-
-isRight :: Either a b -> Bool
-isRight = either (const False) (const True)
+--------------------------------------------------------------------------------
 
 
+main :: IO ()
+main = do
+  args <- getArgs
+  if "--sample" `elem` args then do
+    generateSampleFile
+    exitSuccess
+  else runTests
+
+-- | a simple IO action that generates a sample file and outputs it to stdout
 generateSampleFile :: IO ()
 generateSampleFile = do
   samples <- sample' genCFile
   BS.putStr (fst $ head samples)
 
-main :: IO ()
-main = do
-  args <- getArgs
-  if ("--sample" `elem` args) then do
-    generateSampleFile
-    exitSuccess
-  else runTests
-
+-- | run both, quickcheck and unit test based tests
 runTests :: IO ()
 runTests = hspec $ do
     qcBasedTests
     unitTests
 
 
-qcBasedTests = describe "QuickCheck" $ do
+qcBasedTests :: SpecWith ()
+qcBasedTests = describe "QuickCheck" $
   modifyMaxSuccess (const 100000) $ do
     it "generated files" $ property prop_genCFile
     it "all keywords"    $ property prop_genKeyword
 
-unitTests = do
+unitTests :: SpecWith ()
+unitTests =
   describe "lexing" $ do
-    it "run quickcheck (randomly generated files)" $ do
-      property prop_genCFile
     it "should parse a single operator '+'" $ do
       runLexer' "+"     `shouldBe` Right [(Punctuator "+", newPos' 1 1)]
       runLexer' " +"    `shouldBe` Right [(Punctuator "+", newPos' 1 2)]
@@ -66,7 +69,7 @@ unitTests = do
       runLexer_ "-3"     `shouldBe` Right [Punctuator "-", DecConstant 3]
       runLexer_ "- 3"     `shouldBe` Right [Punctuator "-", DecConstant 3]
 
-    it "parse x++++++y correctly (6.4p1 example 2)" $ do
+    it "parse x++++++y correctly (6.4p1 example 2)" $
       runLexer_ "x+++++y" `shouldBe` Right [ Identifier "x"
                                            , Punctuator "++"
                                            , Punctuator "++"
@@ -111,7 +114,7 @@ unitTests = do
       runLexer_ "\"str\" // endline xx"  `shouldBe` Right [ StringLit "str"]
       runLexer_ "xx\n//test\nyy"         `shouldBe` Right [ Identifier "xx", Identifier "yy"]
 
-    it "parse keywords correctly" $ do
-      forM_ allCKeywords $ \k -> do
+    it "parse keywords correctly" $
+      forM_ allCKeywords $ \k ->
         runLexer_ k `shouldBe` Right [ Keyword k]
 

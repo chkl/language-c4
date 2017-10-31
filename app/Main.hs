@@ -18,7 +18,7 @@ import           Lexer
 
 --------------------------------------------------------------------------------
 -- TODO: This should probably go into its own file
--- TODO Use `mappend` with ByteStrings is also not very efficient
+-- TODO Use `mappend` with ByteStrings is also not very efficient -> use `Builders`
 -- TODO Consider usage of *lazy* bytestrings
 class PrettyPrint a where
   prettyPrint :: a -> BS.ByteString
@@ -36,8 +36,6 @@ instance PrettyPrint CToken where
   prettyPrint (StringLit s)    = "string-literal \"" <> s <> "\""
   prettyPrint (Punctuator s)   = "punctuator " <> s
 
--- TODO: implement "print it out as you read it", so if there was a character
--- "\eof" then print that character and not "\EOF", so don't use `show`
 instance PrettyPrint Word8 where
   prettyPrint b = let n = fromEnum b :: Int
                       c = toEnum n :: Char
