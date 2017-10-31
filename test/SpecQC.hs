@@ -31,6 +31,7 @@ genKeyword = do
   return (k, Keyword k)
 
 newtype KeywordG = KeywordG (ByteString, CToken)
+  deriving Show
 
 instance Arbitrary KeywordG where
   arbitrary = KeywordG <$> genKeyword
@@ -42,6 +43,7 @@ genIdent = do
   return (i, Identifier i)
 
 newtype IdentG = IdentG (ByteString, CToken)
+  deriving Show
 
 instance Arbitrary IdentG where
   arbitrary = IdentG <$> genIdent
@@ -60,6 +62,7 @@ genDecConst = do
   return (s, DecConstant i)
 
 newtype DecConstG = DecConstG (ByteString, CToken)
+  deriving Show
 
 instance Arbitrary DecConstG where
   arbitrary = DecConstG <$> genDecConst
@@ -88,6 +91,7 @@ genCharConstant = do
   return ("'" <> s <> "'", CharConstant s)
 
 newtype CharConstG = CharConstG (ByteString, CToken)
+  deriving Show
 
 instance Arbitrary CharConstG where
   arbitrary = CharConstG <$> genCharConstant
@@ -102,6 +106,7 @@ genStringLit = do
   return ("\"" <> str <> "\"", StringLit str)
 
 newtype StringLitG = StringLitG (ByteString, CToken)
+  deriving Show
 
 instance Arbitrary StringLitG where
   arbitrary = StringLitG <$> genStringLit
@@ -113,6 +118,7 @@ genPunctuator = do
   return (p, Punctuator p)
 
 newtype PunctuatorG = PunctuatorG (ByteString, CToken)
+  deriving Show
 
 instance Arbitrary PunctuatorG where
   arbitrary = PunctuatorG <$> genPunctuator
@@ -165,6 +171,7 @@ genCFile = do
   return cFile
 
 newtype CFileG = CFileG (ByteString, [CToken])
+  deriving Show
 
 instance Arbitrary CFileG where
   arbitrary = CFileG <$> genCFile
