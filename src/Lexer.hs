@@ -75,10 +75,9 @@ integerConstant = posLexeme $ DecConstant <$> integer
 
 
 charConstant :: PosParser CToken
-charConstant = posLexeme $ try $ do
-  _ <- optional $ oneOf [w 'u', w 'U', w 'l']
-  _ <- char $ w '\''
-  x <- try simpleEscapeSequence <|>
+charConstant = posLexeme $ do
+  _ <- asum [string "u\'", string "U\'", string "l\'", string "\'"]
+  x <- simpleEscapeSequence <|>
        BS.singleton <$> noneOf [w '\\', w '\'', w '\n']
   _ <- char $ w '\''
   return $ CharConstant x
@@ -96,16 +95,15 @@ simpleEscapeSequence = do -- refer to 'simple escape sequence'
 
 
 stringLiteral :: PosParser CToken
-stringLiteral = posLexeme $ try $ do
-  _ <- optional $ asum $ map string ["u8", "u", "U", "L"]
-  _ <- char $ w '\"'
+stringLiteral = posLexeme $ do
+  _ <- asum $ map string ["u8\"", "u\"", "U\"", "L\"", "\""]
   s <- many sChar
   _ <- char $ w '\"'
   return $ StringLit $ BS.concat s
 
 -- | parses an s-char (see 6.4.5)
 sChar :: Parser ByteString
-sChar = try allowedCharacter <|> try simpleEscapeSequence where
+sChar = allowedCharacter <|> simpleEscapeSequence where
   allowedCharacter = BS.singleton <$> noneOf [w '\\', w '"', w '\n']
 
 identifierOrKeywordToken :: PosParser CToken
