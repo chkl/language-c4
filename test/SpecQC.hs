@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 import           Lexer
 import           CLangDef
 import           Control.Monad                    (liftM, liftM2, mapM, ap)
@@ -6,74 +7,86 @@ import           Foreign.C.String                 (castCCharToChar)
 import           Foreign.C.Types                  (CChar)
 import           Data.List                        (isInfixOf)
 import           Test.QuickCheck
+import           Data.ByteString            (ByteString)
+import qualified Data.ByteString            as BS
+import           Data.ByteString.Conversion (fromByteString)
+import           Control.Exception.Base     (assert)
+import           Data.Word       (Word8)
 
 -- | Each generator produces a pair consisting of a string (to parse) as well
 -- | as the token that would result if that string were correctly parsed.
-genKeyword :: Gen (String, CToken)
-genKeyword = liftM (\k -> (k, Keyword k)) keyword
-  where keyword = elements allCKeywords
+genKeyword :: Gen (ByteString, CToken)
+genKeyword = do
+  k <- elements allCKeywords
+  return (k, Keyword k)
 
-genIdent :: Gen (String , CToken)
-genIdent = liftM (\i -> (i, Identifier i)) ident
-  where ident    = liftM2 (:) nonDigit rest 
-        nonDigit = elements cNonDigit 
-        rest     = listOf $ elements (cNonDigit ++ cDigit)
+genIdent :: Gen (ByteString , CToken)
+genIdent = do
+  tail  <- listOf $ elements $ cNonDigit ++ cDigit
+  head  <- elements cNonDigit
+  let i  = BS.concat $ head:tail
+  return (i, Identifier i)
 
-genDecConst :: Gen (String, CToken)
-genDecConst = liftM (\d -> (show d, DecConstant d)) decConst
-  where decConst     = liftM (read :: String -> Integer) decConstStr 
-        decConstStr  = liftM2 (:) nonZeroDigit digits
-        nonZeroDigit = elements cNonZeroDigit
-        digits       = listOf $ elements cDigit
 
--- | arbitary :: Gen CChar generates awful escaped characters.
--- | (so, by extension, genStringLit generates awful strings). Maybe
--- | it would be best to just limit the strings to mostly alphanumeric for readability.
-genCharConstant :: Gen (String, CToken)
-genCharConstant = liftM (\c -> (show c, CharConstant c)) char
-  where char  = liftM castCCharToChar cChar 
-        cChar = arbitrary :: Gen CChar
+genDecConst :: Gen (ByteString, CToken)
+genDecConst = do
+  digits        <- listOf $ elements cDigit
+  nonZeroDigit  <- elements cNonZeroDigit
+  let decConstBS = BS.concat $ nonZeroDigit:digits
+  let dC  = case fromByteString decConstBS :: Maybe Integer of
+              Just i -> i
+              Nothing -> assert False 1 -- this is shitty code :)
+  return (decConstBS, DecConstant dC)
+  
+genCharConstant :: Gen (ByteString, CToken)
+genCharConstant = do
+  let allowedChar = not . (flip elem) cDisallowedChar
+  char <- suchThat (arbitrary :: Gen Word8) allowedChar
+  return (BS.singleton char, CharConstant char)
 
-genStringLit :: Gen (String, CToken)
-genStringLit = liftM (\s -> (s, StringLit s)) str 
-  where str   = listOf char
-        char  = liftM castCCharToChar cChar 
-        cChar = arbitrary :: Gen CChar
 
-genPunctuator :: Gen (String, CToken)
-genPunctuator = liftM (\p -> (p, Punctuator p)) punctuator
-  where punctuator = elements allCPunctuators 
+genStringLit :: Gen (ByteString, CToken)
+genStringLit = do 
+  let allowedChar = not . (flip elem) cDisallowedChar
+  s <- listOf $ suchThat (arbitrary :: Gen Word8) allowedChar
+  let str = BS.pack s
+  return (str, StringLit str)
 
-genWhitespace :: Gen String
-genWhitespace = resize 5 $ listOf1 
-  (frequency[(10, return ' ')
-            ,(1, elements cWhitespace)
-            ]
-  )
 
-genCommentBlock :: Gen String
-genCommentBlock = liftM2 (++) (liftM2 (++) start middle) end
-  where end    = return "*/"
-        middle = suchThat str $ notInfixOf "*/"
-        start  = return "/*"
-        str    = arbitrary :: Gen String
-        notInfixOf =  \xs ys -> not $ isInfixOf xs ys
+genPunctuator :: Gen (ByteString, CToken)
+genPunctuator = do
+  p <- elements allCPunctuators
+  return (p, Punctuator p)
 
-genCommentInline :: Gen String
-genCommentInline = liftM2 (++) (liftM2 (++) start middle) end
-  where end    = return "\n"
-        middle = suchThat str $ notInfixOf "\n"
-        start  = return "//"
-        str    = arbitrary :: Gen String
-        notInfixOf =  \xs ys -> not $ isInfixOf xs ys
+genWhitespace :: Gen ByteString
+genWhitespace =  do
+  let space = cWhitespace!!0  -- this is also shitty code  :)
+  ws <-  resize 5 $ listOf1 (frequency[(10, return space)
+                                       ,(1, elements cWhitespace)
+                                       ])
+  return $ BS.concat ws 
 
-genComment :: Gen String
+genCommentBlock :: Gen ByteString
+genCommentBlock = do
+  let notInfixOf = \xs cs -> not $ BS.isInfixOf xs (BS.pack cs)
+  chars  <- suchThat (listOf (arbitrary :: Gen Word8)) $ notInfixOf "*/"
+  let comment = BS.pack chars 
+  return $ "/*" `BS.append` comment `BS.append` "*/"
+
+genCommentInline :: Gen ByteString
+genCommentInline = do
+  let notInfixOf = \xs cs -> not $ BS.isInfixOf xs (BS.pack cs)
+  chars  <- suchThat (listOf (arbitrary :: Gen Word8)) $ notInfixOf "\n"
+  let comment = BS.pack chars 
+  return $ "//" `BS.append` comment `BS.append` "\n"
+
+genComment :: Gen ByteString
 genComment = oneof [genCommentBlock, genCommentInline]
 
 -- | Tokens are generated a little rigidly (and not comprehensively).
 -- | The structure is token - whitespace - maybe a comment - more whitespace. 
 -- | Probably can be improved.
-genToken :: Gen (String, CToken)
+genToken :: Gen (ByteString, CToken)
 genToken = do
   (s, t) <-  oneof [ genKeyword, genIdent, genDecConst
                    , genCharConstant, genStringLit
@@ -81,20 +94,20 @@ genToken = do
   ws1     <- genWhitespace
   comment <- frequency[(10, return ""), (1, genComment )]
   ws2     <- genWhitespace
-  return (s ++ ws1 ++ comment ++ ws2, t)
+  return (s `BS.append` ws1 `BS.append` comment `BS.append` ws2, t)
 
-genCFile :: Gen (String, [CToken])
+genCFile :: Gen (ByteString, [CToken])
 genCFile = do
   stPairs <- resize 50 $ listOf1 genToken
-  let f (accS, accT) (s, t) = (accS ++ s, accT ++ [t]) 
+  let f (accS, accT) (s, t) = (accS `BS.append` s, accT ++ [t]) 
   let cFile = foldl f ("", []) stPairs
   return cFile 
 
 -- | Testing
-newtype KeywordG = KeywordG (String, CToken)
+newtype KeywordG = KeywordG (ByteString, CToken)
   deriving (Show, Eq)
 
-newtype CFileG = CFileG (String, [CToken])
+newtype CFileG = CFileG (ByteString, [CToken])
   deriving (Show, Eq)
 
 instance Arbitrary KeywordG where
@@ -103,13 +116,13 @@ instance Arbitrary KeywordG where
 instance Arbitrary CFileG where
   arbitrary = liftM CFileG genCFile
   
-prop_genKeyword keywordPair = Right [t] == runLexer_ s
+runLexerNoPos s = case runLexer "test.c" s of
+  Left error -> []
+  Right xs   -> map fst xs
+
+prop_genKeyword keywordPair = [t] == runLexerNoPos s
  where KeywordG (s, t) = keywordPair
        types = keywordPair :: KeywordG
-
-prop_genCFile filePair = Right ts == runLexer_ s
- where CFileG (s, ts) = filePair
-       types = filePair :: CFileG
 
 
 
