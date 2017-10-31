@@ -57,7 +57,7 @@ genCharConstant = do
 genStringLit :: ExampleGen CToken
 genStringLit = do
   let allowedChar = (flip notElem) cDisallowedChar
-  s <- listOf $ suchThat (arbitrary :: Gen Word8) allowedChar
+  s <- listOf1 $ (arbitrary :: Gen Word8) `suchThat` allowedChar
   let str = BS.pack s
   return ("\"" <> str <> "\"", StringLit str)
 
@@ -108,15 +108,32 @@ genCToken = do
 
 
 -- TODO: resize to bigger files, but this way it's easier to debug
-genCFile :: Gen (ByteString, [CToken])
+genCFile :: ExampleGen [CToken]
 genCFile = do
   stPairs <- resize 5 $ listOf1 genCToken
   let f (accS, accT) (s, t) = (accS `BS.append` s, accT ++ [t])
   let cFile = foldl f ("", []) stPairs
   return cFile
 
--- | Testing
+
+-- | There may be a better way to do this, i.e. instead of creating a new type
+-- | for each Token type we're generating. 
 newtype KeywordG = KeywordG (ByteString, CToken)
+  deriving (Show, Eq)
+
+newtype IdentG = IdentG (ByteString, CToken)
+  deriving (Show, Eq)
+
+newtype DecConstG = DecConstG (ByteString, CToken)
+  deriving (Show, Eq)
+
+newtype CharConstG = CharConstG (ByteString, CToken)
+  deriving (Show, Eq)
+
+newtype StringLitG = StringLitG (ByteString, CToken)
+  deriving (Show, Eq)
+
+newtype PunctuatorG = PunctuatorG (ByteString, CToken)
   deriving (Show, Eq)
 
 newtype CFileG = CFileG (ByteString, [CToken])
@@ -125,19 +142,51 @@ newtype CFileG = CFileG (ByteString, [CToken])
 instance Arbitrary KeywordG where
   arbitrary = liftM KeywordG genKeyword
 
+instance Arbitrary IdentG where
+  arbitrary = liftM IdentG genIdent
+
+instance Arbitrary DecConstG where
+  arbitrary = liftM DecConstG genDecConst
+
+instance Arbitrary CharConstG where
+  arbitrary = liftM CharConstG genCharConstant
+
+instance Arbitrary StringLitG where
+  arbitrary = liftM StringLitG genStringLit
+
+instance Arbitrary PunctuatorG where
+  arbitrary = liftM PunctuatorG genPunctuator
+
 instance Arbitrary CFileG where
   arbitrary = liftM CFileG genCFile
 
 runLexer' :: ByteString -> Either ParseError [CToken]
 runLexer' inp = fmap (map fst) $ runLexer "test.c" inp
 
-prop_genKeyword :: KeywordG -> Bool
-prop_genKeyword (KeywordG (s,t)) =
+runLexerProp :: ByteString -> CToken -> Bool
+runLexerProp s t = 
   case runLexer' s of
     Left _ -> False
     Right [t'] -> t == t'
     _ -> False
 
+prop_genKeyword :: KeywordG -> Bool
+prop_genKeyword (KeywordG (s,t)) = runLexerProp s t
+
+prop_genIdent :: IdentG -> Bool
+prop_genIdent (IdentG (s, t)) = runLexerProp s t
+
+prop_genDecConst :: DecConstG -> Bool
+prop_genDecConst (DecConstG (s, t)) = runLexerProp s t
+
+prop_genCharConst :: CharConstG -> Bool
+prop_genCharConst (CharConstG (s, t)) = runLexerProp s t
+
+prop_genStringLit :: StringLitG -> Bool
+prop_genStringLit (StringLitG (s, t)) = runLexerProp s t
+
+prop_genPunctuator :: PunctuatorG -> Bool
+prop_genPunctuator (PunctuatorG (s, t)) = runLexerProp s t
 
 prop_genCFile :: CFileG -> Bool
 prop_genCFile (CFileG (inp, expected)) =
