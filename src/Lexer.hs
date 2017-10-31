@@ -109,7 +109,7 @@ sChar = try allowedCharacter <|> try simpleEscapeSequence where
 
 identifierToken :: PosParser CToken
 identifierToken = posLexeme $ do
-  x <- letterChar
+  x <- letterChar <|> char (w '_')
   y <- many alphaNumChar
   return $ Identifier (BS.pack (x : y))
 
