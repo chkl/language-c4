@@ -21,8 +21,7 @@ import           Data.Word                  (Word8)
 import           Lexer
 import           Test.QuickCheck
 
-
-type ExampleGen a = Gen (ByteString, a)
+type ExampleGen a            = Gen (ByteString, a)
 
 -- | Each generator produces a pair consisting of a string (to parse) as well
 -- | as the token that would result if that string were correctly parsed.
@@ -31,10 +30,21 @@ genKeyword = do
   k <- elements allCKeywords
   return (k, Keyword k)
 
+newtype KeywordG = KeywordG (ByteString, CToken)
+
+instance Arbitrary KeywordG where
+  arbitrary = KeywordG <$> genKeyword
+
+
 genIdent :: ExampleGen CToken
 genIdent = do
   i <- makeName `suchThat` (`notElem` allCKeywords)
   return (i, Identifier i)
+
+newtype IdentG = IdentG (ByteString, CToken)
+
+instance Arbitrary IdentG where
+  arbitrary = IdentG <$> genIdent
 
 -- | This generates a potential identifier but sometimes might also be a keyword
 makeName :: Gen ByteString
@@ -49,8 +59,12 @@ genDecConst = do
   let s = toStrict $ toByteString i
   return (s, DecConstant i)
 
+newtype DecConstG = DecConstG (ByteString, CToken)
 
-newtype SimpleEscapeSequence = SimpleEscapeSequence ByteString
+instance Arbitrary DecConstG where
+  arbitrary = DecConstG <$> genDecConst
+
+newtype SimpleEscapeSequence = SimpleEscapeSequence ByteString   
   deriving ToByteString
 
 instance Arbitrary SimpleEscapeSequence where
@@ -67,12 +81,16 @@ instance Arbitrary CChar where
     char <- (arbitrary :: Gen Word8) `suchThat` allowedChar
     return $ CChar $ BS.singleton char
 
-
 genCharConstant :: ExampleGen CToken
 genCharConstant = do
   s <- oneof [ toStrict.toByteString <$> (arbitrary :: Gen CChar)
              , toStrict.toByteString <$> (arbitrary :: Gen SimpleEscapeSequence) ]
   return ("'" <> s <> "'", CharConstant s)
+
+newtype CharConstG = CharConstG (ByteString, CToken)
+
+instance Arbitrary CharConstG where
+  arbitrary = CharConstG <$> genCharConstant
 
 
 -- TODO: Add escape sequences
@@ -83,12 +101,21 @@ genStringLit = do
   let str = BS.pack s
   return ("\"" <> str <> "\"", StringLit str)
 
+newtype StringLitG = StringLitG (ByteString, CToken)
+
+instance Arbitrary StringLitG where
+  arbitrary = StringLitG <$> genStringLit
+
 
 genPunctuator :: ExampleGen CToken
 genPunctuator = do
   p <- elements allCPunctuators
   return (p, Punctuator p)
 
+newtype PunctuatorG = PunctuatorG (ByteString, CToken)
+
+instance Arbitrary PunctuatorG where
+  arbitrary = PunctuatorG <$> genPunctuator
 
 genWhitespace :: Gen ByteString
 genWhitespace =  do
@@ -129,7 +156,6 @@ genCToken = do
   ws2     <- genWhitespace
   return (s `BS.append` ws1 `BS.append` comment `BS.append` ws2, t)
 
-
 -- TODO: resize to bigger files, but this way it's easier to debug
 genCFile :: ExampleGen [CToken]
 genCFile = do
@@ -138,47 +164,7 @@ genCFile = do
   let cFile = foldl f ("", []) stPairs
   return cFile
 
-
--- | There may be a better way to do this, i.e. instead of creating a new type
--- | for each Token type we're generating.
-newtype KeywordG = KeywordG (ByteString, CToken)
-  deriving (Show, Eq)
-
-newtype IdentG = IdentG (ByteString, CToken)
-  deriving (Show, Eq)
-
-newtype DecConstG = DecConstG (ByteString, CToken)
-  deriving (Show, Eq)
-
-newtype CharConstG = CharConstG (ByteString, CToken)
-  deriving (Show, Eq)
-
-newtype StringLitG = StringLitG (ByteString, CToken)
-  deriving (Show, Eq)
-
-newtype PunctuatorG = PunctuatorG (ByteString, CToken)
-  deriving (Show, Eq)
-
 newtype CFileG = CFileG (ByteString, [CToken])
-  deriving (Show, Eq)
-
-instance Arbitrary KeywordG where
-  arbitrary = KeywordG <$> genKeyword
-
-instance Arbitrary IdentG where
-  arbitrary = IdentG <$> genIdent
-
-instance Arbitrary DecConstG where
-  arbitrary = DecConstG <$> genDecConst
-
-instance Arbitrary CharConstG where
-  arbitrary = CharConstG <$> genCharConstant
-
-instance Arbitrary StringLitG where
-  arbitrary = StringLitG <$> genStringLit
-
-instance Arbitrary PunctuatorG where
-  arbitrary = PunctuatorG <$> genPunctuator
 
 instance Arbitrary CFileG where
   arbitrary = CFileG <$> genCFile
