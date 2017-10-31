@@ -71,7 +71,7 @@ posLexeme a = do
   return (x,p)
 
 integerConstant :: PosParser CToken
-integerConstant = posLexeme $ DecConstant <$> signedInteger
+integerConstant = posLexeme $ DecConstant <$> integer
 
 
 charConstant :: PosParser CToken

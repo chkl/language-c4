@@ -63,7 +63,9 @@ unitTests = do
 
     it "correctly parsed signed decimal constants" $ do
       runLexer_ "+"     `shouldBe` Right [Punctuator "+"]
-  -- TODO what is that?
+      runLexer_ "+3"     `shouldBe` Right [Punctuator "+", DecConstant 3]
+      runLexer_ "-3"     `shouldBe` Right [Punctuator "-", DecConstant 3]
+      runLexer_ "- 3"     `shouldBe` Right [Punctuator "-", DecConstant 3]
 
     it "parse x++++++y correctly (6.4p1 example 2)" $ do
       runLexer_ "x+++++y" `shouldBe` Right [ Identifier "x"
@@ -77,7 +79,7 @@ unitTests = do
       runLexer_ "1"     `shouldBe` Right [DecConstant 1]
       runLexer_ ""      `shouldBe` Right []
       runLexer_ "5\n23" `shouldBe` Right [DecConstant 5, DecConstant 23]
-      runLexer_ "  5 23 -1" `shouldBe` Right [DecConstant 5, DecConstant 23, DecConstant (-1)]
+      runLexer_ "  5 23 1" `shouldBe` Right [DecConstant 5, DecConstant 23, DecConstant 1]
 
     it "should correctly handle character constants" $ do
       runLexer_ "'c'"   `shouldBe` Right [CharConstant $ w 'c' ]

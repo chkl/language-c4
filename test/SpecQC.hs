@@ -41,7 +41,7 @@ genIdent = do
 
 genDecConst :: ExampleGen CToken
 genDecConst = do
-  i <- arbitrary
+  i <- arbitrary `suchThat` (>= 0)
   let s = toStrict $ toByteString i
   return (s, DecConstant i)
 
