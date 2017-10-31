@@ -38,6 +38,7 @@ test-suite c4-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Spec.hs
+  other-modules:       SpecQC
   build-depends:       base
                      , c4
                      , megaparsec >= 6.2.0

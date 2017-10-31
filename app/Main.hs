@@ -32,10 +32,12 @@ instance PrettyPrint CToken where
   prettyPrint (Keyword k)      = "keyword " <> k
   prettyPrint (Identifier i)   = "identifier " <> i
   prettyPrint (DecConstant n)  = "integer-constant "  <> (C8.pack $ show n)
-  prettyPrint (CharConstant c) = "character-constant" <> prettyPrint c
+  prettyPrint (CharConstant c) = "character-constant " <> prettyPrint c
   prettyPrint (StringLit s)    = "string-literal " <>    (C8.pack $ show s)
   prettyPrint (Punctuator s)   = "punctuator " <> s
 
+-- TODO: implement "print it out as you read it", so if there was a character
+-- "\eof" then print that character and not "\EOF", so don't use `show`
 instance PrettyPrint Word8 where
   prettyPrint b = let n = fromEnum b :: Int
                       c = toEnum n :: Char

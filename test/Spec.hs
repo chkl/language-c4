@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 import           Test.Hspec
-
+import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import qualified Data.ByteString          as BS
 import           Control.Monad
 import           Lexer
@@ -42,14 +42,28 @@ main = do
   else runTests
 
 runTests :: IO ()
-runTests = do
-  quickCheck prop_genKeyword
---  quickCheck prop_genCFile
-  hspec $ describe "lexing" $ do
+runTests = hspec $ do
+    qcBasedTests
+    unitTests
+
+
+qcBasedTests = describe "QuickCheck" $ do
+  modifyMaxSuccess (const 100000) $ do
+    it "generated files" $ property prop_genCFile
+    it "all keywords"    $ property prop_genKeyword
+
+unitTests = do
+  describe "lexing" $ do
+    it "run quickcheck (randomly generated files)" $ do
+      property prop_genCFile
     it "should parse a single operator '+'" $ do
       runLexer' "+"     `shouldBe` Right [(Punctuator "+", newPos' 1 1)]
       runLexer' " +"    `shouldBe` Right [(Punctuator "+", newPos' 1 2)]
       runLexer' "  +"   `shouldBe` Right [(Punctuator "+", newPos' 1 3)]
+
+    it "correctly parsed signed decimal constants" $ do
+      runLexer_ "+"     `shouldBe` Right [Punctuator "+"]
+  -- TODO what is that?
 
     it "parse x++++++y correctly (6.4p1 example 2)" $ do
       runLexer_ "x+++++y" `shouldBe` Right [ Identifier "x"

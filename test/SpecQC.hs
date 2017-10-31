@@ -1,6 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module SpecQC where
+module SpecQC ( prop_genCFile
+              , prop_genKeyword
+              , genCFile
+              ) where
 
 import           Lexer
 import           CLangDef
@@ -12,6 +15,7 @@ import           Data.List                        (isInfixOf)
 import           Test.QuickCheck
 import           Data.ByteString            (ByteString)
 import qualified Data.ByteString            as BS
+import           Data.Monoid                        ((<>))
 import           Data.ByteString.Conversion (fromByteString, toByteString)
 import Data.ByteString.Lazy (toStrict)
 import           Control.Exception.Base     (assert)
@@ -44,17 +48,18 @@ genDecConst = do
 
 genCharConstant :: ExampleGen CToken
 genCharConstant = do
-  let allowedChar = not . (flip elem) cDisallowedChar
-  char <- suchThat (arbitrary :: Gen Word8) allowedChar
-  return (BS.singleton char, CharConstant char)
+  let allowedChar = (flip notElem) cDisallowedChar
+  char <- (arbitrary :: Gen Word8) `suchThat` allowedChar
+  return ("'" <> BS.singleton char <> "'", CharConstant char)
 
 
+-- TODO: Add escape sequences
 genStringLit :: ExampleGen CToken
 genStringLit = do
-  let allowedChar = not . (flip elem) cDisallowedChar
+  let allowedChar = (flip notElem) cDisallowedChar
   s <- listOf $ suchThat (arbitrary :: Gen Word8) allowedChar
   let str = BS.pack s
-  return (str, StringLit str)
+  return ("\"" <> str <> "\"", StringLit str)
 
 
 genPunctuator :: ExampleGen CToken
@@ -101,12 +106,14 @@ genCToken = do
   ws2     <- genWhitespace
   return (s `BS.append` ws1 `BS.append` comment `BS.append` ws2, t)
 
+
+-- TODO: resize to bigger files, but this way it's easier to debug
 genCFile :: Gen (ByteString, [CToken])
 genCFile = do
-  stPairs <- resize 50 $ listOf1 genCToken
-  let f (accS, accT) (s, t) = (accS `BS.append` s, accT ++ [t]) 
+  stPairs <- resize 5 $ listOf1 genCToken
+  let f (accS, accT) (s, t) = (accS `BS.append` s, accT ++ [t])
   let cFile = foldl f ("", []) stPairs
-  return cFile 
+  return cFile
 
 -- | Testing
 newtype KeywordG = KeywordG (ByteString, CToken)
