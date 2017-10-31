@@ -75,7 +75,7 @@ integerConstant = posLexeme $ DecConstant <$> integer
 
 
 charConstant :: PosParser CToken
-charConstant = posLexeme $ do
+charConstant = posLexeme $ try $ do
   _ <- optional $ oneOf [w 'u', w 'U', w 'l']
   _ <- char $ w '\''
   x <- try simpleEscapeSequence <|>
@@ -96,7 +96,7 @@ simpleEscapeSequence = do -- refer to 'simple escape sequence'
 
 
 stringLiteral :: PosParser CToken
-stringLiteral = posLexeme $ do
+stringLiteral = posLexeme $ try $ do
   _ <- optional $ asum $ map string ["u8", "u", "U", "L"]
   _ <- char $ w '\"'
   s <- many sChar
@@ -109,7 +109,7 @@ sChar = try allowedCharacter <|> try simpleEscapeSequence where
   allowedCharacter = BS.singleton <$> noneOf [w '\\', w '"', w '\n']
 
 identifierOrKeywordToken :: PosParser CToken
-identifierOrKeywordToken = posLexeme $ do
+identifierOrKeywordToken = posLexeme $ try $ do
   x <- letterChar <|> char (w '_')
   y <- many (alphaNumChar <|> char (w '_'))
   let name = BS.pack (x : y)
@@ -124,11 +124,11 @@ punctuatorToken = posLexeme $ do
   return $ Punctuator pun
 
 cToken :: PosParser CToken
-cToken = try integerConstant <|>
-         try  stringLiteral <|>
-         try  charConstant <|>
-         try  identifierOrKeywordToken <|>
-         try  punctuatorToken
+cToken = integerConstant <|>
+         charConstant <|>
+         stringLiteral <|>
+         identifierOrKeywordToken <|>
+         punctuatorToken
 
 fullLexer :: Parser [(CToken, SourcePos)]
 fullLexer = sc *> many cToken <* eof
@@ -136,6 +136,6 @@ fullLexer = sc *> many cToken <* eof
 
 runLexer :: String -> ByteString -> Either ParseError [(CToken, SourcePos)]
 runLexer = parse fullLexer
-
+ 
 
 
