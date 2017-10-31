@@ -32,11 +32,15 @@ genKeyword = do
 
 genIdent :: ExampleGen CToken
 genIdent = do
-  tl  <- listOf $ elements $ cNonDigit ++ cDigit
-  hd  <- elements cNonDigit
-  let i  = BS.concat $ hd:tl
+  i <- makeName `suchThat` (`notElem` allCKeywords)
   return (i, Identifier i)
 
+-- | This generates a potential identifier but sometimes might also be a keyword
+makeName :: Gen ByteString
+makeName = do
+  tl  <- listOf $ elements $ cNonDigit ++ cDigit
+  hd  <- elements cNonDigit
+  return $ BS.concat $ hd:tl
 
 genDecConst :: ExampleGen CToken
 genDecConst = do
