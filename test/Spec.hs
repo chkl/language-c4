@@ -1,10 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 import           Test.Hspec
 
+import           Control.Monad
 import           Lexer
+import           Test.QuickCheck
 import           Text.Megaparsec.Pos
 
-import CLangDef
+import           CLangDef
 
 runLexer' = runLexer "test.c"
 
@@ -71,4 +73,6 @@ main = hspec $
       runLexer_ "\"str\" // endline xx"  `shouldBe` Right [ StringLit "str"]
       runLexer_ "xx\n//test\nyy"         `shouldBe` Right [ Identifier "xx", Identifier "yy"]
 
-
+    it "parse keywords correctly" $ do
+      forM_ allCKeywords $ \k -> do
+        runLexer_ k `shouldBe` Right [ Keyword k]

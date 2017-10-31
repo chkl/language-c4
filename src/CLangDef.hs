@@ -11,9 +11,11 @@ import           Data.Word       (Word8)
 w :: Char -> Word8
 w = fromIntegral.fromEnum
 
+sortByLengthDesc :: [ByteString] -> [ByteString]
+sortByLengthDesc = sortBy (flip $ comparing BS.length)
 
 allCKeywords :: [ByteString]
-allCKeywords = ["auto", "if", "unsigned", "break", "inline", "void", "case",
+allCKeywords = sortByLengthDesc ["auto", "if", "unsigned", "break", "inline", "void", "case",
                 "int", "volatile", "char", "long", "while", "const", "register", "_Alignas",
                 "continue", "restrict", "_Alignof", "default", "return", "_Atomic", "do",
                 "short", "_Bool", "double", "signed", "_Complex", "else", "sizeof", "_Generic",
@@ -22,7 +24,7 @@ allCKeywords = ["auto", "if", "unsigned", "break", "inline", "void", "case",
 
 
 allCPunctuators :: [ByteString]
-allCPunctuators = sortBy (flip $ comparing BS.length) $
+allCPunctuators = sortByLengthDesc $
   map (BS.singleton . w) ".&*+-~!/%<>^|?:;=,#" ++
   ["->", "++", "--", "<<", ">>", "<=", ">=", "==", "!=", "&&", "||", "...", "*=",
   "/=", "%=", "+=", "-=", "<<=", ">>=", "&=", "^=", "|=", "##", "<:", ":>", "<%",
