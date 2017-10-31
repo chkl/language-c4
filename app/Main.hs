@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+
 module Main where
 
 import           System.Environment
@@ -10,7 +11,7 @@ import qualified Data.ByteString.Char8 as C8
 import           Data.List             (intercalate)
 import           Data.Monoid           ((<>))
 import           Data.Word             (Word8)
-import           Text.Megaparsec.Error
+import           Text.Megaparsec.Error hiding (ParseError)
 import           Text.Megaparsec.Pos
 
 import           Lexer
@@ -46,14 +47,17 @@ instance PrettyPrint [(CToken, SourcePos)] where
   prettyPrint = C8.unlines . map prettyPrint'
     where prettyPrint' (t,p) = prettyPrint p <> ": " <> prettyPrint t
 
-
+myParseErrorPretty :: ParseError -> String
+myParseErrorPretty e = sourcePosStackPretty (errorPos e) <>
+                       ": error: " <>
+                       parseErrorTextPretty e
 
 tokenize :: String -> IO ()
 tokenize filename = do
   contents <- BS.readFile filename
   case runLexer filename contents of
     Left err -> do
-      putStr $ parseErrorPretty err
+      putStr $ myParseErrorPretty err
       exitFailure
     Right tokens -> do
       BS.putStr $ prettyPrint tokens
