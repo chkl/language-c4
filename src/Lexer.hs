@@ -129,11 +129,9 @@ cToken = integerConstant <|>
          punctuatorToken
 
 fullLexer :: Parser [(CToken, SourcePos)]
-fullLexer = sc *> many cToken <* eof
+fullLexer = setTabWidth pos1 >>  sc *> many cToken <* eof
 
 
 runLexer :: String -> ByteString -> Either ParseError [(CToken, SourcePos)]
 runLexer = parse fullLexer
- 
-
 

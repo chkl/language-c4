@@ -45,8 +45,8 @@ generateSampleFile = do
 -- | run both, quickcheck and unit test based tests
 runTests :: IO ()
 runTests = hspec $ do
-    qcBasedTests
     unitTests
+    qcBasedTests
 
 
 qcBasedTests :: SpecWith ()
@@ -103,11 +103,11 @@ unitTests =
       runLexer_ "u8\"test\""         `shouldBe` Right [StringLit "test"]
 
     it "ex01 should be parsed correctly" $
-        runLexer_ "42  if\n    \"bla\\n\"x+" `shouldBe` Right [ DecConstant 42
-                                                              , Keyword "if"
-                                                              , StringLit "bla\\n"
-                                                              , Identifier "x"
-                                                              , Punctuator "+" ]
+        runLexer' "42  if\n\t\"bla\\n\"x+" `shouldBe` Right [ (DecConstant 42, newPos' 1 1)
+                                                            , (Keyword "if",  newPos' 1 5)
+                                                            , (StringLit "bla\\n", newPos' 2 2)
+                                                            , (Identifier "x", newPos' 2 9)
+                                                            , (Punctuator "+", newPos' 2 10) ]
     it "should ignore all kinds of comments" $ do
       runLexer_ "42 /* 12 comment */ id" `shouldBe` Right [ DecConstant 42,  Identifier "id" ]
       runLexer_ "13\n// line comment id" `shouldBe` Right [ DecConstant 13 ]
@@ -117,4 +117,13 @@ unitTests =
     it "parse keywords correctly" $
       forM_ allCKeywords $ \k ->
         runLexer_ k `shouldBe` Right [ Keyword k]
+
+    it "lexer/char_constant_empty" $ do
+      runLexer' "''" `shouldSatisfy` isLeft
+      --TODO
+
+    it "lexer/comment_multi_line" $do
+      runLexer_ "/*\n\n*/" `shouldBe` Right []
+      runLexer_ "test /*\n\n*/" `shouldBe` Right [Identifier "test"]
+        -- TODO
 
