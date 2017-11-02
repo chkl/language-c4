@@ -78,7 +78,8 @@ charConstant :: PosParser CToken
 charConstant = posLexeme $ do
   _ <- asum [string "u\'", string "U\'", string "l\'", string "\'"]
   x <- simpleEscapeSequence <|>
-       BS.singleton <$> noneOf [w '\\', w '\'', w '\n']
+       BS.singleton <$> noneOf [w '\\', w '\'', w '\n'] <|>
+       fail "empty character constant"
   _ <- char $ w '\''
   return $ CharConstant x
 
