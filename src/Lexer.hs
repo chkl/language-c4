@@ -89,10 +89,8 @@ charConstant = posLexeme $ do
 simpleEscapeSequence :: Parser ByteString
 simpleEscapeSequence = do -- refer to 'simple escape sequence'
     c1 <- char (w '\\')
-    c2 <- anyChar
-    case lookup c2 cSimpleEscapeSequences of
-      Just _  -> return $ BS.pack [c1,c2]
-      Nothing -> fail "not a valid escape sequence"
+    c2 <- oneOf (BS.unpack "\\\"'?abfnrtv") <?> "valid escape sequence"
+    return $ BS.pack [c1,c2]
 
 
 stringLiteral :: PosParser CToken
@@ -104,8 +102,10 @@ stringLiteral = posLexeme $ do
 
 -- | parses an s-char (see 6.4.5)
 sChar :: Parser ByteString
-sChar = allowedCharacter <|> simpleEscapeSequence where
-  allowedCharacter = BS.singleton <$> noneOf [w '\\', w '"', w '\n']
+sChar = allowedCharacter <|>
+        simpleEscapeSequence
+  where
+    allowedCharacter = BS.singleton <$> noneOf [w '\\', w '"', w '\n']
 
 identifierOrKeywordToken :: PosParser CToken
 identifierOrKeywordToken = posLexeme $ try $ do
