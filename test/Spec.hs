@@ -51,7 +51,7 @@ runTests = hspec $ do
 
 qcBasedTests :: SpecWith ()
 qcBasedTests = describe "QuickCheck" $
-  modifyMaxSuccess (const 100000) $ do
+  modifyMaxSuccess (const 1000) $ do
     it "generated files" $ property prop_genCFile
     it "all keywords"    $ property prop_genKeyword
 
@@ -113,6 +113,7 @@ unitTests =
       runLexer_ "13\n// line comment id" `shouldBe` Right [ DecConstant 13 ]
       runLexer_ "\"str\" // endline xx"  `shouldBe` Right [ StringLit "str"]
       runLexer_ "xx\n//test\nyy"         `shouldBe` Right [ Identifier "xx", Identifier "yy"]
+      runLexer_ "xx//\\\ntest\nyy"         `shouldBe` Right [ Identifier "xx", Identifier "yy"]
 
     it "parse keywords correctly" $
       forM_ allCKeywords $ \k ->

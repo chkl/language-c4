@@ -25,7 +25,7 @@ allCKeywords = sortByLengthDesc ["auto", "if", "unsigned", "break", "inline", "v
 
 allCPunctuators :: [ByteString]
 allCPunctuators = sortByLengthDesc $
-  map (BS.singleton . w) ".&*+-~!/%<>^|?:;=,#" ++
+  map (BS.singleton . w) "{}()[].&*+-~!/%<>^|?:;=,#" ++
   ["->", "++", "--", "<<", ">>", "<=", ">=", "==", "!=", "&&", "||", "...", "*=",
   "/=", "%=", "+=", "-=", "<<=", ">>=", "&=", "^=", "|=", "##", "<:", ":>", "<%",
   "%>", "%:", "%:%:"]

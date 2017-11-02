@@ -7,6 +7,7 @@ module Lexer ( ErrorMsg(..)
              , runLexer
              ) where
 
+import Control.Monad (void)
 import           Data.ByteString            (ByteString)
 import qualified Data.ByteString            as BS
 import           Data.Foldable              (asum)
@@ -45,8 +46,21 @@ type PosParser a = Parser (a, SourcePos)
 sc :: Parser ()
 sc = L.space space1 lineCmnt blockCmnt
   where
-    lineCmnt  = L.skipLineComment "//"
+--    lineCmnt  = L.skipLineComment "//"
+    lineCmnt  =  lineCmntC
     blockCmnt = L.skipBlockComment "/*" "*/"
+
+
+lineCmntC :: Parser ()
+lineCmntC = do
+      _ <- string "//"
+      let justChar = void $ satisfy (\c -> c `notElem` [w '\n', w '\\'] ) :: Parser ()
+          justBackslash = char (w '\\') >> (notFollowedBy (char (w '\n'))) :: Parser ()
+      _ <- many ( justChar  <|>
+                  (void.string) "\\\n" <|>
+                  try justBackslash)
+      return ()
+--      void newline
 
 -- `lexeme`, `integer` and `signedInteger` are basically pre-defined parsers of
 -- megaparsec.
