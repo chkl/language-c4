@@ -69,6 +69,9 @@ unitTests =
       runLexer_ "-3"     `shouldBe` Right [Punctuator "-", DecConstant 3]
       runLexer_ "- 3"     `shouldBe` Right [Punctuator "-", DecConstant 3]
 
+    it "should parse null as a decimal constant" $
+      runLexer_ "0"     `shouldBe` Right [DecConstant 0]
+
     it "parse x++++++y correctly (6.4p1 example 2)" $
       runLexer_ "x+++++y" `shouldBe` Right [ Identifier "x"
                                            , Punctuator "++"
@@ -114,6 +117,10 @@ unitTests =
       runLexer_ "\"str\" // endline xx"  `shouldBe` Right [ StringLit "str"]
       runLexer_ "xx\n//test\nyy"         `shouldBe` Right [ Identifier "xx", Identifier "yy"]
       runLexer_ "xx//\\\ntest\nyy"         `shouldBe` Right [ Identifier "xx", Identifier "yy"]
+
+    it "should handle 'line-breaks' gracefully" $ do
+--      runLexer_ "42 \\\n 23" `shouldBe` Right [DecConstant 42, DecConstant 23]
+      runLexer_ "\"foo\\nbar\"" `shouldBe` Right [StringLit "foobar"]
 
     it "parse keywords correctly" $
       forM_ allCKeywords $ \k ->
