@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 import           Test.Hspec
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
-import qualified Data.ByteString          as BS
+import qualified Data.ByteString.Lazy          as BS
 import           Control.Monad
 import           Lexer
 import           System.Environment
@@ -118,9 +118,9 @@ unitTests =
       runLexer_ "xx\n//test\nyy"         `shouldBe` Right [ Identifier "xx", Identifier "yy"]
       runLexer_ "xx//\\\ntest\nyy"         `shouldBe` Right [ Identifier "xx", Identifier "yy"]
 
-    it "should handle 'line-breaks' gracefully" $ do
+--    it "should handle 'line-breaks' gracefully" $ do
 --      runLexer_ "42 \\\n 23" `shouldBe` Right [DecConstant 42, DecConstant 23]
-      runLexer_ "\"foo\\nbar\"" `shouldBe` Right [StringLit "foobar"]
+--      runLexer_ "\"foo\\nbar\"" `shouldBe` Right [StringLit "foobar"]
 
     it "parse keywords correctly" $
       forM_ allCKeywords $ \k ->
@@ -129,6 +129,9 @@ unitTests =
     it "lexer/char_constant_empty" $ do
       runLexer' "''" `shouldSatisfy` isLeft
       --TODO
+
+    it "lexer/comment_with_CR_only" $
+      runLexer_ "foo// \x0d test" `shouldBe` Right [Identifier "foo"]
 
     it "lexer/comment_multi_line" $do
       runLexer_ "/*\n\n*/" `shouldBe` Right []

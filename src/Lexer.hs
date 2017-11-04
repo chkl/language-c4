@@ -8,8 +8,8 @@ module Lexer ( ErrorMsg(..)
              ) where
 
 import Control.Monad (void)
-import           Data.ByteString            (ByteString)
-import qualified Data.ByteString            as BS
+import           Data.ByteString.Lazy            (ByteString)
+import qualified Data.ByteString.Lazy            as BS
 import           Data.Foldable              (asum)
 import           Data.Word                  (Word8)
 import           Text.Megaparsec            hiding (ParseError)

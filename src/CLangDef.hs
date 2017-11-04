@@ -1,8 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module CLangDef where
 
-import           Data.ByteString (ByteString)
-import qualified Data.ByteString as BS
+import           Data.ByteString.Lazy (ByteString)
+import qualified Data.ByteString.Lazy as BS
 import           Data.List       (sortBy)
 import           Data.Ord        (comparing)
 import           Data.Word       (Word8)

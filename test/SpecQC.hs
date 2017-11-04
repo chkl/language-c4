@@ -1,5 +1,5 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings          #-}
 
 module SpecQC ( prop_genCFile
               , prop_genKeyword
@@ -12,10 +12,10 @@ module SpecQC ( prop_genCFile
               ) where
 
 import           CLangDef
-import           Data.ByteString            (ByteString)
-import qualified Data.ByteString            as BS
+import qualified Data.ByteString            as SBS
 import           Data.ByteString.Conversion (ToByteString, toByteString)
-import           Data.ByteString.Lazy       (toStrict)
+import           Data.ByteString.Lazy       (ByteString)
+import qualified Data.ByteString.Lazy       as BS
 import           Data.Monoid                ((<>))
 import           Data.Word                  (Word8)
 import           Lexer
@@ -58,7 +58,7 @@ makeName = do
 genDecConst :: ExampleGen CToken
 genDecConst = do
   i <- arbitrary `suchThat` (>= 0)
-  let s = toStrict $ toByteString i
+  let s = toByteString i
   return (s, DecConstant i)
 
 newtype DecConstG = DecConstG (ByteString, CToken)
@@ -67,7 +67,7 @@ newtype DecConstG = DecConstG (ByteString, CToken)
 instance Arbitrary DecConstG where
   arbitrary = DecConstG <$> genDecConst
 
-newtype SimpleEscapeSequence = SimpleEscapeSequence ByteString   
+newtype SimpleEscapeSequence = SimpleEscapeSequence ByteString
   deriving ToByteString
 
 instance Arbitrary SimpleEscapeSequence where
@@ -86,8 +86,8 @@ instance Arbitrary CChar where
 
 genCharConstant :: ExampleGen CToken
 genCharConstant = do
-  s <- oneof [ toStrict.toByteString <$> (arbitrary :: Gen CChar)
-             , toStrict.toByteString <$> (arbitrary :: Gen SimpleEscapeSequence) ]
+  s <- oneof [ toByteString <$> (arbitrary :: Gen CChar)
+             , toByteString <$> (arbitrary :: Gen SimpleEscapeSequence) ]
   return ("'" <> s <> "'", CharConstant s)
 
 newtype CharConstG = CharConstG (ByteString, CToken)
@@ -131,7 +131,7 @@ genWhitespace =  do
   return $ BS.concat ws
 
 notInfixOf :: ByteString -> [Word8]-> Bool
-notInfixOf xs cs = not $ BS.isInfixOf xs (BS.pack cs)
+notInfixOf xs cs = not $ SBS.isInfixOf (BS.toStrict xs) (SBS.pack cs)
 
 genCommentBlock :: Gen ByteString
 genCommentBlock = do

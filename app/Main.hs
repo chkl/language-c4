@@ -6,8 +6,8 @@ module Main where
 import           System.Environment
 import           System.Exit           (exitFailure, exitSuccess)
 
-import qualified Data.ByteString       as BS
-import qualified Data.ByteString.Char8 as C8
+import qualified Data.ByteString.Lazy       as BS
+import qualified Data.ByteString.Lazy.Char8 as C8
 import           Data.List             (intercalate)
 import           Data.Monoid           ((<>))
 import           Data.Word             (Word8)
