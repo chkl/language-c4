@@ -1,16 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
-import           Test.Hspec
-import           Test.Hspec.QuickCheck (modifyMaxSuccess)
-import qualified Data.ByteString.Lazy          as BS
 import           Control.Monad
-import           Lexer
+import qualified Data.ByteString.Lazy  as BS
 import           System.Environment
 import           System.Exit
+import           Test.Hspec
+import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import           Test.QuickCheck
 import           Text.Megaparsec.Pos
 
 import           CLangDef
-
+import           Lexer                 hiding (runLexer_)
 import           SpecQC
 
 -- some helper functions to write the tests more succinctly
@@ -57,7 +56,7 @@ qcBasedTests = describe "QuickCheck" $
 
 unitTests :: SpecWith ()
 unitTests =
-  describe "lexing" $ do
+  describe "Lexer unit tests" $ do
     it "should parse a single operator '+'" $ do
       runLexer' "+"     `shouldBe` Right [(Punctuator "+", newPos' 1 1)]
       runLexer' " +"    `shouldBe` Right [(Punctuator "+", newPos' 1 2)]
@@ -126,7 +125,7 @@ unitTests =
       forM_ allCKeywords $ \k ->
         runLexer_ k `shouldBe` Right [ Keyword k]
 
-    it "lexer/char_constant_empty" $ do
+    it "lexer/char_constant_empty" $
       runLexer' "''" `shouldSatisfy` isLeft
       --TODO
 

@@ -5,45 +5,29 @@ module Lexer ( ErrorMsg(..)
              , Parser
              , ParseError
              , runLexer
+             , runLexer_
              ) where
 
-import Control.Monad (void)
-import           Data.ByteString.Lazy            (ByteString)
-import qualified Data.ByteString.Lazy            as BS
+import           Control.Monad              (void)
+import           Control.Monad.Trans.Class
+import           Data.ByteString.Lazy       (ByteString)
+import qualified Data.ByteString.Lazy       as BS
+import qualified Data.ByteString.Lazy.Char8       as C8
 import           Data.Foldable              (asum)
-import           Data.Word                  (Word8)
 import           Text.Megaparsec            hiding (ParseError)
 import           Text.Megaparsec.Byte
 import qualified Text.Megaparsec.Byte.Lexer as L
-import qualified Text.Megaparsec.Error      as E
 
 
 
 import           CLangDef
+import           PrettyPrint
+import           Types
 
-data CToken = Keyword ByteString
-            | Identifier ByteString
-            | DecConstant Integer
-            | CharConstant ByteString
-            | StringLit ByteString
-            | Punctuator ByteString
-           deriving (Show, Eq)
-
-newtype ErrorMsg = ErrorMsg { toString :: String
-                         } deriving (Ord, Eq, Show)
-
-instance ShowErrorComponent ErrorMsg where
-  showErrorComponent e = "error: " ++ toString e
-
-type ParseError = E.ParseError Word8 ErrorMsg
-
-type Parser = Parsec ErrorMsg ByteString
-
-type PosParser a = Parser (a, SourcePos)
 
 
 -- | "space consumer"
-sc :: Parser ()
+sc :: Parser m ()
 sc = L.space space1 lineCmnt blockCmnt
   where
 --    lineCmnt  = L.skipLineComment "//"
@@ -51,11 +35,11 @@ sc = L.space space1 lineCmnt blockCmnt
     blockCmnt = L.skipBlockComment "/*" "*/"
 
 
-lineCmntC :: Parser ()
+lineCmntC :: Parser m ()
 lineCmntC = do
       _ <- string "//"
-      let justChar = void $ satisfy (\c -> c `notElem` [w '\n', w '\\'] ) :: Parser ()
-          justBackslash = char (w '\\') >> (notFollowedBy (char (w '\n'))) :: Parser ()
+      let justChar = void $ satisfy (\c -> c `notElem` [w '\n', w '\\'] )
+          justBackslash = char (w '\\') >> notFollowedBy (char (w '\n'))
       _ <- many ( justChar  <|>
                   (void.string) "\\\n" <|>
                   try justBackslash)
@@ -65,30 +49,27 @@ lineCmntC = do
 -- `lexeme`, `integer` and `signedInteger` are basically pre-defined parsers of
 -- megaparsec.
 
-lexeme :: Parser a -> Parser a
+lexeme :: Parser m a -> Parser m a
 lexeme = L.lexeme sc
 
-integer :: Parser Integer
+integer :: Parser m Integer
 integer = lexeme L.decimal
-
-signedInteger :: Parser Integer
-signedInteger = L.signed sc integer
 
 --  wrap any parser in `posLexeme` to make it consume any trailing whitespace
 --  after the actual token Part of our conventions should be that every cToken
 --  parser consumes all trailing whitespace.
 --  It also embellishes the type a with the source position.
-posLexeme :: Parser a -> PosParser a
+posLexeme :: Parser m a -> PosParser m a
 posLexeme a = do
   p <- getPosition
   x <- lexeme a
   return (x,p)
 
-integerConstant :: PosParser CToken
+integerConstant :: PosParser m CToken
 integerConstant = posLexeme $ DecConstant <$> integer
 
 
-charConstant :: PosParser CToken
+charConstant :: PosParser m CToken
 charConstant = posLexeme $ do
   _ <- asum [string "u\'", string "U\'", string "l\'", string "\'"]
   x <- simpleEscapeSequence <|>
@@ -100,14 +81,14 @@ charConstant = posLexeme $ do
 
 
 
-simpleEscapeSequence :: Parser ByteString
+simpleEscapeSequence :: Parser m ByteString
 simpleEscapeSequence = do -- refer to 'simple escape sequence'
     c1 <- char (w '\\')
     c2 <- oneOf (BS.unpack "\\\"'?abfnrtv") <?> "valid escape sequence"
     return $ BS.pack [c1,c2]
 
 
-stringLiteral :: PosParser CToken
+stringLiteral :: PosParser m CToken
 stringLiteral = posLexeme $ do
   _ <- asum $ map string ["u8\"", "u\"", "U\"", "L\"", "\""]
   s <- many sChar
@@ -115,13 +96,13 @@ stringLiteral = posLexeme $ do
   return $ StringLit $ BS.concat s
 
 -- | parses an s-char (see 6.4.5)
-sChar :: Parser ByteString
+sChar :: Parser m ByteString
 sChar = allowedCharacter <|>
         simpleEscapeSequence
   where
     allowedCharacter = BS.singleton <$> noneOf [w '\\', w '"', w '\n']
 
-identifierOrKeywordToken :: PosParser CToken
+identifierOrKeywordToken :: PosParser m CToken
 identifierOrKeywordToken = posLexeme $ try $ do
   x <- letterChar <|> char (w '_')
   y <- many (alphaNumChar <|> char (w '_'))
@@ -131,22 +112,35 @@ identifierOrKeywordToken = posLexeme $ try $ do
   else return $ Identifier name
 
 
-punctuatorToken :: PosParser CToken
+punctuatorToken :: PosParser m CToken
 punctuatorToken = posLexeme $ do
   pun <- asum $ map string allCPunctuators
   return $ Punctuator pun
 
-cToken :: PosParser CToken
+cToken :: PosParser m CToken
 cToken = integerConstant <|>
          charConstant <|>
          stringLiteral <|>
          identifierOrKeywordToken <|>
          punctuatorToken
 
-fullLexer :: Parser [(CToken, SourcePos)]
-fullLexer = setTabWidth pos1 >>  sc *> many cToken <* eof
+lexer :: Parser m [(CToken, SourcePos)]
+lexer = setTabWidth pos1 >>  sc *> many cToken <* eof
 
 
 runLexer :: String -> ByteString -> Either ParseError [(CToken, SourcePos)]
-runLexer = parse fullLexer
+runLexer = runParser lexer
+
+-- | this tokenizer just outputs directly to stdout and discards any tokens.
+-- | (this one has basically no use other than benchmarking)
+runLexer_ :: String -> ByteString -> IO (Either ParseError ())
+runLexer_ = runParserT $  do
+  setTabWidth pos1
+  sc
+  _ <- many $ do
+    (t,p) <- cToken
+    lift $ C8.putStr (prettyPrint p)
+    lift $ C8.putStr ": "
+    lift $ C8.putStrLn $ prettyPrint t
+  eof
 
