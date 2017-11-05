@@ -17,6 +17,7 @@ import           Data.Foldable              (asum)
 import           Text.Megaparsec            hiding (ParseError)
 import           Text.Megaparsec.Byte
 import qualified Text.Megaparsec.Byte.Lexer as L
+import System.IO
 
 
 
@@ -136,6 +137,7 @@ runLexer = runParser lexer
 runLexer_ :: String -> ByteString -> IO (Either ParseError ())
 runLexer_ = runParserT $  do
   setTabWidth pos1
+  lift $ hSetBuffering stdout (BlockBuffering Nothing) -- much faster this way
   sc
   _ <- many $ do
     (t,p) <- cToken
@@ -143,4 +145,5 @@ runLexer_ = runParserT $  do
     lift $ C8.putStr ": "
     lift $ C8.putStrLn $ prettyPrint t
   eof
+  lift $ hFlush stdout
 
