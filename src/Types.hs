@@ -25,3 +25,8 @@ type ParseError = E.ParseError Word8 ErrorMsg
 type Parser m a = ParsecT ErrorMsg ByteString m a
 
 type PosParser m a = Parser m (a, SourcePos)
+
+data PrimaryExpr = IdentExpr  ByteString
+                 | ConstExpr  ByteString
+                 | StringExpr ByteString
+                  
