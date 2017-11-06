@@ -1,9 +1,9 @@
 module Main where
 
+import qualified Data.ByteString.Lazy as BS
 import           System.Environment
-import           System.Exit                (exitFailure, exitSuccess)
-
-import qualified Data.ByteString.Lazy       as BS
+import           System.Exit          (exitFailure, exitSuccess)
+import           System.IO            (hPutStr, stderr)
 
 import           Lexer
 import           PrettyPrint
@@ -15,7 +15,7 @@ tokenize filename = do
   result <- runLexer_ filename contents
   case result of
     Left err -> do
-      putStr $ myParseErrorPretty err
+      hPutStr stderr $ myParseErrorPretty err
       exitFailure
     Right () -> exitSuccess
 
