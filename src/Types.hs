@@ -26,7 +26,36 @@ type Parser m a = ParsecT ErrorMsg ByteString m a
 
 type PosParser m a = Parser m (a, SourcePos)
 
-data PrimaryExpr = IdentExpr  ByteString
-                 | ConstExpr  ByteString
+
+type FieldIdentifier = ByteString
+type TypeName = ByteString
+
+-- this is an AST, therefore we give it 'semantic' names.
+data Expr = IdentExpr  ByteString
+                 | ConstExpr  ByteString -- Or Int?
                  | StringExpr ByteString
-                  
+                 | ArrayAccess ByteString Expr
+                 | FunctionCall (Maybe ArgumentExpressionList)
+                 | FieldAccess ByteString FieldIdentifier
+                 | PointerAccess ByteString FieldIdentifier
+-- we don't have to handle postfix ops
+--                 | PostIncrement Expr
+--                 | PostDecrement Expr
+--                 | PreIncrement Expr
+--                 | PreDecrement Expr
+                 | Plus Expr Expr
+                 | MinusBinary Expr Expr
+                 | MinusUnary Expr
+                 | SmallerThan Expr
+                 | Equal Expr Expr
+                 | NotEqal Expr Expr
+                 | BooleanAnd Expr Expr
+                 | BooleanOr Expr Expr
+                 | InlineIf Expr Expr Expr
+                 | Assignment Expr Expr
+                 | SizeOf (Either Expr TypeName)
+
+-- not sure about this
+data ArgumentExpressionList  = ArgumentExpressionList [AssignmentExpression]
+
+data AssignmentExpression = Expr
