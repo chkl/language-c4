@@ -1,6 +1,7 @@
 Expressions:
 
-Expr        ::= [AssignExpr]
+Expr        ::= AssignExpr
+              | Expr ',' AssignExpr
 
 AssignExpr  ::= CondExpr
               | UnaryExpr '=' AssignExpr
@@ -13,11 +14,11 @@ UnaryExpr   ::= 'UOp' UnaryExpr
               | PostExpr
 
 PostExpr    ::= PostExpr '[' Expr ']'
-             | PostExpr '(' ')'
-             | PostExpr '(' Expr ')'
-             | PostExpr '.' identifier
-             | PostExpr '->' identifier
-             | PrimaryExpr
+              | PostExpr '(' ')'
+              | PostExpr '(' Expr ')'
+              | PostExpr '.' identifier
+              | PostExpr '->' identifier
+              | PrimaryExpr
 
 PrimaryExpr ::= identifer
               | constant
