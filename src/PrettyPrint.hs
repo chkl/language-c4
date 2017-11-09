@@ -15,18 +15,18 @@ import Types
 class PrettyPrint a where
   prettyPrint :: a -> BS.ByteString
 
-instance PrettyPrint SourcePos where
-  prettyPrint s = C8.pack $ intercalate ":" [sourceName s
-                                            , show $ unPos $ sourceLine s
-                                            , show $ unPos $ sourceColumn s]
+-- instance PrettyPrint SourcePos where
+--   prettyPrint s = C8.pack $ intercalate ":" [sourceName s
+--                                             , show $ unPos $ sourceLine s
+--                                             , show $ unPos $ sourceColumn s]
 
-instance PrettyPrint CToken where
-  prettyPrint (Keyword k)      = "keyword " <> k
-  prettyPrint (Identifier i)   = "identifier " <> i
-  prettyPrint (DecConstant n)  = "constant "  <> C8.pack (show n)
-  prettyPrint (CharConstant c) = "constant '" <> c <> "'"
-  prettyPrint (StringLit s)    = "string-literal \"" <> s <> "\""
-  prettyPrint (Punctuator s)   = "punctuator " <> s
+-- instance PrettyPrint CToken where
+--   prettyPrint (Keyword k)      = "keyword " <> k
+--   prettyPrint (Identifier i)   = "identifier " <> i
+--   prettyPrint (DecConstant n)  = "constant "  <> C8.pack (show n)
+--   prettyPrint (CharConstant c) = "constant '" <> c <> "'"
+--   prettyPrint (StringLit s)    = "string-literal \"" <> s <> "\""
+--   prettyPrint (Punctuator s)   = "punctuator " <> s
 
 instance PrettyPrint Word8 where
   prettyPrint b = let n = fromEnum b :: Int

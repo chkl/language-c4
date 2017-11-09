@@ -5,14 +5,6 @@ import           Data.Word             (Word8)
 import           Text.Megaparsec
 import qualified Text.Megaparsec.Error as E
 
-data CToken = Keyword ByteString
-            | Identifier ByteString
-            | DecConstant Integer
-            | CharConstant ByteString
-            | StringLit ByteString
-            | Punctuator ByteString
-           deriving (Show, Eq)
-
 newtype ErrorMsg = ErrorMsg { toString :: String
                          } deriving (Ord, Eq, Show)
 
@@ -24,16 +16,23 @@ type ParseError = E.ParseError Word8 ErrorMsg
 
 type Parser m a = ParsecT ErrorMsg ByteString m a
 
-type PosParser m a = Parser m (a, SourcePos)
+data CToken = Keyword ByteString
+            | Identifier ByteString
+            | DecConstant ByteString
+            | CharConstant ByteString
+            | StringLit ByteString
+            | Punctuator ByteString
+           deriving (Show, Eq)
+
 
 
 type FieldIdentifier = ByteString
 type TypeName = ByteString
 
 -- this is an AST, therefore we give it 'semantic' names.
-data Expr = IdentExpr  ByteString
-                 | ConstExpr  ByteString -- Or Int?
-                 | StringExpr ByteString
+data Expr = IdentifierExpr  ByteString
+                 | Constant  ByteString -- Or Int?
+                 | String ByteString
                  | ArrayAccess ByteString Expr
                  | FunctionCall (Maybe ArgumentExpressionList)
                  | FieldAccess ByteString FieldIdentifier
