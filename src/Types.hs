@@ -25,22 +25,20 @@ data CToken = Keyword ByteString
            deriving (Show, Eq)
 
 data BOp = Mult | Plus | Minus | LessThan | EqualsEquals
-         | NotEqual | LAnd | LOr
+         | NotEqual | LAnd | LOr | FieldAccess | PointerAccess
 
 type UOp = SizeOf | Address | Deref | Neg | Not
 
 type Ident = ByteString
 
-data Expr = [Expr] 
+data Expr = [Expr]
           | Ternary Expr Expr Expr
           | Assign Expr Expr
           | BExpr BOp Expr Expr
           | UExpr UOp Expr
           | Array Expr [Expr]
           | Func Expr [Expr]
-          | FieldAccess Ident Expr
-          | PointerAccess Ident Expr
-          | ExprIdentifier ByteString
+          | ExprIdent ByteString
           | Constant ByteString
           | StringLiteral ByteString
           deriving (Show, Eq)
