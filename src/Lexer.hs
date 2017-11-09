@@ -39,8 +39,8 @@ sc = L.space space1 lineCmnt blockCmnt
 lineCmntC :: Parser m ()
 lineCmntC = do
       _ <- string "//"
-      let justChar = void $ satisfy (\c -> c `notElem` [w '\n', w '\\'] )
-          justBackslash = char (w '\\') >> notFollowedBy (char (w '\n'))
+      let justChar = void $ satisfy (\c -> c `notElem` [w '\r', w '\n', w '\\'] )
+          justBackslash = char (w '\\') >> notFollowedBy (oneOf [w '\n', w '\r'])
       _ <- many ( justChar  <|>
                   (void.string) "\\\n" <|>
                   try justBackslash)

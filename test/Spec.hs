@@ -130,7 +130,7 @@ unitTests =
       --TODO
 
     it "lexer/comment_with_CR_only" $
-      runLexer_ "foo// \x0d test" `shouldBe` Right [Identifier "foo"]
+      runLexer_ "foo// \r test" `shouldBe` Right [Identifier "foo", Identifier "test"]
 
     it "lexer/comment_multi_line" $do
       runLexer_ "/*\n\n*/" `shouldBe` Right []
