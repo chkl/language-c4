@@ -31,10 +31,18 @@ type FieldIdentifier = ByteString
 type TypeName = ByteString
 
 -- this is an AST, therefore we give it 'semantic' names.
-data Expr = IdentExpr  ByteString
-                 | ConstExpr  ByteString -- Or Int?
+
+data PrimaryExpr = IdentifierExpr  ByteString
+                 | ConstExpr  ByteString 
                  | StringExpr ByteString
-                 | ArrayAccess ByteString Expr
+                 | ParenExpr Expr
+
+type Expr = [AssignExpr]
+
+data AssignExpr = CondExpr
+               
+  
+data Expr =      | ArrayAccess ByteString Expr
                  | FunctionCall (Maybe ArgumentExpressionList)
                  | FieldAccess ByteString FieldIdentifier
                  | PointerAccess ByteString FieldIdentifier
