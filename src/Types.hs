@@ -32,12 +32,13 @@ data Expr = Comma Expr Expr
           | Assign Expr Expr
           | BExpr BOp Expr Expr
           | UExpr UOp Expr
-          | Array Ident [Expr]
-          | Func Ident [Expr]
+          | Array Expr [Expr]
+          | Func Expr [Expr]
           | FieldAccess Expr Ident
           | PointerAccess Expr Ident
           | ExprIdentifier ByteString
           | Constant ByteString
           | StringLiteral ByteString
+          deriving (Show, Eq)
 
 
