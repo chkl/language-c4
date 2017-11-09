@@ -24,18 +24,22 @@ data CToken = Keyword ByteString
             | Punctuator ByteString
            deriving (Show, Eq)
 
-type BOp = ByteString
-type UOp = ByteString
+data BOp = Mult | Plus | Minus | LessThan | EqualsEquals
+         | NotEqual | LAnd | LOr
+
+type UOp = SizeOf | Address | Deref | Neg | Not
+
 type Ident = ByteString
 
-data Expr = Comma Expr Expr
+data Expr = [Expr] 
+          | Ternary Expr Expr Expr
           | Assign Expr Expr
           | BExpr BOp Expr Expr
           | UExpr UOp Expr
           | Array Expr [Expr]
           | Func Expr [Expr]
-          | FieldAccess Expr Ident
-          | PointerAccess Expr Ident
+          | FieldAccess Ident Expr
+          | PointerAccess Ident Expr
           | ExprIdentifier ByteString
           | Constant ByteString
           | StringLiteral ByteString
