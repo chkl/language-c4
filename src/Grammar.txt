@@ -3,7 +3,7 @@ Expressions:
 Expr        ::= AssignExpr
               | Expr ',' AssignExpr
 
-AssignExpr  ::= CondExpr
+AssignExpr  ::= BinaryExpr
               | UnaryExpr '=' AssignExpr
 
 BinaryExpr  ::= UnaryExpr
