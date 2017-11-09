@@ -3,8 +3,11 @@ Expressions:
 Expr        ::= AssignExpr
               | Expr ',' AssignExpr
 
-AssignExpr  ::= BinaryExpr
+AssignExpr  ::= TernaryExpr
               | UnaryExpr '=' AssignExpr
+
+TernaryExpr ::= BinaryExpr 
+              | BinaryExpr '?' Expr : TernaryExpr
 
 BinaryExpr  ::= UnaryExpr
               | BinaryExpr 'BOp' BinaryExpr
@@ -25,3 +28,4 @@ PrimaryExpr ::= identifer
               | string-literal
               | '(' Expr ')'
                         
+
