@@ -1,0 +1,26 @@
+Expressions:
+
+Expr        ::= [AssignExpr]
+
+AssignExpr  ::= CondExpr
+              | UnaryExpr '=' AssignExpr
+
+BinaryExpr  ::= Unary Expr
+              | BinaryExpr 'BOp' BinaryExpr
+
+UnaryExpr   ::= 'UOp' UnaryExpr
+              | 'sizedof' UnaryExpr
+              | PostExpr
+
+PostExpr    ::= PostExpr '[' Expr ']'
+             | PostExpr '(' ')'
+             | PostExpr '(' Expr ')'
+             | PostExpr '.' identifier
+             | PostExpr '->' identifier
+             | PrimaryExpr
+
+PrimaryExpr ::= identifer
+              | constant
+              | string-literal
+              | '(' Expr ')'
+                        
