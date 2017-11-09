@@ -49,11 +49,14 @@ data Expr = IdentExpr  ByteString
                  | SmallerThan Expr
                  | Equal Expr Expr
                  | NotEqal Expr Expr
+                 | BooleanNot Expr
                  | BooleanAnd Expr Expr
                  | BooleanOr Expr Expr
                  | InlineIf Expr Expr Expr
                  | Assignment Expr Expr
                  | SizeOf (Either Expr TypeName)
+                 | DerefOp Expr
+                 | AddressOp Expr
 
 -- not sure about this
 data ArgumentExpressionList  = ArgumentExpressionList [AssignmentExpression]
