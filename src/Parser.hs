@@ -37,3 +37,36 @@ pExprP = identP <|>  constP <|> stringP <|> parenExprP
 
 exprP :: Parser m Expr
 exprP = undefined
+
+{-
+termOpP :: OpTable -> OpTable -> ReadP Term
+termOpP opTable restOpTable = do
+  case restOpTable of
+    OpTable [] -> baseP opTable
+    OpTable (opEntry:ops) ->
+        case opEntry of
+          (FNone, operators) -> chainl1 (termOpP opTable (OpTable ops)) (thisLevelP operators)
+          (FLeft, operators) -> chainl1 (termOpP opTable (OpTable ops)) (thisLevelP operators)
+          (FRight, operators) -> chainr1 (termOpP opTable (OpTable ops)) (thisLevelP operators)
+
+thisLevelP :: [String] -> ReadP (Term -> Term -> Term)
+thisLevelP operators = do
+    whitespaceP
+    op <- choice $ map string operators
+    case notValidOp op of
+      True -> pfail
+      False -> do whitespaceP
+                  let applyOp = \termL termR -> TFun op [termL, termR]
+                  return applyOp
+    where notValidOp op = (op == "=") ||
+                          (any (\c -> not (c `elem` ['!','@','#','+','-','*','/','\\','<','>','='])) op)
+
+opTable1 =  OpTable
+  [(FNone, ["<=", "<"]),
+   (FLeft, ["+", "-"]),
+   (FLeft, ["*"]),
+   (FRight, ["**"])]
+
+
+
+-}
