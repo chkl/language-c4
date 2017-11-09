@@ -6,7 +6,7 @@ Expr        ::= AssignExpr
 AssignExpr  ::= CondExpr
               | UnaryExpr '=' AssignExpr
 
-BinaryExpr  ::= Unary Expr
+BinaryExpr  ::= UnaryExpr
               | BinaryExpr 'BOp' BinaryExpr
 
 UnaryExpr   ::= 'UOp' UnaryExpr
