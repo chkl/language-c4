@@ -7,7 +7,7 @@ AssignExpr  ::= TernaryExpr
               | UnaryExpr '=' AssignExpr
 
 TernaryExpr ::= BinaryExpr 
-              | BinaryExpr '?' Expr : TernaryExpr
+              | BinaryExpr '?' Expr ':' TernaryExpr
 
 BinaryExpr  ::= UnaryExpr
               | BinaryExpr 'BOp' BinaryExpr
