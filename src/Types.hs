@@ -24,48 +24,20 @@ data CToken = Keyword ByteString
             | Punctuator ByteString
            deriving (Show, Eq)
 
+type BOp = ByteString
+type UOp = ByteString
+type Ident = ByteString
+
+data Expr = Comma Expr Expr
+          | Assign Expr Expr
+          | BExpr BOp Expr Expr
+          | UExpr UOp Expr
+          | Array Ident [Expr]
+          | Func Ident [Expr]
+          | FieldAccess Expr Ident
+          | PointerAccess Expr Ident
+          | ExprIdentifier ByteString
+          | Constant ByteString
+          | StringLiteral ByteString
 
 
-type FieldIdentifier = ByteString
-type TypeName = ByteString
-
--- this is an AST, therefore we give it 'semantic' names.
-
-data PrimaryExpr = IdentifierExpr  ByteString
-                 | ConstExpr  ByteString 
-                 | StringExpr ByteString
-                 | ParenExpr Expr
-
-type Expr = [AssignExpr]
-
-data AssignExpr = CondExpr
-               
-  
-data Expr =      | ArrayAccess ByteString Expr
-                 | FunctionCall (Maybe ArgumentExpressionList)
-                 | FieldAccess ByteString FieldIdentifier
-                 | PointerAccess ByteString FieldIdentifier
--- we don't have to handle postfix ops
---                 | PostIncrement Expr
---                 | PostDecrement Expr
---                 | PreIncrement Expr
---                 | PreDecrement Expr
-                 | Plus Expr Expr
-                 | MinusBinary Expr Expr
-                 | MinusUnary Expr
-                 | SmallerThan Expr
-                 | Equal Expr Expr
-                 | NotEqal Expr Expr
-                 | BooleanNot Expr
-                 | BooleanAnd Expr Expr
-                 | BooleanOr Expr Expr
-                 | InlineIf Expr Expr Expr
-                 | Assignment Expr Expr
-                 | SizeOf (Either Expr TypeName)
-                 | DerefOp Expr
-                 | AddressOp Expr
-
--- not sure about this
-data ArgumentExpressionList  = ArgumentExpressionList [AssignmentExpression]
-
-data AssignmentExpression = Expr
