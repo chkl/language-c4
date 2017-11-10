@@ -1,72 +1,91 @@
-
+{-# LANGUAGE OverloadedStrings #-}
 
 module Parser where
 
-import Lexer
-import Types
+
 import           Control.Monad              (void)
 import           Control.Monad.Trans.Class
 import           Data.ByteString.Lazy       (ByteString)
 import qualified Data.ByteString.Lazy       as BS
-import qualified Data.ByteString.Lazy.Char8       as C8
+import qualified Data.ByteString.Lazy.Char8 as C8
 import           Data.Foldable              (asum)
+import           Data.List                  (groupBy, sortBy)
+import           Data.Ord                   (comparing)
+import           System.IO
 import           Text.Megaparsec            hiding (ParseError)
 import           Text.Megaparsec.Byte
 import qualified Text.Megaparsec.Byte.Lexer as L
-import System.IO
 
 
-identP :: Parser m PrimaryExpr
-identP = IdentifierExpr <$> identifier
+import           CLangDef                   (w)
+import qualified Lexer                      as L
+import           Types
 
-constP :: Parser m PrimaryExpr
-constP = ConstExpr <$> (integerConstant <|> charConstant)
+identifier :: Parser m Expr
+identifier = ExprIdent <$> L.identifier
 
-stringP :: Parser m PrimaryExpr
-stringP = StringExpr <$> stringLiteral 
+constP :: Parser m Expr
+constP = Constant <$> (L.integerConstant <|> L.charConstant)
 
-parenExprP :: Parser PrimaryExpr
+-- stringP :: Parser m Expr
+-- stringP = StringExpr <$> stringLiteral
+
+parenExprP :: Parser m Expr
 parenExprP = do
-  char '('
+  char $ w '('
   expr <- exprP
-  char ')'
-  return $ ParenExpr expr.
+  char $ w ')'
+  return expr
 
-pExprP :: Parser m PrimaryExpr
-pExprP = identP <|>  constP <|> stringP <|> parenExprP
+-- pExprP :: Parser m Expr
+-- pExprP = identP <|>  constP <|> stringP <|> parenExprP
 
 exprP :: Parser m Expr
 exprP = undefined
 
-{-
-termOpP :: OpTable -> OpTable -> ReadP Term
-termOpP opTable restOpTable = do
-  case restOpTable of
-    OpTable [] -> baseP opTable
-    OpTable (opEntry:ops) ->
-        case opEntry of
-          (FNone, operators) -> chainl1 (termOpP opTable (OpTable ops)) (thisLevelP operators)
-          (FLeft, operators) -> chainl1 (termOpP opTable (OpTable ops)) (thisLevelP operators)
-          (FRight, operators) -> chainr1 (termOpP opTable (OpTable ops)) (thisLevelP operators)
+plusOp :: Parser m (Expr -> Expr -> Expr)
+plusOp =  char (w '+') >> return (BExpr Plus)
 
-thisLevelP :: [String] -> ReadP (Term -> Term -> Term)
-thisLevelP operators = do
-    whitespaceP
-    op <- choice $ map string operators
-    case notValidOp op of
-      True -> pfail
-      False -> do whitespaceP
-                  let applyOp = \termL termR -> TFun op [termL, termR]
-                  return applyOp
-    where notValidOp op = (op == "=") ||
-                          (any (\c -> not (c `elem` ['!','@','#','+','-','*','/','\\','<','>','='])) op)
+chainr1 :: Parser m a -> Parser m (a -> a -> a) -> Parser m a
+chainr1 p op = do
+  x <- p
+  let recurse = do
+        o <- op
+        y <- chainr1 p op
+        return $ x `o` y
+  recurse <|> return x
 
-opTable1 =  OpTable
-  [(FNone, ["<=", "<"]),
-   (FLeft, ["+", "-"]),
-   (FLeft, ["*"]),
-   (FRight, ["**"])]
+-- TODO: rewrite this
+chainl1 :: Parser m a -> Parser m (a -> a -> a) -> Parser m a
+chainl1 p op = p >>= rest
+  where rest x = do f <- op
+                    y <- p
+                    rest (f x y)
+                 <|> return x
+
+unaryOp :: Parser m Expr
+unaryOp = identifier
 
 
+binaryOp :: Parser m Expr
+binaryOp =  binaryOp' operators
 
--}
+binaryOp' :: [[BOperator m]]-> Parser m Expr
+binaryOp' [] = unaryOp
+binaryOp' (o:ops) =
+        case associativity (head o) of
+          LeftAssoc  -> chainl1 (binaryOp' ops) (eqPrecedence o)
+          RightAssoc -> chainr1 (binaryOp' ops) (eqPrecedence o)
+  where
+    eqPrecedence :: [BOperator m] -> Parser m (Expr -> Expr -> Expr)
+    eqPrecedence ops' = asum $ map opParser ops'
+
+
+operators :: [[BOperator m]]
+operators = groupBy eqPrec $  (sortBy (flip $ comparing precedence)) $
+            [ BOperator LeftAssoc Plus  (L.stringLexeme "+" >> return (BExpr Plus)) 4
+            , BOperator LeftAssoc Minus (L.stringLexeme "-" >> return (BExpr Minus)) 4
+            , BOperator LeftAssoc Mult (L.stringLexeme "*" >> return (BExpr Mult)) 2
+            ]
+  where eqPrec o1 o2 = precedence o1 == precedence o2
+

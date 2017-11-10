@@ -5,6 +5,10 @@ module Lexer ( ErrorMsg(..)
              , ParseError
              , runLexer
              , runLexer_
+             , identifier
+             , charConstant
+             , integerConstant
+             , stringLexeme
              ) where
 
 import           Control.Monad              (void)
@@ -116,6 +120,8 @@ keyword = lexeme $ try $ do
 punctuator :: Parser m ByteString
 punctuator = lexeme $ asum $ map string allCPunctuators
 
+stringLexeme :: ByteString -> Parser m ByteString
+stringLexeme = lexeme . string
 
 cToken :: Parser m CToken
 cToken = DecConstant <$> integerConstant <|>

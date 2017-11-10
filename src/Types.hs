@@ -33,6 +33,7 @@ data UOp = SizeOf | Address | Deref | Neg | Not
 
 type Ident = ByteString
 
+
 data Expr = List [Expr]
           | Ternary Expr Expr Expr
           | Assign Expr Expr
@@ -46,3 +47,11 @@ data Expr = List [Expr]
           deriving (Show, Eq)
 
 
+
+data Associativity = LeftAssoc | RightAssoc
+
+data BOperator m = BOperator { associativity :: Associativity
+                             , operatorP       :: BOp
+                             , opParser        :: Parser m (Expr -> Expr -> Expr)
+                             , precedence      :: Int
+                             }

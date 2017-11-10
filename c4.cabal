@@ -13,7 +13,12 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Lib, Lexer, CLangDef, PrettyPrint, Types
+  exposed-modules:     Lib
+                     , Lexer
+                     , Parser
+                     , CLangDef
+                     , PrettyPrint
+                     , Types
   build-depends:       base >= 4.7 && < 5
                      , mtl
                      , transformers
