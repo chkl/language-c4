@@ -14,7 +14,7 @@ BinaryExpr  ::= UnaryExpr
 
 UnaryExpr   ::= 'UOp' UnaryExpr
               | 'sizedof' UnaryExpr
-              | PostExpr
+              | PostExpr'
 
 PostExpr    ::= PostExpr '[' Expr ']'
               | PostExpr '(' ')'
