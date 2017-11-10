@@ -9,6 +9,8 @@ module Lexer ( ErrorMsg(..)
              , charConstant
              , integerConstant
              , stringLexeme
+             , stringLiteral
+             , punctuator
              ) where
 
 import           Control.Monad              (void)
