@@ -27,5 +27,30 @@ PrimaryExpr ::= identifer
               | constant
               | string-literal
               | '(' Expr ')'
+
+Declarations:
+
+Declaration ::= TypeSpec (IntDec)*
+
+TypeSpec ::= 'void'
+           | 'char'
+           | 'int'
+
+IntDec ::= Dec | Dec '=' Initializer
+
+Initializer ::= AssignExpr
+              | '{' (Initializer)+ ','? '}'
+Dec ::=  '*'+  DirectDec
+
+DirectDec ::= identifier
+            | '(' Dec ')'
+            | DirectDec '(' (ParamDec)* ')'
+ParamDec ::=  TypeSpec Dec
+           | TypeSpec AbstDec?
+
+AbstDec ::= (*)+ '(' AbstDec ')'
+          | (AbstDec)? '[' 'static'? AssignExpr ']'
+          | (AbstDec)? '['*']'
+          | (AbstDec)? '(' ParamDec* ')'
                         
 
