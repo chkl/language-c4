@@ -25,7 +25,7 @@ data CToken = Keyword ByteString
            deriving (Show, Eq)
 
 data BOp = Mult | Plus | Minus | LessThan | EqualsEquals
-         | NotEqual | LAnd | LOr | FieldAccess | PointerAccess
+         | NotEqual | LAnd | LOr 
          deriving (Show, Eq)
 
 data UOp = SizeOf | Address | Deref | Neg | Not
@@ -39,10 +39,12 @@ data Expr = List [Expr]
           | Assign Expr Expr
           | BExpr BOp Expr Expr
           | UExpr UOp Expr
-          | Array Expr [Expr]
-          | Func Expr [Expr]
+          | Array Expr Expr
+          | Func Expr Expr
           | ExprIdent ByteString
           | Constant ByteString
+          | FieldAccess Expr Expr
+          | PointerAccess Expr Expr
           | StringLiteral ByteString
           deriving (Show, Eq)
 
@@ -53,15 +55,15 @@ data Declaration = Declaration Type (Either Dec InitializedDec)
 data Type = Void | Char | Int
 
 -- | first parameter is the number of stars
-data Dec = Dec Pointers [DirectDec] (Maybe [Parameters])
+data Dec = Dec Pointers [Dec] (Maybe [Parameter])
 
-data InitializedDec = InitializedDec Dec [AssignExpr]
+data InitializedDec = InitializedDec Dec [Expr]
 
 data Parameter =  Parameter Type Dec
                |  ParameterAbstract Type (Maybe AbstractDec)
 
 data AbstractDec = AbstractDecPointed Pointers AbstractDec
-                 | AbstractDecStaticExpr (Maybe AbstractDec) AssignExpr
+                 | AbstractDecStaticExpr (Maybe AbstractDec) Expr
                  | AbstractDecExpr (Maybe AbstractDec)
                  | AbstractDecParam (Maybe AbstractDec) [Parameter]
 
