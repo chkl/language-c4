@@ -21,28 +21,102 @@ import           CLangDef                   (w)
 import qualified Lexer                      as L
 import           Types
 
+--------------------------------------------------------------------------------
+-- PrimaryExpr Parsers
+--------------------------------------------------------------------------------
+
 identifier :: Parser m Expr
 identifier = ExprIdent <$> L.identifier
 
-constP :: Parser m Expr
-constP = Constant <$> (L.integerConstant <|> L.charConstant)
+constant :: Parser m Expr
+constant = Constant <$> (L.integerConstant <|> L.charConstant)
 
--- stringP :: Parser m Expr
--- stringP = StringExpr <$> stringLiteral
+stringLit :: Parser m Expr
+stringLit = StringLiteral <$> L.stringLiteral
 
-parenExprP :: Parser m Expr
-parenExprP = do
+parenExpr :: Parser m Expr
+parenExpr = do
   char $ w '('
-  expr <- exprP
+  expr <- expression
   char $ w ')'
   return expr
 
--- pExprP :: Parser m Expr
--- pExprP = identP <|>  constP <|> stringP <|> parenExprP
+primaryExpr :: Parser m Expr
+primaryExpr = identifier <|>  constant <|> stringLit <|> parenExpr
 
-exprP :: Parser m Expr
-exprP = undefined
+--------------------------------------------------------------------------------
+-- PostExpr Parsers
+--------------------------------------------------------------------------------
+firstPostExpr :: Parser m Expr
+firstPostExpr = do
+  primary <- primaryExpr
+  expr    <- postExpr' primary
+  return expr
 
+postExpr':: Expr -> Parser m Expr
+postExpr' identExpr= do
+  p <- L.punctuator
+  case p of
+    "["  -> expression >>= (\expr -> L.stringLexeme "]" >> return (Array identExpr expr))
+    "."  -> identifier >>= (\ident -> return (FieldAccess identExpr ident))
+    "->" -> identifier >>= (\ident -> return (PointerAccess identExpr ident))
+    "("  -> ((L.stringLexeme ")" >> return (Func identExpr (List [])))
+            <|> (expression >>= (\expr -> L.stringLexeme ")" >> return (Func identExpr expr))))
+    _    -> fail "not a post expr"
+
+postExprNext :: Expr -> Parser m Expr
+postExprNext expr = rest expr
+    where rest e = do nextE <- postExpr' e
+                      rest nextE <|> return nextE
+
+postExpr2 :: Parser m Expr
+postExpr2 = do
+  expr <- firstPostExpr
+  postExprNext expr <|> return expr
+
+-- TODO: investigate the use of "try" here. Should only use a lookahead of 2. 
+-- This actually needs a lookahead of 3--but can fix by simply always
+-- calling "primaryExpr" first, since both firstPostExpr and postExpr2
+-- call primaryExpr first. 
+postExpr :: Parser m Expr
+postExpr =  try postExpr2 <|> try firstPostExpr <|> primaryExpr
+
+--------------------------------------------------------------------------------
+-- UnaryExpr Parsers
+--------------------------------------------------------------------------------
+uOp :: Parser m ByteString
+uOp = L.stringLexeme "sizedof"
+      <|> L.stringLexeme "&"
+      <|> L.stringLexeme "*"
+      <|> L.stringLexeme "-"
+      <|> L.stringLexeme "!"
+
+unary' :: ByteString -> Expr -> Parser m Expr
+unary' uop expr = do
+  case uop of
+   "sizeof" -> return $ UExpr SizeOf expr
+   "&"      -> return $ UExpr Address expr
+   "*"      -> return $ UExpr Deref expr
+   "-"      -> return $ UExpr Neg expr
+   "!"      -> return $ UExpr Not expr
+
+unaryOp1 :: Parser m Expr
+unaryOp1 = scan
+  where scan = uOp >>= rest
+        rest op = (do expr <- scan
+                      newExpr <- unary' op expr
+                      return newExpr)
+                  <|> (do expr <- postExpr
+                          newExpr <- unary' op expr
+                          return newExpr)
+
+-- TODO: investigate the use of "try" here. Should only use a lookahead of 2. 
+unaryOp :: Parser m Expr
+unaryOp = try unaryOp1 <|> postExpr
+
+--------------------------------------------------------------------------------
+-- BinaryExpr Parsers
+--------------------------------------------------------------------------------
 plusOp :: Parser m (Expr -> Expr -> Expr)
 plusOp =  char (w '+') >> return (BExpr Plus)
 
@@ -54,7 +128,7 @@ chainr1 p op = do
         y <- chainr1 p op
         return $ x `o` y
   recurse <|> return x
-
+ 
 -- TODO: rewrite this
 chainl1 :: Parser m a -> Parser m (a -> a -> a) -> Parser m a
 chainl1 p op = p >>= rest
@@ -62,10 +136,6 @@ chainl1 p op = p >>= rest
                     y <- p
                     rest (f x y)
                  <|> return x
-
-unaryOp :: Parser m Expr
-unaryOp = identifier
-
 
 binaryOp :: Parser m Expr
 binaryOp =  binaryOp' operators
@@ -89,3 +159,16 @@ operators = groupBy eqPrec $  (sortBy (flip $ comparing precedence)) $
             ]
   where eqPrec o1 o2 = precedence o1 == precedence o2
 
+
+--------------------------------------------------------------------------------
+-- TernaryExpr Parsers
+--------------------------------------------------------------------------------
+ternary :: Parser m Expr
+ternary = undefined
+  
+
+--------------------------------------------------------------------------------
+-- Expr Parsers
+--------------------------------------------------------------------------------
+expression :: Parser m Expr
+expression = undefined

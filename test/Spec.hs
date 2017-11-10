@@ -148,6 +148,14 @@ unitTests =
       MP.runParser binaryOp "test.c" "x + y + z" `shouldBe` (Right $ ExprIdent "x" `plus` ExprIdent "y" `plus` ExprIdent "z")
       MP.runParser binaryOp "test.c" "x + y * z" `shouldBe` (Right $ ExprIdent "x" `plus` (ExprIdent "y" `mult` ExprIdent "z"))
 
+    it "should parse field access" $ do
+      MP.runParser postExpr "test.c" "x.foo" `shouldBe` (Right (FieldAccess (ExprIdent "x") (ExprIdent "foo")))
+
+    it "should parse field access 2" $ do
+      MP.runParser postExpr "test.c" "x.y.z.foo" `shouldBe` (Right (FieldAccess (FieldAccess (
+                                                             FieldAccess (ExprIdent "x") (ExprIdent "y")) (ExprIdent "z"))
+                                                             (ExprIdent "foo")))
 
 plus = BExpr Plus
 mult = BExpr Mult
+  
