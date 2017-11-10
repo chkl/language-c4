@@ -29,11 +29,12 @@ data BOp = Mult | Plus | Minus | LessThan | EqualsEquals
          deriving (Show, Eq)
 
 data UOp = SizeOf | Address | Deref | Neg | Not
-  deriving (Show, Eq)
+         deriving (Show, Eq)
 
 type Ident = ByteString
 
-data Expr = Multi [Expr]
+
+data Expr = List [Expr]
           | Ternary Expr Expr Expr
           | Assign Expr Expr
           | BExpr BOp Expr Expr
@@ -46,3 +47,11 @@ data Expr = Multi [Expr]
           deriving (Show, Eq)
 
 
+
+data Associativity = LeftAssoc | RightAssoc
+
+data BOperator m = BOperator { associativity :: Associativity
+                             , operatorP       :: BOp
+                             , opParser        :: Parser m (Expr -> Expr -> Expr)
+                             , precedence      :: Int
+                             }

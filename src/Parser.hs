@@ -1,4 +1,4 @@
-
+{-# LANGUAGE OverloadedStrings #-}
 
 module Parser where
 
@@ -9,6 +9,8 @@ import           Data.ByteString.Lazy       (ByteString)
 import qualified Data.ByteString.Lazy       as BS
 import qualified Data.ByteString.Lazy.Char8 as C8
 import           Data.Foldable              (asum)
+import           Data.List                  (groupBy, sortBy)
+import           Data.Ord                   (comparing)
 import           System.IO
 import           Text.Megaparsec            hiding (ParseError)
 import           Text.Megaparsec.Byte
@@ -16,14 +18,14 @@ import qualified Text.Megaparsec.Byte.Lexer as L
 
 
 import           CLangDef                   (w)
-import           Lexer
+import qualified Lexer                      as L
 import           Types
 
-identP :: Parser m Expr
-identP = ExprIdent <$> identifier
+identifier :: Parser m Expr
+identifier = ExprIdent <$> L.identifier
 
 constP :: Parser m Expr
-constP = Constant <$> (integerConstant <|> charConstant)
+constP = Constant <$> (L.integerConstant <|> L.charConstant)
 
 -- stringP :: Parser m Expr
 -- stringP = StringExpr <$> stringLiteral
@@ -44,8 +46,6 @@ exprP = undefined
 plusOp :: Parser m (Expr -> Expr -> Expr)
 plusOp =  char (w '+') >> return (BExpr Plus)
 
--- just playing around with this
--- a = Expr
 chainr1 :: Parser m a -> Parser m (a -> a -> a) -> Parser m a
 chainr1 p op = do
   x <- p
@@ -55,6 +55,7 @@ chainr1 p op = do
         return $ x `o` y
   recurse <|> return x
 
+-- TODO: rewrite this
 chainl1 :: Parser m a -> Parser m (a -> a -> a) -> Parser m a
 chainl1 p op = p >>= rest
   where rest x = do f <- op
@@ -62,35 +63,29 @@ chainl1 p op = p >>= rest
                     rest (f x y)
                  <|> return x
 
-{-
-termOpP :: OpTable -> OpTable -> ReadP Term
-termOpP opTable restOpTable = do
-  case restOpTable of
-    OpTable [] -> baseP opTable
-    OpTable (opEntry:ops) ->
-        case opEntry of
-          (FNone, operators) -> chainl1 (termOpP opTable (OpTable ops)) (thisLevelP operators)
-          (FLeft, operators) -> chainl1 (termOpP opTable (OpTable ops)) (thisLevelP operators)
-          (FRight, operators) -> chainr1 (termOpP opTable (OpTable ops)) (thisLevelP operators)
-
-thisLevelP :: [String] -> ReadP (Term -> Term -> Term)
-thisLevelP operators = do
-    whitespaceP
-    op <- choice $ map string operators
-    case notValidOp op of
-      True -> pfail
-      False -> do whitespaceP
-                  let applyOp = \termL termR -> TFun op [termL, termR]
-                  return applyOp
-    where notValidOp op = (op == "=") ||
-                          (any (\c -> not (c `elem` ['!','@','#','+','-','*','/','\\','<','>','='])) op)
-
-opTable1 =  OpTable
-  [(FNone, ["<=", "<"]),
-   (FLeft, ["+", "-"]),
-   (FLeft, ["*"]),
-   (FRight, ["**"])]
+unaryOp :: Parser m Expr
+unaryOp = identifier
 
 
+binaryOp :: Parser m Expr
+binaryOp =  binaryOp' operators
 
--}
+binaryOp' :: [[BOperator m]]-> Parser m Expr
+binaryOp' [] = unaryOp
+binaryOp' (o:ops) =
+        case associativity (head o) of
+          LeftAssoc  -> chainl1 (binaryOp' ops) (eqPrecedence o)
+          RightAssoc -> chainr1 (binaryOp' ops) (eqPrecedence o)
+  where
+    eqPrecedence :: [BOperator m] -> Parser m (Expr -> Expr -> Expr)
+    eqPrecedence ops' = asum $ map opParser ops'
+
+
+operators :: [[BOperator m]]
+operators = groupBy eqPrec $  (sortBy (flip $ comparing precedence)) $
+            [ BOperator LeftAssoc Plus  (L.stringLexeme "+" >> return (BExpr Plus)) 4
+            , BOperator LeftAssoc Minus (L.stringLexeme "-" >> return (BExpr Minus)) 4
+            , BOperator LeftAssoc Mult (L.stringLexeme "*" >> return (BExpr Mult)) 2
+            ]
+  where eqPrec o1 o2 = precedence o1 == precedence o2
+

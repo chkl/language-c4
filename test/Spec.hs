@@ -6,10 +6,12 @@ import           System.Exit
 import           Test.Hspec
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import           Test.QuickCheck
+import qualified Text.Megaparsec       as MP
 import           Text.Megaparsec.Pos
 
 import           CLangDef
 import           Lexer                 hiding (runLexer_)
+import           Parser
 import           SpecQC
 import           Types
 
@@ -25,6 +27,9 @@ newPos' l c = SourcePos "test.c" (mkPos l) (mkPos c)
 
 isLeft :: Either a b -> Bool
 isLeft  = either (const True) (const False)
+
+isRight :: Either a b -> Bool
+isRight  = either (const False) (const True)
 --------------------------------------------------------------------------------
 
 
@@ -138,3 +143,11 @@ unitTests =
       runLexer_ "test /*\n\n*/" `shouldBe` Right [Identifier "test"]
         -- TODO
 
+
+    it "should parse expressions" $ do
+      MP.runParser binaryOp "test.c" "x + y + z" `shouldBe` (Right $ ExprIdent "x" `plus` ExprIdent "y" `plus` ExprIdent "z")
+      MP.runParser binaryOp "test.c" "x + y * z" `shouldBe` (Right $ ExprIdent "x" `plus` (ExprIdent "y" `mult` ExprIdent "z"))
+
+
+plus = BExpr Plus
+mult = BExpr Mult
