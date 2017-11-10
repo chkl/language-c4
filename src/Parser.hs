@@ -2,41 +2,65 @@
 
 module Parser where
 
-import Lexer
-import Types
+
 import           Control.Monad              (void)
 import           Control.Monad.Trans.Class
 import           Data.ByteString.Lazy       (ByteString)
 import qualified Data.ByteString.Lazy       as BS
-import qualified Data.ByteString.Lazy.Char8       as C8
+import qualified Data.ByteString.Lazy.Char8 as C8
 import           Data.Foldable              (asum)
+import           System.IO
 import           Text.Megaparsec            hiding (ParseError)
 import           Text.Megaparsec.Byte
 import qualified Text.Megaparsec.Byte.Lexer as L
-import System.IO
 
 
-identP :: Parser m PrimaryExpr
-identP = IdentifierExpr <$> identifier
+import           CLangDef                   (w)
+import           Lexer
+import           Types
 
-constP :: Parser m PrimaryExpr
-constP = ConstExpr <$> (integerConstant <|> charConstant)
+identP :: Parser m Expr
+identP = ExprIdent <$> identifier
 
-stringP :: Parser m PrimaryExpr
-stringP = StringExpr <$> stringLiteral 
+constP :: Parser m Expr
+constP = Constant <$> (integerConstant <|> charConstant)
 
-parenExprP :: Parser PrimaryExpr
+-- stringP :: Parser m Expr
+-- stringP = StringExpr <$> stringLiteral
+
+parenExprP :: Parser m Expr
 parenExprP = do
-  char '('
+  char $ w '('
   expr <- exprP
-  char ')'
-  return $ ParenExpr expr.
+  char $ w ')'
+  return expr
 
-pExprP :: Parser m PrimaryExpr
-pExprP = identP <|>  constP <|> stringP <|> parenExprP
+-- pExprP :: Parser m Expr
+-- pExprP = identP <|>  constP <|> stringP <|> parenExprP
 
 exprP :: Parser m Expr
 exprP = undefined
+
+plusOp :: Parser m (Expr -> Expr -> Expr)
+plusOp =  char (w '+') >> return (BExpr Plus)
+
+-- just playing around with this
+-- a = Expr
+chainr1 :: Parser m a -> Parser m (a -> a -> a) -> Parser m a
+chainr1 p op = do
+  x <- p
+  let recurse = do
+        o <- op
+        y <- chainr1 p op
+        return $ x `o` y
+  recurse <|> return x
+
+chainl1 :: Parser m a -> Parser m (a -> a -> a) -> Parser m a
+chainl1 p op = p >>= rest
+  where rest x = do f <- op
+                    y <- p
+                    rest (f x y)
+                 <|> return x
 
 {-
 termOpP :: OpTable -> OpTable -> ReadP Term

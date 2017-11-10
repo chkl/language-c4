@@ -5,6 +5,9 @@ module Lexer ( ErrorMsg(..)
              , ParseError
              , runLexer
              , runLexer_
+             , identifier
+             , charConstant
+             , integerConstant
              ) where
 
 import           Control.Monad              (void)

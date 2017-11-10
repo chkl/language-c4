@@ -26,12 +26,14 @@ data CToken = Keyword ByteString
 
 data BOp = Mult | Plus | Minus | LessThan | EqualsEquals
          | NotEqual | LAnd | LOr | FieldAccess | PointerAccess
+         deriving (Show, Eq)
 
-type UOp = SizeOf | Address | Deref | Neg | Not
+data UOp = SizeOf | Address | Deref | Neg | Not
+  deriving (Show, Eq)
 
 type Ident = ByteString
 
-data Expr = [Expr]
+data Expr = Multi [Expr]
           | Ternary Expr Expr Expr
           | Assign Expr Expr
           | BExpr BOp Expr Expr
