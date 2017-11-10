@@ -46,12 +46,42 @@ data Expr = List [Expr]
           | StringLiteral ByteString
           deriving (Show, Eq)
 
+type Pointers = Int
+
+data Declaration = Declaration Type (Either Dec InitializedDec)
+
+data Type = Void | Char | Int
+
+-- | first parameter is the number of stars
+data Dec = Dec Pointers [DirectDec] (Maybe [Parameters])
+
+data InitializedDec = InitializedDec Dec [AssignExpr]
+
+data Parameter =  Parameter Type Dec
+               |  ParameterAbstract Type (Maybe AbstractDec)
+
+data AbstractDec = AbstractDecPointed Pointers AbstractDec
+                 | AbstractDecStaticExpr (Maybe AbstractDec) AssignExpr
+                 | AbstractDecExpr (Maybe AbstractDec)
+                 | AbstractDecParam (Maybe AbstractDec) [Parameter]
+
+
+data Stmt = LabeledStmt Ident Stmt
+          | CompoundStmt [Either Declaration Stmt]
+          | ExpressionStmt (Maybe Expr)
+          | IfStmt Expr Stmt (Maybe Stmt)
+          | WhileStmt Expr Stmt
+          | Goto Ident
+          | Continue
+          | Break
+          | Return (Maybe Expr)
+
 
 
 data Associativity = LeftAssoc | RightAssoc
 
 data BOperator m = BOperator { associativity :: Associativity
-                             , operatorP       :: BOp
-                             , opParser        :: Parser m (Expr -> Expr -> Expr)
-                             , precedence      :: Int
+                             , operatorP     :: BOp
+                             , opParser      :: Parser m (Expr -> Expr -> Expr)
+                             , precedence    :: Int
                              }
