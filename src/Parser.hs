@@ -3,22 +3,16 @@
 module Parser where
 
 
-import           Control.Monad              (void)
-import           Control.Monad.Trans.Class
-import           Data.ByteString.Lazy       (ByteString)
-import qualified Data.ByteString.Lazy       as BS
-import qualified Data.ByteString.Lazy.Char8 as C8
-import           Data.Foldable              (asum)
-import           Data.List                  (groupBy, sortBy)
-import           Data.Ord                   (comparing)
-import           System.IO
-import           Text.Megaparsec            hiding (ParseError)
+import           Data.ByteString.Lazy (ByteString)
+import           Data.Foldable        (asum)
+import           Data.List            (groupBy, sortBy)
+import           Data.Ord             (comparing)
+import           Text.Megaparsec      hiding (ParseError)
 import           Text.Megaparsec.Byte
-import qualified Text.Megaparsec.Byte.Lexer as L
 
 
-import           CLangDef                   (w)
-import qualified Lexer                      as L
+import           CLangDef             (w)
+import qualified Lexer                as L
 import           Types
 
 --------------------------------------------------------------------------------
@@ -34,12 +28,15 @@ constant = Constant <$> (L.integerConstant <|> L.charConstant)
 stringLit :: Parser m Expr
 stringLit = StringLiteral <$> L.stringLiteral
 
+-- | TODO: `char` is the wrong parser because it does not take care of whitespaces.
+-- Use @symbol instead, or more high-level: parens instead.
 parenExpr :: Parser m Expr
-parenExpr = do
-  char $ w '('
-  expr <- expression
-  char $ w ')'
-  return expr
+parenExpr = L.parens expression
+-- parenExpr = do
+--   char $ w '('
+--   expr <- expression
+--   char $ w ')'
+--   return expr
 
 primaryExpr :: Parser m Expr
 primaryExpr = identifier <|>  constant <|> stringLit <|> parenExpr
@@ -74,10 +71,10 @@ postExpr2 = do
   expr <- firstPostExpr
   postExprNext expr <|> return expr
 
--- TODO: investigate the use of "try" here. Should only use a lookahead of 2. 
+-- TODO: investigate the use of "try" here. Should only use a lookahead of 2.
 -- This actually needs a lookahead of 3--but can fix by simply always
 -- calling "primaryExpr" first, since both firstPostExpr and postExpr2
--- call primaryExpr first. 
+-- call primaryExpr first.
 postExpr :: Parser m Expr
 postExpr =  try postExpr2 <|> try firstPostExpr <|> primaryExpr
 
@@ -85,7 +82,7 @@ postExpr =  try postExpr2 <|> try firstPostExpr <|> primaryExpr
 -- UnaryExpr Parsers
 --------------------------------------------------------------------------------
 uOp :: Parser m ByteString
-uOp = L.stringLexeme "sizedof"
+uOp = L.stringLexeme "sizeof"
       <|> L.stringLexeme "&"
       <|> L.stringLexeme "*"
       <|> L.stringLexeme "-"
@@ -110,7 +107,7 @@ unaryOp1 = scan
                           newExpr <- unary' op expr
                           return newExpr)
 
--- TODO: investigate the use of "try" here. Should only use a lookahead of 2. 
+-- TODO: investigate the use of "try" here. Should only use a lookahead of 2.
 unaryOp :: Parser m Expr
 unaryOp = try unaryOp1 <|> postExpr
 
@@ -128,7 +125,7 @@ chainr1 p op = do
         y <- chainr1 p op
         return $ x `o` y
   recurse <|> return x
- 
+
 -- TODO: rewrite this
 chainl1 :: Parser m a -> Parser m (a -> a -> a) -> Parser m a
 chainl1 p op = p >>= rest
@@ -165,10 +162,29 @@ operators = groupBy eqPrec $  (sortBy (flip $ comparing precedence)) $
 --------------------------------------------------------------------------------
 ternary :: Parser m Expr
 ternary = undefined
-  
+
 
 --------------------------------------------------------------------------------
 -- Expr Parsers
 --------------------------------------------------------------------------------
 expression :: Parser m Expr
 expression = undefined
+
+--------------------------------------------------------------------------------
+-- Declaration Parsers
+--------------------------------------------------------------------------------
+typeSpecifier :: Parser m Type
+typeSpecifier =  L.keyword "void"    >> return Void  <|>
+                (L.keyword "char"    >> return Char) <|>
+                (L.keyword "int"     >> return Int)  <|>
+                (L.keyword "struct"  >> structSpecifier)
+
+structSpecifier :: Parser m Type
+structSpecifier = try structIdentifier <|> try structInline
+  where
+    structIdentifier = StructIdentifier <$> L.identifier
+    structInline = StructInline <$> optional L.identifier <*> L.braces structDeclarationList
+    structDeclarationList = L.semicolSep structDeclaration
+
+structDeclaration :: Parser m StructDeclaration
+structDeclaration = undefined

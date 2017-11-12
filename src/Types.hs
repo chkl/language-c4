@@ -25,7 +25,7 @@ data CToken = Keyword ByteString
            deriving (Show, Eq)
 
 data BOp = Mult | Plus | Minus | LessThan | EqualsEquals
-         | NotEqual | LAnd | LOr 
+         | NotEqual | LAnd | LOr
          deriving (Show, Eq)
 
 data UOp = SizeOf | Address | Deref | Neg | Not
@@ -48,11 +48,21 @@ data Expr = List [Expr]
           | StringLiteral ByteString
           deriving (Show, Eq)
 
+
+--------------------------------------------------------------------------------
+-- Declarations
+--------------------------------------------------------------------------------
 type Pointers = Int
 
 data Declaration = Declaration Type (Either Dec InitializedDec)
 
-data Type = Void | Char | Int
+data Type = Void
+          | Char
+          | Int
+          | StructIdentifier Ident -- is this Expr?
+          | StructInline (Maybe Ident) [StructDeclaration]
+
+data StructDeclaration
 
 -- | first parameter is the number of stars
 data Dec = Dec Pointers [Dec] (Maybe [Parameter])
@@ -66,6 +76,10 @@ data AbstractDec = AbstractDecPointed Pointers AbstractDec
                  | AbstractDecStaticExpr (Maybe AbstractDec) Expr
                  | AbstractDecExpr (Maybe AbstractDec)
                  | AbstractDecParam (Maybe AbstractDec) [Parameter]
+
+--------------------------------------------------------------------------------
+-- Statements
+--------------------------------------------------------------------------------
 
 
 data Stmt = LabeledStmt Ident Stmt

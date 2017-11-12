@@ -9,8 +9,15 @@ module Lexer ( ErrorMsg(..)
              , charConstant
              , integerConstant
              , stringLexeme
+             , keyword
+             , anyKeyword
              , stringLiteral
              , punctuator
+             , parens
+             , braces
+             , brackets
+             , commaSep
+             , semicolSep
              ) where
 
 import           Control.Monad              (void)
@@ -24,7 +31,7 @@ import           Data.Monoid                ((<>))
 import           System.IO
 import           Text.Megaparsec            hiding (ParseError)
 import           Text.Megaparsec.Byte
-import qualified Text.Megaparsec.Byte.Lexer as L
+import qualified Text.Megaparsec.Byte.Lexer as MBL
 
 
 
@@ -35,11 +42,11 @@ import           Types
 
 -- | "space consumer"
 sc :: Parser m ()
-sc = L.space space1 lineCmnt blockCmnt
+sc = MBL.space space1 lineCmnt blockCmnt
   where
 --    lineCmnt  = L.skipLineComment "//"
     lineCmnt  =  lineCmntC
-    blockCmnt = L.skipBlockComment "/*" "*/"
+    blockCmnt = MBL.skipBlockComment "/*" "*/"
 
 
 lineCmntC :: Parser m ()
@@ -57,10 +64,29 @@ lineCmntC = do
 -- megaparsec.
 
 lexeme :: Parser m a -> Parser m a
-lexeme = L.lexeme sc
+lexeme = MBL.lexeme sc
+
+symbol :: ByteString -> Parser m ByteString
+symbol = MBL.symbol sc
+
+parens :: Parser m a -> Parser m a
+parens    = between (symbol "(") (symbol ")")
+
+braces :: Parser m a -> Parser m a
+braces    = between (symbol "{") (symbol "}")
+
+brackets :: Parser m a -> Parser m a
+brackets  = between (symbol "[") (symbol "]")
+
+commaSep :: Parser m a -> Parser m [a]
+commaSep p = p `sepBy` symbol ","
+
+
+semicolSep :: Parser m a -> Parser m [a]
+semicolSep p = p `sepBy` symbol ";"
 
 integer :: Parser m Integer
-integer = lexeme L.decimal
+integer = lexeme MBL.decimal
 
 integerConstant :: Parser m ByteString
 integerConstant = lexeme $ (C8.pack . show) <$> integer -- TODO: improve this
@@ -112,25 +138,31 @@ identifier = lexeme $ try $ do
   then fail "not an identifier"
   else return name
 
-keyword :: Parser m ByteString
-keyword = lexeme $ try $ do
+anyKeyword :: Parser m ByteString
+anyKeyword = lexeme $ try $ do
   name <- identifierOrKeyword
   if name `elem` allCKeywords
   then return name
   else fail "not a keyword"
 
+
+
 punctuator :: Parser m ByteString
 punctuator = lexeme $ asum $ map string allCPunctuators
 
+{-# DEPRECATED stringLexeme "Use @keyword or @identifier instead" #-}
 stringLexeme :: ByteString -> Parser m ByteString
 stringLexeme = lexeme . string
+
+keyword :: ByteString -> Parser m ByteString
+keyword = stringLexeme
 
 cToken :: Parser m CToken
 cToken = DecConstant <$> integerConstant <|>
          CharConstant <$> charConstant <|>
          StringLit <$> stringLiteral <|>
          Identifier <$> identifier <|>
-         Keyword <$> keyword <|>
+         Keyword <$> anyKeyword <|>
          Punctuator <$> punctuator
 
 -- " parses a cToken and immediately outputs it in IO and discards the result"
@@ -139,7 +171,7 @@ cToken_ =  do
       p <- getPosition
       msg <- (charConstant     >>= \s -> return $ "constant " <> s) <|>
              (integerConstant  >>= \s -> return $ "constant " <> s)  <|>
-             (keyword          >>= \s -> return $ "keyword " <> s)  <|>
+             (anyKeyword          >>= \s -> return $ "keyword " <> s)  <|>
              (identifier       >>= \s -> return $ "identifier " <> s)  <|>
              (stringLiteral    >>= \s -> return $ "string-literal " <> s)  <|>
              (punctuator       >>= \s -> return $ "punctuator " <> s)
