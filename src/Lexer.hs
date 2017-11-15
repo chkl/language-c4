@@ -12,12 +12,14 @@ module Lexer ( ErrorMsg(..)
              , keyword
              , anyKeyword
              , stringLiteral
+             , anyPunctuator
              , punctuator
              , parens
              , braces
              , brackets
              , commaSep
              , semicolSep
+             , comma
              ) where
 
 import           Control.Monad              (void)
@@ -79,8 +81,10 @@ brackets :: Parser m a -> Parser m a
 brackets  = between (symbol "[") (symbol "]")
 
 commaSep :: Parser m a -> Parser m [a]
-commaSep p = p `sepBy` symbol ","
+commaSep p = p `sepBy` comma
 
+comma :: Parser m ()
+comma = void (symbol ",")
 
 semicolSep :: Parser m a -> Parser m [a]
 semicolSep p = p `sepBy` symbol ";"
@@ -145,17 +149,18 @@ anyKeyword = lexeme $ try $ do
   then return name
   else fail "not a keyword"
 
-
-
-punctuator :: Parser m ByteString
-punctuator = lexeme $ asum $ map string allCPunctuators
+anyPunctuator :: Parser m ByteString
+anyPunctuator = lexeme $ asum $ map string allCPunctuators
 
 {-# DEPRECATED stringLexeme "Use @keyword or @identifier instead" #-}
 stringLexeme :: ByteString -> Parser m ByteString
 stringLexeme = lexeme . string
 
 keyword :: ByteString -> Parser m ByteString
-keyword = stringLexeme
+keyword s = try $ lexeme $ string s
+
+punctuator :: ByteString -> Parser m ByteString
+punctuator = lexeme . string
 
 cToken :: Parser m CToken
 cToken = DecConstant <$> integerConstant <|>
@@ -163,7 +168,7 @@ cToken = DecConstant <$> integerConstant <|>
          StringLit <$> stringLiteral <|>
          Identifier <$> identifier <|>
          Keyword <$> anyKeyword <|>
-         Punctuator <$> punctuator
+         Punctuator <$> anyPunctuator
 
 -- " parses a cToken and immediately outputs it in IO and discards the result"
 cToken_ :: Parser IO ()
@@ -171,10 +176,10 @@ cToken_ =  do
       p <- getPosition
       msg <- (charConstant     >>= \s -> return $ "constant " <> s) <|>
              (integerConstant  >>= \s -> return $ "constant " <> s)  <|>
-             (anyKeyword          >>= \s -> return $ "keyword " <> s)  <|>
+             (anyKeyword       >>= \s -> return $ "keyword " <> s)  <|>
              (identifier       >>= \s -> return $ "identifier " <> s)  <|>
              (stringLiteral    >>= \s -> return $ "string-literal " <> s)  <|>
-             (punctuator       >>= \s -> return $ "punctuator " <> s)
+             (anyPunctuator       >>= \s -> return $ "punctuator " <> s)
       lift $ C8.putStr (prettyPrintPos p)
       lift $ C8.putStr ": "
       lift $ C8.putStrLn msg

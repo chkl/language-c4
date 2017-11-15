@@ -52,7 +52,7 @@ firstPostExpr = do
 
 postExpr':: Expr -> Parser m Expr
 postExpr' identExpr= do
-  p <- L.punctuator
+  p <- L.anyPunctuator
   case p of
     "["  -> expression >>= (\expr -> L.stringLexeme "]" >> return (Array identExpr expr))
     "."  -> identifier >>= (\ident -> return (FieldAccess identExpr ident))
@@ -77,6 +77,7 @@ postExpr2 = do
 -- call primaryExpr first.
 postExpr :: Parser m Expr
 postExpr =  try postExpr2 <|> try firstPostExpr <|> primaryExpr
+
 
 --------------------------------------------------------------------------------
 -- UnaryExpr Parsers
@@ -166,25 +167,64 @@ ternary = undefined
 
 --------------------------------------------------------------------------------
 -- Expr Parsers
---------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 expression :: Parser m Expr
 expression = undefined
+
+assignmentExpr :: Parser m Expr
+assignmentExpr = L.stringLexeme "assign" >> return (List []) -- just for testing. TODO: Replace with working code
 
 --------------------------------------------------------------------------------
 -- Declaration Parsers
 --------------------------------------------------------------------------------
 typeSpecifier :: Parser m Type
-typeSpecifier =  L.keyword "void"    >> return Void  <|>
+typeSpecifier = (L.keyword "void"    >> return Void)  <|>
                 (L.keyword "char"    >> return Char) <|>
                 (L.keyword "int"     >> return Int)  <|>
                 (L.keyword "struct"  >> structSpecifier)
 
 structSpecifier :: Parser m Type
-structSpecifier = try structIdentifier <|> try structInline
+structSpecifier = try structInline <|> try structIdentifier
   where
     structIdentifier = StructIdentifier <$> L.identifier
     structInline = StructInline <$> optional L.identifier <*> L.braces structDeclarationList
-    structDeclarationList = L.semicolSep structDeclaration
+    structDeclarationList = many structDeclaration
 
 structDeclaration :: Parser m StructDeclaration
-structDeclaration = undefined
+structDeclaration = StructDeclaration <$> typeSpecifier <*> L.commaSep declarator <* L.punctuator ";"
+
+declarator :: Parser m Declarator
+declarator = do
+  pts <- many $ L.punctuator "*"
+  Declarator (length pts) <$> directDeclarator
+
+
+directDeclarator :: Parser m DirectDeclarator
+directDeclarator = try pId <|>  pParent
+  where
+    pId = DirectDeclaratorId <$> L.identifier <*> many parameterList
+    pParent = DirectDeclaratorParens <$> L.parens declarator <*> many parameterList
+
+
+declaration :: Parser m Declaration
+declaration = Declaration <$> typeSpecifier  <*>  initDeclaratorList <* L.punctuator ";"
+  where initDeclaratorList = L.commaSep initDeclarator
+
+initDeclarator :: Parser m InitDeclarator
+initDeclarator = do
+  d <- declarator
+  ini <- optional $ L.punctuator "=" >> initializer -- this is simplified (not spec)
+  return $ InitializedDec d ini
+
+initializer :: Parser m Initializer
+initializer = InitializerList <$> initList <|>
+              InitializerAssignment <$> assignmentExpr
+  where
+    initList = L.braces (L.commaSep initializer <* optional L.comma)
+
+
+parameterList :: Parser m [Parameter]
+parameterList = L.parens $ L.commaSep parameterDeclaration
+
+parameterDeclaration :: Parser m Parameter
+parameterDeclaration = Parameter <$> typeSpecifier <*> declarator

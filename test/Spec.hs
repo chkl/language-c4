@@ -1,6 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies      #-}
+
 import           Control.Monad
 import qualified Data.ByteString.Lazy  as BS
+import           Data.Functor.Identity
+import           Data.Word             (Word8)
 import           System.Environment
 import           System.Exit
 import           Test.Hspec
@@ -12,6 +16,7 @@ import           Text.Megaparsec.Pos
 import           CLangDef
 import           Lexer                 hiding (runLexer_)
 import           Parser
+import           PrettyPrint           (myParseErrorPretty)
 import           SpecQC
 import           Types
 
@@ -50,7 +55,8 @@ generateSampleFile = do
 -- | run both, quickcheck and unit test based tests
 runTests :: IO ()
 runTests = hspec $ do
-    unitTests
+    unitTestsLexer
+    unitTestsParser
     qcBasedTests
 
 
@@ -60,8 +66,8 @@ qcBasedTests = describe "QuickCheck" $
     it "generated files" $ property prop_genCFile
     it "all keywords"    $ property prop_genKeyword
 
-unitTests :: SpecWith ()
-unitTests =
+unitTestsLexer :: SpecWith ()
+unitTestsLexer =
   describe "Lexer unit tests" $ do
     it "should parse a single operator '+'" $ do
       runLexer' "+"     `shouldBe` Right [(Punctuator "+", newPos' 1 1)]
@@ -155,7 +161,58 @@ unitTests =
       MP.runParser postExpr "test.c" "x.y.z.foo" `shouldBe` (Right (FieldAccess (FieldAccess (
                                                              FieldAccess (ExprIdent "x") (ExprIdent "y")) (ExprIdent "z"))
                                                              (ExprIdent "foo")))
+-- | like runParser but sets file name to "test.c" and renders the error message
+-- into a human-readable format
+testParser :: MP.Token s ~ Word8 =>  MP.Parsec ErrorMsg s a -> s -> Either String a
+testParser p i = pe $ MP.runParser p "test.c" i -- :: Either ParseError a
+  where
+    pe :: Either ParseError a -> Either String a
+    pe (Left err) = Left $ myParseErrorPretty err
+    pe (Right b)  = Right b
+
+unitTestsParser :: SpecWith ()
+unitTestsParser =
+  describe "`typeSpecifier`" $ do
+    it "parse primitive types correctly" $ do
+      testParser typeSpecifier "void" `shouldBe` Right Void
+      testParser typeSpecifier "char" `shouldBe` Right Char
+      testParser typeSpecifier "int" `shouldBe` Right Int
+
+    it "parse simple struct definition" $ do
+      testParser typeSpecifier "struct A" `shouldBe` Right (StructIdentifier "A")
+      testParser typeSpecifier "struct A {}" `shouldBe` Right (StructInline (Just "A") [])
+--      testParser typeSpecifier "struct A {int foo;}" `shouldBe`
+--        Right (StructInline (Just "A") [StructDeclaration Int [Declarator 0 $ DirectDeclaratorId "foo" []]])
+
+
+    it "parses declarators" $ do
+      testParser declarator "x" `shouldBe` Right  (Declarator 0 $ DirectDeclaratorId "x" [])
+      testParser declarator "*x" `shouldBe` Right  (Declarator 1 $ DirectDeclaratorId "x" [])
+      testParser declarator "**x" `shouldBe` Right  (Declarator 2 $ DirectDeclaratorId "x" [])
+
+    it "parses struct declarations" $ do
+      testParser structDeclaration "int;" `shouldBe`
+        Right  (StructDeclaration Int [])
+
+      testParser structDeclaration "int x;" `shouldBe`
+        Right  (StructDeclaration Int [ Declarator 0 (DirectDeclaratorId "x" [])])
+
+      testParser structDeclaration "int x,y;" `shouldBe`
+        Right  (StructDeclaration Int [ Declarator 0 (DirectDeclaratorId "x" [])
+                                      , Declarator 0 (DirectDeclaratorId "y" [])
+                                      ])
+
+      testParser structDeclaration "int x,*y;" `shouldBe`
+        Right  (StructDeclaration Int [ Declarator 0 (DirectDeclaratorId "x" [])
+                                      , Declarator 1 (DirectDeclaratorId "y" [])
+                                      ])
+
+      testParser structDeclaration "int x,*y;" `shouldBe`
+        Right  (StructDeclaration Int [ Declarator 0 (DirectDeclaratorId "x" [])
+                                      , Declarator 1 (DirectDeclaratorId "y" [])
+                                      ])
+
+
 
 plus = BExpr Plus
 mult = BExpr Mult
-  
