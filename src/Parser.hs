@@ -16,6 +16,20 @@ import qualified Lexer                as L
 import           Types
 
 --------------------------------------------------------------------------------
+-- Root Parsers
+--------------------------------------------------------------------------------
+
+translationUnit :: Parser m [ExternalDeclaration]
+translationUnit = many externalDeclaration
+
+externalDeclaration :: Parser m ExternalDeclaration
+externalDeclaration = try (ExtDeclarationFunction <$> functionDefinition) <|>
+                      ExtDeclarationDeclaration <$> declaration
+
+functionDefinition :: Parser m FunctionDefinition
+functionDefinition = FunctionDefinition <$> typeSpecifier <*> declarator <*> compoundStatement
+
+--------------------------------------------------------------------------------
 -- PrimaryExpr Parsers
 --------------------------------------------------------------------------------
 
@@ -153,7 +167,7 @@ operators :: [[BOperator m]]
 operators = groupBy eqPrec $  (sortBy (flip $ comparing precedence)) $
             [ BOperator LeftAssoc Plus  (L.stringLexeme "+" >> return (BExpr Plus)) 4
             , BOperator LeftAssoc Minus (L.stringLexeme "-" >> return (BExpr Minus)) 4
-            , BOperator LeftAssoc Mult (L.stringLexeme "*" >> return (BExpr Mult)) 2
+            , BOperator LeftAssoc Mult  (L.stringLexeme "*" >> return (BExpr Mult)) 2
             ]
   where eqPrec o1 o2 = precedence o1 == precedence o2
 
@@ -173,6 +187,16 @@ expression = undefined
 
 assignmentExpr :: Parser m Expr
 assignmentExpr = L.stringLexeme "assign" >> return (List []) -- just for testing. TODO: Replace with working code
+
+--------------------------------------------------------------------------------
+-- Statement Parsers
+--------------------------------------------------------------------------------
+
+statement :: Parser m Stmt
+statement = undefined
+
+compoundStatement :: Parser m Stmt
+compoundStatement = undefined
 
 --------------------------------------------------------------------------------
 -- Declaration Parsers

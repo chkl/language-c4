@@ -16,6 +16,19 @@ type ParseError = E.ParseError Word8 ErrorMsg
 
 type Parser m a = ParsecT ErrorMsg ByteString m a
 
+--------------------------------------------------------------------------------
+-- Root / Translation Units
+--------------------------------------------------------------------------------
+
+data FunctionDefinition = FunctionDefinition Type Declarator Stmt
+                        deriving (Show, Eq)
+
+data ExternalDeclaration = ExtDeclarationFunction FunctionDefinition
+                         | ExtDeclarationDeclaration Declaration
+                         deriving (Show, Eq)
+--------------------------------------------------------------------------------
+-- Expressions
+--------------------------------------------------------------------------------
 data CToken = Keyword ByteString
             | Identifier ByteString
             | DecConstant ByteString
