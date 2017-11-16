@@ -87,3 +87,7 @@ testTypeSpecifier = describe "`typeSpecifier`" $ do
 testStatements = describe "statements" $ do
   it "parses a labeled statement" $ do
       testParser statement "break;" `shouldBe` Right Break
+      testParser statement "continue;" `shouldBe` Right Continue
+      testParser statement "goto testlabel;" `shouldBe` Right (Goto "testlabel")
+      testParser statement "return;" `shouldBe` Right Return
+--    testParser statement "return 1;" `shouldBe` Right (Return 1) 
