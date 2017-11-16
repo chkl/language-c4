@@ -85,11 +85,11 @@ postExpr =  try postExpr' <|> primaryExpr
 -- UnaryExpr Parsers
 --------------------------------------------------------------------------------
 uOp :: Parser m UOp
-uOp = (L.keyword "sizeof" >> return SizeOf) <|>
-      (L.punctuator "&" >> return Address) <|>
-      (L.punctuator "*" >> return Deref) <|>
-      (L.punctuator "-" >> return Neg) <|>
-      (L.punctuator "!" >> return Not)
+uOp = (L.keyword "sizeof" >> return SizeOf)  <|>
+      (L.punctuator "&"   >> return Address) <|>
+      (L.punctuator "*"   >> return Deref)   <|>
+      (L.punctuator "-"   >> return Neg)     <|>
+      (L.punctuator "!"   >> return Not)
 
 unaryOp :: Parser m Expr
 unaryOp = UExpr <$> uOp <*> unaryExpr
