@@ -42,15 +42,8 @@ constant = Constant <$> (L.integerConstant <|> L.charConstant)
 stringLit :: Parser m Expr
 stringLit = StringLiteral <$> L.stringLiteral
 
--- | TODO: `char` is the wrong parser because it does not take care of whitespaces.
--- Use @symbol instead, or more high-level: parens instead.
 parenExpr :: Parser m Expr
 parenExpr = L.parens expression
--- parenExpr = do
---   char $ w '('
---   expr <- expression
---   char $ w ')'
---   return expr
 
 primaryExpr :: Parser m Expr
 primaryExpr = identifier <|>  constant <|> stringLit <|> parenExpr
@@ -59,13 +52,10 @@ primaryExpr = identifier <|>  constant <|> stringLit <|> parenExpr
 -- PostExpr Parsers
 --------------------------------------------------------------------------------
 firstPostExpr :: Parser m Expr
-firstPostExpr = do
-  primary <- primaryExpr
-  expr    <- postExpr' primary
-  return expr
+firstPostExpr = primaryExpr >>= postExpr'
 
 postExpr':: Expr -> Parser m Expr
-postExpr' identExpr= do
+postExpr' identExpr = do
   p <- L.anyPunctuator
   case p of
     "["  -> expression >>= (\expr -> L.stringLexeme "]" >> return (Array identExpr expr))
@@ -183,10 +173,27 @@ ternary = undefined
 -- Expr Parsers
 ------------------------------------------------------------------------------
 expression :: Parser m Expr
-expression = undefined
+expression = List <$> L.commaSep1 assignmentExpr -- yep, that's what the spec says
 
 assignmentExpr :: Parser m Expr
-assignmentExpr = L.stringLexeme "assign" >> return (List []) -- just for testing. TODO: Replace with working code
+assignmentExpr = conditionalExpression <|>
+  Assign <$> unaryOp <* L.punctuator "=" <*> assignmentExpr
+
+-- | writing this monadically is better than using alternatives as this avoid
+-- very long backtracking for ternary operators.
+-- TODO: Maybe some kind of chainl/r would make this nicer too?
+conditionalExpression :: Parser m Expr
+conditionalExpression = do
+  x <- binaryOp
+  y <- optional $ do
+    L.punctuator "?"
+    e1 <- expression
+    L.punctuator ":"
+    e2 <- conditionalExpression
+    return (e1,e2)
+  case y of
+    Nothing -> return x
+    Just (e1,e2) -> return $ Ternary x e1 e2
 
 --------------------------------------------------------------------------------
 -- Statement Parsers
@@ -199,8 +206,8 @@ statement = ((L.keyword "break" >> return Break <* sem) <|>
             (L.keyword "goto" >> (Goto <$> L.identifier) <* sem) <|>
             (L.keyword "while" >> (WhileStmt <$> L.parens expression <*> statement)) <|>
             (L.keyword "if" >> (IfStmt <$> L.parens expression <*> statement <*> optional elseParser)) <|>
-            (ExpressionStmt <$> (optional expression) <* sem) <|>
-            (compoundStatement) <|>
+            (ExpressionStmt <$> optional expression <* sem) <|>
+            compoundStatement <|>
             (LabeledStmt <$> L.identifier <* L.punctuator ":" <*> statement))
   where
     sem = L.punctuator ";"

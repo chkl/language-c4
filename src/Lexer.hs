@@ -18,6 +18,7 @@ module Lexer ( ErrorMsg(..)
              , braces
              , brackets
              , commaSep
+             , commaSep1
              , semicolSep
              , comma
              ) where
@@ -82,6 +83,9 @@ brackets  = between (symbol "[") (symbol "]")
 
 commaSep :: Parser m a -> Parser m [a]
 commaSep p = p `sepBy` comma
+
+commaSep1 :: Parser m a -> Parser m [a]
+commaSep1 p = p `sepBy1` comma
 
 comma :: Parser m ()
 comma = void (symbol ",")

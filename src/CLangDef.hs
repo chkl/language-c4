@@ -7,7 +7,6 @@ import           Data.List            (sortBy)
 import           Data.Ord             (comparing)
 import           Data.Word            (Word8)
 
-import           Types
 
 -- | don't use this on dynamic data, it's only a partial function
 w :: Char -> Word8
