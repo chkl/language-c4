@@ -125,7 +125,6 @@ data Stmt = LabeledStmt Ident Stmt
           | Return (Maybe Expr)
   deriving (Show, Eq)
 
-
 data Associativity = LeftAssoc | RightAssoc
 
 data BOperator m = BOperator { associativity :: Associativity

@@ -3,7 +3,8 @@
 module Spec.Parser (
   unitTestsParser
                    ) where
-
+import           Data.ByteString.Lazy (ByteString)
+import           Data.Monoid          ((<>))
 import           Test.Hspec
 
 import           Parser
@@ -17,6 +18,7 @@ unitTestsParser = do
   testTypeSpecifier
   testExpressions
   testStatements
+  testTranslationUnit
 
 testTypeSpecifier :: SpecWith ()
 testTypeSpecifier = describe "typeSpecifier parser" $ do
@@ -108,3 +110,29 @@ testStatements = describe "statement parser" $
       testParser statement "goto testlabel;" `shouldBe` Right (Goto "testlabel")
       testParser statement "return;" `shouldBe` Right (Return Nothing)
       testParser statement "return 1;" `shouldBe` Right (Return (Just $ List [Constant "1"]))
+
+testTranslationUnit :: SpecWith ()
+testTranslationUnit = describe "translation unit parser" $
+  it "parses a minimal c file" $
+    testParser translationUnit (addFunctionCode <> simpleMainCode ) `shouldBe`
+      Right [ addFunction, simpleMain ]
+
+--------------------------------------------------------------------------------
+-- some sample definitions
+simpleMain :: ExternalDeclaration
+simpleMain = ExtDeclarationFunction ( FunctionDefinition Int ( Declarator 0 (DirectDeclaratorId "main" [[]]))
+                                       (CompoundStmt [Right (Return (Just (List [Constant "1"])))]))
+simpleMainCode :: ByteString
+simpleMainCode = "int main() { return 1;}"
+
+addFunction :: ExternalDeclaration
+addFunction = ExtDeclarationFunction ( FunctionDefinition Int (Declarator 0 (DirectDeclaratorId "add" pl )) stmt)
+  where
+    pl = [ [ Parameter Int (Declarator 0 (DirectDeclaratorId "x" []))
+                      , Parameter Int (Declarator 0 (DirectDeclaratorId "y" []))
+                      ]
+                    ]
+    stmt = CompoundStmt [Right (Return (Just (List [ExprIdent "x" `plus` ExprIdent "y"])))]
+
+addFunctionCode :: ByteString
+addFunctionCode  = "int add(int x, int y) { return x + y; }"
