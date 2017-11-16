@@ -15,6 +15,10 @@ import           CLangDef             (w)
 import qualified Lexer                as L
 import           Types
 
+
+runParser :: String -> ByteString -> Either ParseError [ExternalDeclaration]
+runParser = Text.Megaparsec.runParser translationUnit
+
 --------------------------------------------------------------------------------
 -- Root Parsers
 --------------------------------------------------------------------------------
