@@ -107,8 +107,8 @@ unitTestsLexer =
 
 
     it "should parse expressions" $ do
-      MP.runParser binaryOp "test.c" "x + y + z" `shouldBe` (Right $ ExprIdent "x" `plus` ExprIdent "y" `plus` ExprIdent "z")
-      MP.runParser binaryOp "test.c" "x + y * z" `shouldBe` (Right $ ExprIdent "x" `plus` (ExprIdent "y" `mult` ExprIdent "z"))
+      MP.runParser binaryExpr "test.c" "x + y + z" `shouldBe` (Right $ ExprIdent "x" `plus` ExprIdent "y" `plus` ExprIdent "z")
+      MP.runParser binaryExpr "test.c" "x + y * z" `shouldBe` (Right $ ExprIdent "x" `plus` (ExprIdent "y" `mult` ExprIdent "z"))
 
     it "should parse field access" $
       MP.runParser postExpr "test.c" "x.foo" `shouldBe` Right (FieldAccess (ExprIdent "x") (ExprIdent "foo"))

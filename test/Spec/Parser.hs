@@ -92,8 +92,8 @@ testExpressions = describe "expression parser" $ do
   it "parses simple binary operators" $ do
       testParser expression "5 + 4" `shouldBe` (Right $ List [BExpr Plus (Constant "5") (Constant "4")])
       testParser expression "5 + 2 * 4" `shouldBe` (Right $ List [BExpr Plus (Constant "5") (BExpr Mult (Constant "2") (Constant "4"))])
-      testParser binaryOp   "x + y + z" `shouldBe` (Right $ ExprIdent "x" `plus` ExprIdent "y" `plus` ExprIdent "z")
-      testParser binaryOp "x + y * z" `shouldBe` (Right $ ExprIdent "x" `plus` (ExprIdent "y" `mult` ExprIdent "z"))
+      testParser binaryExpr   "x + y + z" `shouldBe` (Right $ ExprIdent "x" `plus` ExprIdent "y" `plus` ExprIdent "z")
+      testParser binaryExpr "x + y * z" `shouldBe` (Right $ ExprIdent "x" `plus` (ExprIdent "y" `mult` ExprIdent "z"))
   it "should parse field access" $
       testParser postExpr "x.foo" `shouldBe` Right (FieldAccess (ExprIdent "x") (ExprIdent "foo"))
 
