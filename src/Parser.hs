@@ -80,17 +80,16 @@ postExpr =  try postExpr' <|> primaryExpr
 --------------------------------------------------------------------------------
 -- UnaryExpr Parsers
 --------------------------------------------------------------------------------
--- "sizedof" isn't a punctuator but need ByteString retun type
 uOp :: Parser m UOp
-uOp = do
-  op <- L.punctuator "sizeof" <|> L.punctuator "&" <|> L.punctuator "*"
+uOp = (L.keyword "sizeof" >> return SizeOf) <|> do
+  op <- L.punctuator "&" <|> L.punctuator "*"
         <|> L.punctuator "-" <|> L.punctuator "!"
   case op of
-   "sizeof" -> return SizeOf
    "&"      -> return Address
    "*"      -> return Deref
    "-"      -> return Neg
    "!"      -> return Not
+   _        -> fail "uOp failure--should never get here"
 
 unaryOp :: Parser m Expr
 unaryOp = UExpr <$> uOp <*> unaryExpr
