@@ -56,15 +56,11 @@ primaryExpr = identifier <|>  constant <|> stringLit <|> parenExpr
 -- PostExpr Parsers
 --------------------------------------------------------------------------------
 postExpressions :: Expr -> Parser m Expr
-postExpressions identExpr = do
-  p <- L.anyPunctuator
-  case p of
-    "["  -> expression >>= (\expr -> L.punctuator "]" >> return (Array identExpr expr))
-    "."  -> identifier >>= (\ident -> return (FieldAccess identExpr ident))
-    "->" -> identifier >>= (\ident -> return (PointerAccess identExpr ident))
-    "("  -> ((L.punctuator ")" >> return (Func identExpr (List [])))
-            <|> (expression >>= (\expr -> L.punctuator ")" >> return (Func identExpr expr))))
-    _    -> fail "not a post expr"
+postExpressions identExpr =     (L.punctuator "["  >> Array identExpr <$> expression <* L.punctuator "]")
+                            <|> (L.punctuator "."  >> FieldAccess identExpr <$> identifier)
+                            <|> (L.punctuator "->" >> PointerAccess identExpr <$> identifier)
+                            <|> (L.punctuator "("  >> Func identExpr <$> expression  <* L.punctuator ")")
+                            <|> (L.punctuator "("  >> L.punctuator ")" >> return (Func identExpr (List [])))
 
 postExprNext :: Expr -> Parser m Expr
 postExprNext expr = rest expr
