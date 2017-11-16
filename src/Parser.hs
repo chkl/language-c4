@@ -15,12 +15,16 @@ import           CLangDef             (w)
 import qualified Lexer                as L
 import           Types
 
+
+runParser :: String -> ByteString -> Either ParseError [ExternalDeclaration]
+runParser = Text.Megaparsec.runParser translationUnit
+
 --------------------------------------------------------------------------------
 -- Root Parsers
 --------------------------------------------------------------------------------
 
 translationUnit :: Parser m [ExternalDeclaration]
-translationUnit = many externalDeclaration
+translationUnit = many externalDeclaration <* eof
 
 externalDeclaration :: Parser m ExternalDeclaration
 externalDeclaration = try (ExtDeclarationFunction <$> functionDefinition) <|>
