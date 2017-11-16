@@ -24,7 +24,7 @@ runParser = Text.Megaparsec.runParser translationUnit
 --------------------------------------------------------------------------------
 
 translationUnit :: Parser m [ExternalDeclaration]
-translationUnit = many externalDeclaration
+translationUnit = many externalDeclaration <* eof
 
 externalDeclaration :: Parser m ExternalDeclaration
 externalDeclaration = try (ExtDeclarationFunction <$> functionDefinition) <|>
