@@ -59,11 +59,11 @@ postExpressions :: Expr -> Parser m Expr
 postExpressions identExpr = do
   p <- L.anyPunctuator
   case p of
-    "["  -> expression >>= (\expr -> L.stringLexeme "]" >> return (Array identExpr expr))
+    "["  -> expression >>= (\expr -> L.punctuator "]" >> return (Array identExpr expr))
     "."  -> identifier >>= (\ident -> return (FieldAccess identExpr ident))
     "->" -> identifier >>= (\ident -> return (PointerAccess identExpr ident))
-    "("  -> ((L.stringLexeme ")" >> return (Func identExpr (List [])))
-            <|> (expression >>= (\expr -> L.stringLexeme ")" >> return (Func identExpr expr))))
+    "("  -> ((L.punctuator ")" >> return (Func identExpr (List [])))
+            <|> (expression >>= (\expr -> L.punctuator ")" >> return (Func identExpr expr))))
     _    -> fail "not a post expr"
 
 postExprNext :: Expr -> Parser m Expr
@@ -84,16 +84,11 @@ postExpr =  try postExpr' <|> primaryExpr
 --------------------------------------------------------------------------------
 -- UnaryExpr Parsers
 --------------------------------------------------------------------------------
-uOp :: Parser m ByteString
-uOp = L.stringLexeme "sizeof"
-      <|> L.stringLexeme "&"
-      <|> L.stringLexeme "*"
-      <|> L.stringLexeme "-"
-      <|> L.stringLexeme "!"
-
-uOp' :: Parser m UOp
-uOp' = do
-  op <- uOp
+-- "sizedof" isn't a punctuator but need ByteString retun type
+uOp :: Parser m UOp
+uOp = do
+  op <- L.punctuator "sizeof" <|> L.punctuator "&" <|> L.punctuator "*"
+        <|> L.punctuator "-" <|> L.punctuator "!"
   case op of
    "sizeof" -> return SizeOf
    "&"      -> return Address
@@ -101,29 +96,11 @@ uOp' = do
    "-"      -> return Neg
    "!"      -> return Not
 
-unary' :: ByteString -> Expr -> Parser m Expr
-unary' uop expr = do
-  case uop of
-   "sizeof" -> return $ UExpr SizeOf expr
-   "&"      -> return $ UExpr Address expr
-   "*"      -> return $ UExpr Deref expr
-   "-"      -> return $ UExpr Neg expr
-   "!"      -> return $ UExpr Not expr
-
-unaryOp1 :: Parser m Expr
-unaryOp1 = scan
-  where scan = uOp >>= rest
-        rest op = (do expr <- scan
-                      newExpr <- unary' op expr
-                      return newExpr)
-                  <|> (do expr <- postExpr
-                          newExpr <- unary' op expr
-                          return newExpr)
-unaryOp' :: Parser m Expr
-unaryOp' = UExpr <$> uOp' <*> unaryExpr
+unaryOp :: Parser m Expr
+unaryOp = UExpr <$> uOp <*> unaryExpr
 
 unaryExpr :: Parser m Expr
-unaryExpr = try unaryOp' <|> postExpr
+unaryExpr = try unaryOp <|> postExpr
 
 --------------------------------------------------------------------------------
 -- BinaryExpr Parsers
@@ -164,29 +141,24 @@ binaryExpr' (o:ops) =
 
 operators :: [[BOperator m]]
 operators = groupBy eqPrec $  (sortBy (flip $ comparing precedence)) $
-            [ BOperator LeftAssoc Plus  (L.stringLexeme "+" >> return (BExpr Plus)) 4
-            , BOperator LeftAssoc Minus (L.stringLexeme "-" >> return (BExpr Minus)) 4
-            , BOperator LeftAssoc Mult  (L.stringLexeme "*" >> return (BExpr Mult)) 2
+            [ BOperator LeftAssoc Plus  (L.punctuator "+" >> return (BExpr Plus)) 4
+            , BOperator LeftAssoc Minus (L.punctuator "-" >> return (BExpr Minus)) 4
+            , BOperator LeftAssoc Mult  (L.punctuator "*" >> return (BExpr Mult)) 2
+            , BOperator LeftAssoc Minus (L.punctuator "<" >> return (BExpr LessThan)) 6
+            , BOperator LeftAssoc Mult  (L.punctuator "==" >> return (BExpr EqualsEquals)) 7
+            , BOperator LeftAssoc Mult  (L.punctuator "!=" >> return (BExpr NotEqual)) 7
+            , BOperator LeftAssoc Mult  (L.punctuator "&&" >> return (BExpr LAnd)) 11
+            , BOperator LeftAssoc Mult  (L.punctuator "||" >> return (BExpr LOr)) 12
             ]
   where eqPrec o1 o2 = precedence o1 == precedence o2
-
-
---------------------------------------------------------------------------------
--- TernaryExpr Parsers
---------------------------------------------------------------------------------
-ternary' :: Parser m Expr
-ternary' = Ternary <$> binaryExpr <* L.stringLexeme "?" <*> expression
-                   <* L.stringLexeme ":" <*> ternary
-
-ternary :: Parser m Expr
-ternary = try ternary <|> binaryExpr
-
 
 --------------------------------------------------------------------------------
 -- Expr Parsers
 ------------------------------------------------------------------------------
 expression :: Parser m Expr
-expression = List <$> L.commaSep1 assignmentExpr -- yep, that's what the spec says
+expression = listElim <$> (List <$> L.commaSep1 assignmentExpr)
+  where listElim (List [x]) = x
+        listElim exprs = exprs
 
 assignmentExpr :: Parser m Expr
 assignmentExpr = conditionalExpression <|>
