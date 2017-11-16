@@ -51,11 +51,8 @@ primaryExpr = identifier <|>  constant <|> stringLit <|> parenExpr
 --------------------------------------------------------------------------------
 -- PostExpr Parsers
 --------------------------------------------------------------------------------
-firstPostExpr :: Parser m Expr
-firstPostExpr = primaryExpr >>= postExpr'
-
-postExpr':: Expr -> Parser m Expr
-postExpr' identExpr = do
+postExpressions :: Expr -> Parser m Expr
+postExpressions identExpr = do
   p <- L.anyPunctuator
   case p of
     "["  -> expression >>= (\expr -> L.stringLexeme "]" >> return (Array identExpr expr))
@@ -67,20 +64,17 @@ postExpr' identExpr = do
 
 postExprNext :: Expr -> Parser m Expr
 postExprNext expr = rest expr
-    where rest e = do nextE <- postExpr' e
+    where rest e = do nextE <- postExpressions e
                       rest nextE <|> return nextE
 
-postExpr2 :: Parser m Expr
-postExpr2 = do
+postExpr' :: Parser m Expr
+postExpr' = do
   expr <- firstPostExpr
   postExprNext expr <|> return expr
+  where firstPostExpr = primaryExpr >>= postExpressions
 
--- TODO: investigate the use of "try" here. Should only use a lookahead of 2.
--- This actually needs a lookahead of 3--but can fix by simply always
--- calling "primaryExpr" first, since both firstPostExpr and postExpr2
--- call primaryExpr first.
 postExpr :: Parser m Expr
-postExpr =  try postExpr2 <|> try firstPostExpr <|> primaryExpr
+postExpr =  try postExpr' <|> primaryExpr
 
 
 --------------------------------------------------------------------------------
@@ -92,6 +86,16 @@ uOp = L.stringLexeme "sizeof"
       <|> L.stringLexeme "*"
       <|> L.stringLexeme "-"
       <|> L.stringLexeme "!"
+
+uOp' :: Parser m UOp
+uOp' = do
+  op <- uOp
+  case op of
+   "sizeof" -> return SizeOf
+   "&"      -> return Address
+   "*"      -> return Deref
+   "-"      -> return Neg
+   "!"      -> return Not
 
 unary' :: ByteString -> Expr -> Parser m Expr
 unary' uop expr = do
@@ -111,10 +115,11 @@ unaryOp1 = scan
                   <|> (do expr <- postExpr
                           newExpr <- unary' op expr
                           return newExpr)
+unaryOp' :: Parser m Expr
+unaryOp' = UExpr <$> uOp' <*> unaryExpr
 
--- TODO: investigate the use of "try" here. Should only use a lookahead of 2.
-unaryOp :: Parser m Expr
-unaryOp = try unaryOp1 <|> postExpr
+unaryExpr :: Parser m Expr
+unaryExpr = try unaryOp' <|> postExpr
 
 --------------------------------------------------------------------------------
 -- BinaryExpr Parsers
@@ -139,15 +144,15 @@ chainl1 p op = p >>= rest
                     rest (f x y)
                  <|> return x
 
-binaryOp :: Parser m Expr
-binaryOp =  binaryOp' operators
+binaryExpr :: Parser m Expr
+binaryExpr =  binaryExpr' operators
 
-binaryOp' :: [[BOperator m]]-> Parser m Expr
-binaryOp' [] = unaryOp
-binaryOp' (o:ops) =
+binaryExpr' :: [[BOperator m]]-> Parser m Expr
+binaryExpr' [] = unaryExpr
+binaryExpr' (o:ops) =
         case associativity (head o) of
-          LeftAssoc  -> chainl1 (binaryOp' ops) (eqPrecedence o)
-          RightAssoc -> chainr1 (binaryOp' ops) (eqPrecedence o)
+          LeftAssoc  -> chainl1 (binaryExpr' ops) (eqPrecedence o)
+          RightAssoc -> chainr1 (binaryExpr' ops) (eqPrecedence o)
   where
     eqPrecedence :: [BOperator m] -> Parser m (Expr -> Expr -> Expr)
     eqPrecedence ops' = asum $ map opParser ops'
@@ -165,8 +170,12 @@ operators = groupBy eqPrec $  (sortBy (flip $ comparing precedence)) $
 --------------------------------------------------------------------------------
 -- TernaryExpr Parsers
 --------------------------------------------------------------------------------
+ternary' :: Parser m Expr
+ternary' = Ternary <$> binaryExpr <* L.stringLexeme "?" <*> expression
+                   <* L.stringLexeme ":" <*> ternary
+
 ternary :: Parser m Expr
-ternary = undefined
+ternary = try ternary <|> binaryExpr
 
 
 --------------------------------------------------------------------------------
@@ -177,14 +186,14 @@ expression = List <$> L.commaSep1 assignmentExpr -- yep, that's what the spec sa
 
 assignmentExpr :: Parser m Expr
 assignmentExpr = conditionalExpression <|>
-  Assign <$> unaryOp <* L.punctuator "=" <*> assignmentExpr
+  Assign <$> unaryExpr <* L.punctuator "=" <*> assignmentExpr
 
 -- | writing this monadically is better than using alternatives as this avoid
 -- very long backtracking for ternary operators.
 -- TODO: Maybe some kind of chainl/r would make this nicer too?
 conditionalExpression :: Parser m Expr
 conditionalExpression = do
-  x <- binaryOp
+  x <- binaryExpr
   y <- optional $ do
     L.punctuator "?"
     e1 <- expression
