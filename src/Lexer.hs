@@ -156,8 +156,8 @@ anyPunctuator = lexeme $ asum $ map string allCPunctuators
 stringLexeme :: ByteString -> Parser m ByteString
 stringLexeme = lexeme . string
 
-keyword :: ByteString -> Parser m ByteString
-keyword s = try $ lexeme $ string s
+keyword :: ByteString -> Parser m ()
+keyword s = try $ void $ lexeme $ string s
 
 punctuator :: ByteString -> Parser m ByteString
 punctuator = lexeme . string

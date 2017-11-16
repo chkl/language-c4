@@ -13,8 +13,11 @@ import           Spec.Helper
 
 
 unitTestsParser :: SpecWith ()
-unitTestsParser =
-  describe "`typeSpecifier`" $ do
+unitTestsParser = do
+  testTypeSpecifier
+  testStatements
+
+testTypeSpecifier = describe "`typeSpecifier`" $ do
     it "parse primitive types correctly" $ do
       testParser typeSpecifier "void" `shouldBe` Right Void
       testParser typeSpecifier "char" `shouldBe` Right Char
@@ -79,3 +82,8 @@ unitTestsParser =
          , InitializedDec (Declarator 0 (DirectDeclaratorId "p2" [])) Nothing ]
         )
 
+
+
+testStatements = describe "statements" $ do
+  it "parses a labeled statement" $ do
+      testParser statement "break;" `shouldBe` Right Break
