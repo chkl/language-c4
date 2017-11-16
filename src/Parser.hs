@@ -193,10 +193,22 @@ assignmentExpr = L.stringLexeme "assign" >> return (List []) -- just for testing
 --------------------------------------------------------------------------------
 
 statement :: Parser m Stmt
-statement = undefined
+statement = ((L.keyword "break" >> return Break <* sem) <|>
+            (L.keyword "continue" >> return Continue <* sem) <|>
+            (L.keyword "return" >> (Return <$> optional expression) <* sem) <|>
+            (L.keyword "goto" >> (Goto <$> L.identifier) <* sem) <|>
+            (L.keyword "while" >> (WhileStmt <$> L.parens expression <*> statement)) <|>
+            (L.keyword "if" >> (IfStmt <$> L.parens expression <*> statement <*> optional elseParser)) <|>
+            (ExpressionStmt <$> (optional expression) <* sem) <|>
+            (compoundStatement) <|>
+            (LabeledStmt <$> L.identifier <* L.punctuator ":" <*> statement))
+  where
+    sem = L.punctuator ";"
+    elseParser = L.keyword "else" >> statement
 
 compoundStatement :: Parser m Stmt
-compoundStatement = undefined
+compoundStatement = L.braces (CompoundStmt <$> many blockitem)
+  where blockitem = (Left <$> declaration) <|> (Right <$> statement)
 
 --------------------------------------------------------------------------------
 -- Declaration Parsers
