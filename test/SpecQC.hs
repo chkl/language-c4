@@ -18,8 +18,10 @@ import           Data.ByteString.Lazy       (ByteString)
 import qualified Data.ByteString.Lazy       as BS
 import           Data.Monoid                ((<>))
 import           Data.Word                  (Word8)
-import           Lexer
 import           Test.QuickCheck
+
+import           Lexer
+import           Types
 
 type ExampleGen a            = Gen (ByteString, a)
 
@@ -57,9 +59,9 @@ makeName = do
 
 genDecConst :: ExampleGen CToken
 genDecConst = do
-  i <- arbitrary `suchThat` (>= 0)
+  i <- (arbitrary :: Gen Integer) `suchThat` (>= 0)
   let s = toByteString i
-  return (s, DecConstant i)
+  return (s, DecConstant s)
 
 newtype DecConstG = DecConstG (ByteString, CToken)
   deriving Show

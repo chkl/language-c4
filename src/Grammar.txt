@@ -1,0 +1,56 @@
+Expressions:
+
+Expr        ::= AssignExpr
+              | Expr ',' AssignExpr
+
+AssignExpr  ::= TernaryExpr
+              | UnaryExpr '=' AssignExpr
+
+TernaryExpr ::= BinaryExpr 
+              | BinaryExpr '?' Expr ':' TernaryExpr
+
+BinaryExpr  ::= UnaryExpr
+              | BinaryExpr 'BOp' BinaryExpr
+
+UnaryExpr   ::= 'UOp' UnaryExpr
+              | 'sizedof' UnaryExpr
+              | PostExpr'
+
+PostExpr    ::= PostExpr '[' Expr ']'
+              | PostExpr '(' ')'
+              | PostExpr '(' Expr ')'
+              | PostExpr '.' identifier
+              | PostExpr '->' identifier
+              | PrimaryExpr
+
+PrimaryExpr ::= identifer
+              | constant
+              | string-literal
+              | '(' Expr ')'
+
+Declarations:
+
+Declaration ::= TypeSpec (IntDec)*
+
+TypeSpec ::= 'void'
+           | 'char'
+           | 'int'
+
+IntDec ::= Dec | Dec '=' Initializer
+
+Initializer ::= AssignExpr
+              | '{' (Initializer)+ ','? '}'
+Dec ::=  '*'+  DirectDec
+
+DirectDec ::= identifier
+            | '(' Dec ')'
+            | DirectDec '(' (ParamDec)* ')'
+ParamDec ::=  TypeSpec Dec
+           | TypeSpec AbstDec?
+
+AbstDec ::= (*)+ '(' AbstDec ')'
+          | (AbstDec)? '[' 'static'? AssignExpr ']'
+          | (AbstDec)? '['*']'
+          | (AbstDec)? '(' ParamDec* ')'
+                        
+

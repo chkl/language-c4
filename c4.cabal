@@ -13,16 +13,21 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Lib, Lexer, CLangDef, PrettyPrint, Types
+  exposed-modules:     Lib
+                     , Lexer
+                     , Parser
+                     , CLangDef
+                     , PrettyPrint
+                     , Types
   build-depends:       base >= 4.7 && < 5
                      , mtl
                      , transformers
                      , bytestring >= 0.10
+                     , bytestring-conversion >= 0.3.1
                      , llvm-hs >= 5.0
                      , llvm-hs-pure >= 5.0
                      , megaparsec >= 6.2.0
                      , QuickCheck >= 2.10.1
-                     , bytestring-conversion >= 0.3.1
   default-language:    Haskell2010
 
 executable c4
@@ -39,7 +44,10 @@ test-suite c4-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Spec.hs
-  other-modules:       SpecQC
+  other-modules:       Spec.Helper
+                     , Spec.Lexer
+                     , Spec.Parser
+                     , SpecQC
   build-depends:       base
                      , c4
                      , megaparsec >= 6.2.0

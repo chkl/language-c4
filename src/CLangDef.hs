@@ -3,11 +3,12 @@ module CLangDef where
 
 import           Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as BS
-import           Data.List       (sortBy)
-import           Data.Ord        (comparing)
-import           Data.Word       (Word8)
+import           Data.List            (sortBy)
+import           Data.Ord             (comparing)
+import           Data.Word            (Word8)
 
--- don't use this on dynamic data, it's only a partial function
+
+-- | don't use this on dynamic data, it's only a partial function
 w :: Char -> Word8
 w = fromIntegral.fromEnum
 
@@ -58,3 +59,7 @@ cSimpleEscapeSequences =  [ (w '\'',w  '\'')
                           , (w 'r', w '\r')
                           , (w 't', w '\t')
                           , (w 'v', w '\v') ]
+
+
+
+
