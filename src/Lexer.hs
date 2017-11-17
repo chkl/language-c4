@@ -182,7 +182,7 @@ cToken_ =  do
              (integerConstant  >>= \s -> return $ "constant " <> s)  <|>
              (anyKeyword       >>= \s -> return $ "keyword " <> s)  <|>
              (identifier       >>= \s -> return $ "identifier " <> s)  <|>
-             (stringLiteral    >>= \s -> return $ "string-literal " <> s)  <|>
+             (stringLiteral    >>= \s -> return $ "string-literal \"" <> s <> "\"")  <|>
              (anyPunctuator       >>= \s -> return $ "punctuator " <> s)
       lift $ C8.putStr (prettyPrintPos p)
       lift $ C8.putStr ": "
