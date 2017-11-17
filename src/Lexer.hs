@@ -178,7 +178,7 @@ cToken = DecConstant <$> integerConstant <|>
 cToken_ :: Parser IO ()
 cToken_ =  do
       p <- getPosition
-      msg <- (charConstant     >>= \s -> return $ "constant " <> s) <|>
+      msg <- (charConstant     >>= \s -> return $ "constant '" <> s <> "'") <|>
              (integerConstant  >>= \s -> return $ "constant " <> s)  <|>
              (anyKeyword       >>= \s -> return $ "keyword " <> s)  <|>
              (identifier       >>= \s -> return $ "identifier " <> s)  <|>
