@@ -21,6 +21,7 @@ module Lexer ( ErrorMsg(..)
              , commaSep1
              , semicolSep
              , comma
+             , sc
              ) where
 
 import           Control.Monad              (void)

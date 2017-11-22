@@ -24,7 +24,7 @@ runParser = Text.Megaparsec.runParser translationUnit
 --------------------------------------------------------------------------------
 
 translationUnit :: Parser m [ExternalDeclaration]
-translationUnit = many externalDeclaration <* eof
+translationUnit = L.sc >> many externalDeclaration <* eof
 
 externalDeclaration :: Parser m ExternalDeclaration
 externalDeclaration = try (ExtDeclarationFunction <$> functionDefinition) <|>
@@ -136,10 +136,11 @@ operators = groupBy eqPrec $  (sortBy (flip $ comparing precedence)) $
             , BOperator LeftAssoc Minus (L.punctuator "-" >> return (BExpr Minus)) 4
             , BOperator LeftAssoc Mult  (L.punctuator "*" >> return (BExpr Mult)) 2
             , BOperator LeftAssoc Minus (L.punctuator "<" >> return (BExpr LessThan)) 6
-            , BOperator LeftAssoc Mult  (L.punctuator "==" >> return (BExpr EqualsEquals)) 7
-            , BOperator LeftAssoc Mult  (L.punctuator "!=" >> return (BExpr NotEqual)) 7
-            , BOperator LeftAssoc Mult  (L.punctuator "&&" >> return (BExpr LAnd)) 11
-            , BOperator LeftAssoc Mult  (L.punctuator "||" >> return (BExpr LOr)) 12
+            , BOperator LeftAssoc EqualsEquals (L.punctuator "==" >> return (BExpr EqualsEquals)) 7
+            , BOperator LeftAssoc NotEqual (L.punctuator "!=" >> return (BExpr NotEqual)) 7
+            , BOperator LeftAssoc LAnd (L.punctuator "&&" >> return (BExpr LAnd)) 11
+            , BOperator LeftAssoc LOr (L.punctuator "||" >> return (BExpr LOr)) 12
+            , BOperator LeftAssoc AssignOp (L.punctuator "=" >> return (BExpr LOr)) 14
             ]
   where eqPrec o1 o2 = precedence o1 == precedence o2
 

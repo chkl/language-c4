@@ -38,7 +38,7 @@ data CToken = Keyword ByteString
            deriving (Show, Eq)
 
 data BOp = Mult | Plus | Minus | LessThan | EqualsEquals
-         | NotEqual | LAnd | LOr
+         | NotEqual | LAnd | LOr | AssignOp
          deriving (Show, Eq)
 
 data UOp = SizeOf | Address | Deref | Neg | Not
