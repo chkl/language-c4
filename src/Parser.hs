@@ -183,7 +183,7 @@ statement = ((L.keyword "break" >> return Break <* sem) <|>
             (L.keyword "goto" >> (Goto <$> L.identifier) <* sem) <|>
             (L.keyword "while" >> (WhileStmt <$> L.parens expression <*> statement)) <|>
             (L.keyword "if" >> (IfStmt <$> L.parens expression <*> statement <*> optional elseParser)) <|>
-            (ExpressionStmt <$> optional expression <* sem) <|>
+            (try (ExpressionStmt <$> optional expression <* sem)) <|>
             compoundStatement <|>
             (LabeledStmt <$> L.identifier <* L.punctuator ":" <*> statement))
   where

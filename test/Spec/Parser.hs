@@ -127,13 +127,15 @@ testExpressions = describe "expression parser" $ do
 
  
 testStatements :: SpecWith ()
-testStatements = describe "statement parser" $
+testStatements = describe "statement parser" $ do
   it "parses simple statements (break,continue,goto,return)" $ do
       testParser statement "break;" `shouldBe` Right Break
       testParser statement "continue;" `shouldBe` Right Continue
       testParser statement "goto testlabel;" `shouldBe` Right (Goto "testlabel")
       testParser statement "return;" `shouldBe` Right (Return Nothing)
       testParser statement "return 1;" `shouldBe` Right (Return (Just $ Constant "1"))
+  it "parses a labelled statement" $ do
+    testParser statement "start: x = 0;" `shouldBe` Right (LabeledStmt "start" (ExpressionStmt $ Just $ ExprIdent "x" `assign` Constant "0"))
 
 testTranslationUnit :: SpecWith ()
 testTranslationUnit = describe "translation unit parser" $
