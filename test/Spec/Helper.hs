@@ -3,6 +3,13 @@
 
 module Spec.Helper ( plus
   , mult
+  , minus
+  , lt
+  , eq
+  , ineq
+  , bOr
+  , bAnd
+  , assign
   , runLexer'
   , runLexer_
   , testParser
@@ -30,6 +37,27 @@ plus = BExpr Plus
 
 mult :: Expr -> Expr ->Expr
 mult = BExpr Mult
+
+minus :: Expr -> Expr -> Expr
+minus = BExpr Minus
+
+lt :: Expr -> Expr -> Expr
+lt = BExpr LessThan
+
+eq :: Expr -> Expr -> Expr
+eq = BExpr EqualsEquals
+
+ineq :: Expr -> Expr -> Expr
+ineq = BExpr NotEqual
+
+bOr :: Expr -> Expr -> Expr
+bOr = BExpr LOr
+
+bAnd :: Expr -> Expr -> Expr
+bAnd = BExpr LAnd
+
+assign :: Expr -> Expr -> Expr
+assign = BExpr AssignOp
 
 runLexer' :: BS.ByteString -> Either ParseError [(CToken, SourcePos)]
 runLexer' = runLexer "test.c"

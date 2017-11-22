@@ -12,7 +12,6 @@ import           Types
 
 import           Spec.Helper
 
-
 unitTestsParser :: SpecWith ()
 unitTestsParser = do
   testTypeSpecifier
@@ -113,6 +112,15 @@ testExpressions = describe "expression parser" $ do
       testParser expression "5 + 2 * 4" `shouldBe` (Right $ BExpr Plus (Constant "5") (BExpr Mult (Constant "2") (Constant "4")))
       testParser binaryExpr   "x + y + z" `shouldBe` (Right $ ExprIdent "x" `plus` ExprIdent "y" `plus` ExprIdent "z")
       testParser binaryExpr "x + y * z" `shouldBe` (Right $ ExprIdent "x" `plus` (ExprIdent "y" `mult` ExprIdent "z"))
+      testParser binaryExpr "x + y" `shouldBe` (Right $ ExprIdent "x" `plus` ExprIdent "y")
+      testParser binaryExpr "x - y" `shouldBe` (Right $ ExprIdent "x" `minus` ExprIdent "y")
+      testParser binaryExpr "x * y" `shouldBe` (Right $ ExprIdent "x" `mult` ExprIdent "y")
+      testParser binaryExpr "x < y" `shouldBe` (Right $ ExprIdent "x" `lt` ExprIdent "y")
+      testParser binaryExpr "x == y" `shouldBe` (Right $ ExprIdent "x" `eq` ExprIdent "y")
+      testParser binaryExpr "x != y" `shouldBe` (Right $ ExprIdent "x" `ineq` ExprIdent "y")
+      testParser binaryExpr "x && y" `shouldBe` (Right $ ExprIdent "x" `bAnd` ExprIdent "y")
+      testParser binaryExpr "x || y" `shouldBe` (Right $ ExprIdent "x" `bOr` ExprIdent "y")
+      testParser binaryExpr "x = y" `shouldBe` (Right $ ExprIdent "x" `assign` ExprIdent "y")
   it "parses ternary expressions" $ do
       testParser expression "5 + 4 < 3 ? 0 : 1" `shouldBe` (Right (Ternary (BExpr LessThan (BExpr Plus (Constant "5") (Constant "4")) (Constant "3")) (Constant "0") (Constant "1")))
 

@@ -140,7 +140,7 @@ operators = groupBy eqPrec $  (sortBy (flip $ comparing precedence)) $
             , BOperator LeftAssoc NotEqual (L.punctuator "!=" >> return (BExpr NotEqual)) 7
             , BOperator LeftAssoc LAnd (L.punctuator "&&" >> return (BExpr LAnd)) 11
             , BOperator LeftAssoc LOr (L.punctuator "||" >> return (BExpr LOr)) 12
-            , BOperator LeftAssoc AssignOp (L.punctuator "=" >> return (BExpr LOr)) 14
+            , BOperator LeftAssoc AssignOp (L.punctuator "=" >> return (BExpr AssignOp)) 14
             ]
   where eqPrec o1 o2 = precedence o1 == precedence o2
 
