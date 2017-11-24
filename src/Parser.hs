@@ -236,7 +236,7 @@ directAbstractDeclarator :: Parser m DirectAbstractDeclarator
 directAbstractDeclarator = DirectAbstractDeclarator <$> many (x <|> y)
   where
     x :: Parser m DirectAbstractDeclaratorElem
-    x = L.parens (DADENested <$> directAbstractDeclarator)
+    x = L.parens (DADENested <$> abstractDeclarator)
     y :: Parser m DirectAbstractDeclaratorElem
     y = try (L.brackets $ L.keyword "static" >> (StaticArrayAssignment <$> assignmentExpr))  <|>
         try (L.brackets $ ArrayAssignment <$> assignmentExpr) <|>

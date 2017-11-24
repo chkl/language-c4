@@ -112,7 +112,7 @@ data DirectAbstractDeclarator = DirectAbstractDeclarator [DirectAbstractDeclarat
 data DirectAbstractDeclaratorElem = ArrayAssignment Expr -- assignment expr
                                   | StaticArrayAssignment Expr
                                   | ArrayStar -- [*]
-                                  | DADENested DirectAbstractDeclarator
+                                  | DADENested AbstractDec
                                   | DADEParameterList [Parameter]
                                   deriving (Show,Eq)
 
