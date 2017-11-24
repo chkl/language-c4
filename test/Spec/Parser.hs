@@ -20,6 +20,7 @@ unitTestsParser = do
   testTranslationUnit
   testAbstractDeclarator
   testAbstractDeclarations
+  testDirectDeclarations
 
 testTypeSpecifier :: SpecWith ()
 testTypeSpecifier = describe "typeSpecifier parser" $ do
@@ -134,7 +135,7 @@ testAbstractDeclarator = it "parses abstract declarators" $ do
   testParser directAbstractDeclarator "([*])" `shouldSatisfy` isRight
   testParser directAbstractDeclarator "([*][static xz = 10])[*]" `shouldSatisfy` isRight
 
-testAbstractDeclarations :: SpecWith()
+testAbstractDeclarations :: SpecWith ()
 testAbstractDeclarations = it "parses declarations with abstract parameters" $ do
   testParser declaration "int f;" `shouldSatisfy` isRight
   testParser declaration "int f();" `shouldSatisfy` isRight
@@ -147,6 +148,11 @@ testAbstractDeclarations = it "parses declarations with abstract parameters" $ d
   testParser declaration "int f(int*[*]);" `shouldSatisfy` isRight
   testParser declaration "int f(int**[*]);" `shouldSatisfy` isRight
 
+testDirectDeclarations :: SpecWith()
+testDirectDeclarations = it "parses declarations with (direct) parameters" $ do
+  testParser declaration "int f;" `shouldSatisfy` isRight
+  testParser declaration "int f(int x);" `shouldSatisfy` isRight
+  testParser declaration "int f(int x(char));" `shouldSatisfy` isRight
 
 testStatements :: SpecWith ()
 testStatements = describe "statement parser" $ do
