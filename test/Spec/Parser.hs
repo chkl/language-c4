@@ -126,6 +126,16 @@ testExpressions = describe "expression parser" $ do
       testParser binaryExpr "x = y" `shouldBe` (Right $ ExprIdent "x" `assign` ExprIdent "y")
   it "parses ternary expressions" $ do
       testParser expression "5 + 4 < 3 ? 0 : 1" `shouldBe` (Right (Ternary (BExpr LessThan (BExpr Plus (Constant "5") (Constant "4")) (Constant "3")) (Constant "0") (Constant "1")))
+  it "parses unary expressions" $ do
+    testParser expression "x[5]" `shouldSatisfy` isRight
+    testParser expression "x[]" `shouldSatisfy` isRight
+    testParser expression "f(x)" `shouldSatisfy` isRight
+    testParser expression "x.y" `shouldSatisfy` isRight
+    testParser expression "x->y" `shouldSatisfy` isRight
+    testParser expression "sizeof(y)" `shouldSatisfy` isRight
+    testParser expression "&y" `shouldSatisfy` isRight
+    testParser expression "-y" `shouldSatisfy` isRight
+    testParser expression "!x" `shouldSatisfy` isRight
 
 testAbstractDeclarator :: SpecWith ()
 testAbstractDeclarator = it "parses abstract declarators" $ do
