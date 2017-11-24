@@ -150,7 +150,7 @@ operators = groupBy eqPrec $  (sortBy (flip $ comparing precedence)) $
 expression :: Parser m Expr
 expression = listElim <$> (List <$> L.commaSep1 assignmentExpr)
   where listElim (List [x]) = x
-        listElim exprs = exprs
+        listElim exprs      = exprs
 
 assignmentExpr :: Parser m Expr
 assignmentExpr = conditionalExpression <|>
@@ -169,7 +169,7 @@ conditionalExpression = do
     e2 <- conditionalExpression
     return (e1,e2)
   case y of
-    Nothing -> return x
+    Nothing      -> return x
     Just (e1,e2) -> return $ Ternary x e1 e2
 
 --------------------------------------------------------------------------------
@@ -213,6 +213,7 @@ structSpecifier = try structInline <|> try structIdentifier
 structDeclaration :: Parser m StructDeclaration
 structDeclaration = StructDeclaration <$> typeSpecifier <*> L.commaSep declarator <* L.punctuator ";"
 
+-- | like a direct declarator but with many * in front
 declarator :: Parser m Declarator
 declarator = do
   pts <- many $ L.punctuator "*"
@@ -220,10 +221,29 @@ declarator = do
 
 
 directDeclarator :: Parser m DirectDeclarator
-directDeclarator = try pId <|>  pParent
+directDeclarator = pParent <|> pId
   where
     pId = DirectDeclaratorId <$> L.identifier <*> many parameterList
     pParent = DirectDeclaratorParens <$> L.parens declarator <*> many parameterList
+
+abstractDeclarator :: Parser m AbstractDec
+abstractDeclarator =  do
+  pts <- many $ L.punctuator "*"
+  AbstractDec (length pts) <$> directAbstractDeclarator
+
+-- | experimental (trying some left-factoring)
+directAbstractDeclarator :: Parser m DirectAbstractDeclarator
+directAbstractDeclarator = DirectAbstractDeclarator <$> many (x <|> y)
+  where
+    x :: Parser m DirectAbstractDeclaratorElem
+    x = L.parens (DADENested <$> directAbstractDeclarator)
+    y :: Parser m DirectAbstractDeclaratorElem
+    y = try (L.brackets $ L.keyword "static" >> (StaticArrayAssignment <$> assignmentExpr))  <|>
+        try (L.brackets $ ArrayAssignment <$> assignmentExpr) <|>
+        try (L.brackets $ L.punctuator "*" >> return ArrayStar) <|>
+            (L.parens $ DADEParameterList <$> parameterList)
+
+
 
 
 declaration :: Parser m Declaration
@@ -247,4 +267,6 @@ parameterList :: Parser m [Parameter]
 parameterList = L.parens $ L.commaSep parameterDeclaration
 
 parameterDeclaration :: Parser m Parameter
-parameterDeclaration = Parameter <$> typeSpecifier <*> declarator
+parameterDeclaration = try x <|>  y
+  where x = Parameter <$> typeSpecifier <*> declarator
+        y = AbstractParameter <$> typeSpecifier <*> optional abstractDeclarator

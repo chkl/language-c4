@@ -100,14 +100,22 @@ data Initializer = InitializerAssignment Expr -- assignment expression
   deriving (Show, Eq)
 
 data Parameter =  Parameter Type Declarator
---               |  ParameterAbstract Type (Maybe AbstractDec)
+               |  AbstractParameter Type (Maybe AbstractDec)
   deriving (Show, Eq)
 
-data AbstractDec = AbstractDecPointed Pointers AbstractDec
-                 | AbstractDecStaticExpr (Maybe AbstractDec) Expr
-                 | AbstractDecExpr (Maybe AbstractDec)
-                 | AbstractDecParam (Maybe AbstractDec) [Parameter]
+data AbstractDec = AbstractDec Pointers DirectAbstractDeclarator
   deriving (Show, Eq)
+
+data DirectAbstractDeclarator = DirectAbstractDeclarator [DirectAbstractDeclaratorElem]
+  deriving (Show, Eq)
+
+data DirectAbstractDeclaratorElem = ArrayAssignment Expr -- assignment expr
+                                  | StaticArrayAssignment Expr
+                                  | ArrayStar -- [*]
+                                  | DADENested DirectAbstractDeclarator
+                                  | DADEParameterList [Parameter]
+                                  deriving (Show,Eq)
+
 
 --------------------------------------------------------------------------------
 -- Statements

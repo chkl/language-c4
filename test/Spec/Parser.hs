@@ -18,6 +18,8 @@ unitTestsParser = do
   testExpressions
   testStatements
   testTranslationUnit
+  testAbstractDeclarator
+  testDeclarations
 
 testTypeSpecifier :: SpecWith ()
 testTypeSpecifier = describe "typeSpecifier parser" $ do
@@ -124,8 +126,34 @@ testExpressions = describe "expression parser" $ do
   it "parses ternary expressions" $ do
       testParser expression "5 + 4 < 3 ? 0 : 1" `shouldBe` (Right (Ternary (BExpr LessThan (BExpr Plus (Constant "5") (Constant "4")) (Constant "3")) (Constant "0") (Constant "1")))
 
+testAbstractDeclarator :: SpecWith ()
+testAbstractDeclarator = it "parses abstract declarators" $ do
+  testParser directAbstractDeclarator "[*]" `shouldSatisfy` isRight
+  testParser directAbstractDeclarator "[static x = 5]" `shouldSatisfy` isRight
+  testParser directAbstractDeclarator "[*][static y = 3]" `shouldSatisfy` isRight
+  testParser directAbstractDeclarator "([*])" `shouldSatisfy` isRight
+  testParser directAbstractDeclarator "([*][static xz = 10])[*]" `shouldSatisfy` isRight
 
+testDeclarations :: SpecWith()
+testDeclarations = it "parses abstract declarations" $ do
+  testParser declaration "int f;" `shouldSatisfy` isRight
+  testParser declaration "int f();" `shouldSatisfy` isRight
+  testParser declaration "int f(int x);" `shouldSatisfy` isRight
+  testParser declaration "int f(int[*]);" `shouldSatisfy` isRight
+  testParser declaration "int f(int[static x=3]);" `shouldSatisfy` isRight
+  testParser declaration "int f(int[*]);" `shouldSatisfy` isRight
+  testParser declaration "int f(int[*][*]);" `shouldSatisfy` isRight
+  testParser declaration "int f(int [*]);" `shouldSatisfy` isRight
  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
 testStatements :: SpecWith ()
 testStatements = describe "statement parser" $ do
   it "parses simple statements (break,continue,goto,return)" $ do
