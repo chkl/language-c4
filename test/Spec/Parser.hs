@@ -92,17 +92,17 @@ testTypeSpecifier = describe "typeSpecifier parser" $ do
 testExpressions :: SpecWith ()
 testExpressions = describe "expression parser" $ do
   it "should parse field and pointer accesses" $ do
-      testParser postExpr "x.foo" `shouldBe` Right (FieldAccess (ExprIdent "x") (ExprIdent "foo"))
-      testParser postExpr "x->foo" `shouldBe` Right (PointerAccess (ExprIdent "x") (ExprIdent "foo"))
-      testParser postExpr "x.y.z.foo" `shouldBe` Right (FieldAccess (FieldAccess
+      testParser postfixUnaryExpr "x.foo" `shouldBe` Right (FieldAccess (ExprIdent "x") (ExprIdent "foo"))
+      testParser postfixUnaryExpr "x->foo" `shouldBe` Right (PointerAccess (ExprIdent "x") (ExprIdent "foo"))
+      testParser postfixUnaryExpr "x.y.z.foo" `shouldBe` Right (FieldAccess (FieldAccess
                                                  (FieldAccess (ExprIdent "x") (ExprIdent "y"))
                                                               (ExprIdent "z")) (ExprIdent "foo"))
-      testParser postExpr "x.y->z.foo" `shouldBe` Right (FieldAccess (PointerAccess
+      testParser postfixUnaryExpr "x.y->z.foo" `shouldBe` Right (FieldAccess (PointerAccess
                                                  (FieldAccess (ExprIdent "x") (ExprIdent "y"))
                                                               (ExprIdent "z")) (ExprIdent "foo"))
   it "should parse functions and arrays" $ do
-      testParser postExpr "func(x, y)" `shouldBe` Right (Func (ExprIdent "func") (List [ExprIdent "x",ExprIdent "y"]))
-      testParser postExpr "myArray[5]" `shouldBe` Right (Array (ExprIdent "myArray") (Constant "5"))
+      testParser postfixUnaryExpr "func(x, y)" `shouldBe` Right (Func (ExprIdent "func") (List [ExprIdent "x",ExprIdent "y"]))
+      testParser postfixUnaryExpr "myArray[5]" `shouldBe` Right (Array (ExprIdent "myArray") (Constant "5"))
   it "should parse unary operators" $ do
       testParser unaryExpr "&foo" `shouldBe` Right (UExpr Address (ExprIdent "foo"))
       testParser unaryExpr "&func(x, y, z)" `shouldBe`  Right (UExpr Address (Func (ExprIdent "func") (List [ExprIdent "x",ExprIdent "y",ExprIdent "z"])))
@@ -128,7 +128,7 @@ testExpressions = describe "expression parser" $ do
       testParser expression "5 + 4 < 3 ? 0 : 1" `shouldBe` (Right (Ternary (BExpr LessThan (BExpr Plus (Constant "5") (Constant "4")) (Constant "3")) (Constant "0") (Constant "1")))
   it "parses unary expressions" $ do
     testParser expression "x[5]" `shouldSatisfy` isRight
-    testParser expression "x[]" `shouldSatisfy` isRight
+--    testParser expression "x[]" `shouldSatisfy` isRight -- TODO: Should we allow this?
     testParser expression "f(x)" `shouldSatisfy` isRight
     testParser expression "x.y" `shouldSatisfy` isRight
     testParser expression "x->y" `shouldSatisfy` isRight
@@ -136,6 +136,8 @@ testExpressions = describe "expression parser" $ do
     testParser expression "&y" `shouldSatisfy` isRight
     testParser expression "-y" `shouldSatisfy` isRight
     testParser expression "!x" `shouldSatisfy` isRight
+  it "parses deeply nested expressions" $ do
+    testParser expression "((((((((((((((((((((x+y))))))))))))))))))))" `shouldSatisfy` isRight
 
 testAbstractDeclarator :: SpecWith ()
 testAbstractDeclarator = it "parses abstract declarators" $ do

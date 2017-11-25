@@ -104,17 +104,3 @@ unitTestsLexer =
       runLexer_ "/*\n\n*/" `shouldBe` Right []
       runLexer_ "test /*\n\n*/" `shouldBe` Right [Identifier "test"]
         -- TODO
-
-
-    it "should parse expressions" $ do
-      MP.runParser binaryExpr "test.c" "x + y + z" `shouldBe` (Right $ ExprIdent "x" `plus` ExprIdent "y" `plus` ExprIdent "z")
-      MP.runParser binaryExpr "test.c" "x + y * z" `shouldBe` (Right $ ExprIdent "x" `plus` (ExprIdent "y" `mult` ExprIdent "z"))
-
-    it "should parse field access" $
-      MP.runParser postExpr "test.c" "x.foo" `shouldBe` Right (FieldAccess (ExprIdent "x") (ExprIdent "foo"))
-
-    it "should parse field access 2" $
-      MP.runParser postExpr "test.c" "x.y.z.foo" `shouldBe` Right (FieldAccess (FieldAccess (
-                                                             FieldAccess (ExprIdent "x") (ExprIdent "y")) (ExprIdent "z"))
-                                                             (ExprIdent "foo"))
-

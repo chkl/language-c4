@@ -53,45 +53,29 @@ primaryExpr :: Parser m Expr
 primaryExpr = identifier <|>  constant <|> stringLit <|> parenExpr
 
 --------------------------------------------------------------------------------
--- PostExpr Parsers
---------------------------------------------------------------------------------
-postExpressions :: Expr -> Parser m Expr
-postExpressions identExpr =     (L.punctuator "["  >> Array identExpr <$> expression <* L.punctuator "]")
-                            <|> (L.punctuator "."  >> FieldAccess identExpr <$> identifier)
-                            <|> (L.punctuator "->" >> PointerAccess identExpr <$> identifier)
-                            <|> (L.punctuator "("  >> Func identExpr <$> expression  <* L.punctuator ")")
-                            <|> (L.punctuator "("  >> L.punctuator ")" >> return (Func identExpr (List [])))
-
-postExprNext :: Expr -> Parser m Expr
-postExprNext expr = rest expr
-    where rest e = do nextE <- postExpressions e
-                      rest nextE <|> return nextE
-
-postExpr' :: Parser m Expr
-postExpr' = do
-  expr <- firstPostExpr
-  postExprNext expr <|> return expr
-  where firstPostExpr = primaryExpr >>= postExpressions
-
-postExpr :: Parser m Expr
-postExpr =  try postExpr' <|> primaryExpr
-
-
---------------------------------------------------------------------------------
 -- UnaryExpr Parsers
 --------------------------------------------------------------------------------
+
+unaryExpr :: Parser m Expr
+unaryExpr = try prefixUnaryExpr <|> postfixUnaryExpr
+
+postfixUnaryExpr :: Parser m Expr
+postfixUnaryExpr = chainl1unary primaryExpr postElem
+  where postElem =    (L.punctuator "["  >> flip Array <$> expression <* L.punctuator "]")
+                  <|> (L.punctuator "."  >> flip FieldAccess <$> identifier)
+                  <|> (L.punctuator "->" >> flip PointerAccess <$> identifier)
+                  <|> (L.punctuator "("  >> flip Func <$> expression  <* L.punctuator ")")
+                  <|> (L.punctuator "("  >> L.punctuator ")" >> return (flip Func (List [])))
+
+prefixUnaryExpr :: Parser m Expr
+prefixUnaryExpr = UExpr <$> uOp <*> unaryExpr
+
 uOp :: Parser m UOp
 uOp = (L.keyword "sizeof" >> return SizeOf)  <|>
       (L.punctuator "&"   >> return Address) <|>
       (L.punctuator "*"   >> return Deref)   <|>
       (L.punctuator "-"   >> return Neg)     <|>
       (L.punctuator "!"   >> return Not)
-
-unaryOp :: Parser m Expr
-unaryOp = UExpr <$> uOp <*> unaryExpr
-
-unaryExpr :: Parser m Expr
-unaryExpr = try unaryOp <|> postExpr
 
 --------------------------------------------------------------------------------
 -- BinaryExpr Parsers
@@ -114,6 +98,13 @@ chainl1 p op = p >>= rest
   where rest x = do f <- op
                     y <- p
                     rest (f x y)
+                 <|> return x
+
+-- | like  chainl but for unary operators.
+chainl1unary :: Parser m a -> Parser m (a -> a) -> Parser m a
+chainl1unary p op = p >>= rest
+  where rest x = do f <- op
+                    rest (f x)
                  <|> return x
 
 binaryExpr :: Parser m Expr
