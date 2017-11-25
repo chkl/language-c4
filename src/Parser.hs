@@ -8,10 +8,8 @@ import           Data.Foldable        (asum)
 import           Data.List            (groupBy, sortBy)
 import           Data.Ord             (comparing)
 import           Text.Megaparsec      hiding (ParseError)
-import           Text.Megaparsec.Byte
 
 
-import           CLangDef             (w)
 import qualified Lexer                as L
 import           Types
 
@@ -80,8 +78,6 @@ uOp = (L.keyword "sizeof" >> return SizeOf)  <|>
 --------------------------------------------------------------------------------
 -- BinaryExpr Parsers
 --------------------------------------------------------------------------------
-plusOp :: Parser m (Expr -> Expr -> Expr)
-plusOp =  char (w '+') >> return (BExpr Plus)
 
 chainr1 :: Parser m a -> Parser m (a -> a -> a) -> Parser m a
 chainr1 p op = do
@@ -122,7 +118,7 @@ binaryExpr' (o:ops) =
 
 
 operators :: [[BOperator m]]
-operators = groupBy eqPrec $  (sortBy (flip $ comparing precedence)) $
+operators = groupBy eqPrec $  sortBy (flip $ comparing precedence)
             [ BOperator LeftAssoc Plus  (L.punctuator "+" >> return (BExpr Plus)) 4
             , BOperator LeftAssoc Minus (L.punctuator "-" >> return (BExpr Minus)) 4
             , BOperator LeftAssoc Mult  (L.punctuator "*" >> return (BExpr Mult)) 2
@@ -168,15 +164,15 @@ conditionalExpression = do
 --------------------------------------------------------------------------------
 
 statement :: Parser m Stmt
-statement = ((L.keyword "break" >> return Break <* sem) <|>
+statement = (L.keyword "break" >> return Break <* sem) <|>
             (L.keyword "continue" >> return Continue <* sem) <|>
             (L.keyword "return" >> (Return <$> optional expression) <* sem) <|>
             (L.keyword "goto" >> (Goto <$> L.identifier) <* sem) <|>
             (L.keyword "while" >> (WhileStmt <$> L.parens expression <*> statement)) <|>
             (L.keyword "if" >> (IfStmt <$> L.parens expression <*> statement <*> optional elseParser)) <|>
-            (try (ExpressionStmt <$> optional expression <* sem)) <|>
+            try (ExpressionStmt <$> optional expression <* sem) <|>
             compoundStatement <|>
-            (LabeledStmt <$> L.identifier <* L.punctuator ":" <*> statement))
+            (LabeledStmt <$> L.identifier <* L.punctuator ":" <*> statement)
   where
     sem = L.punctuator ";"
     elseParser = L.keyword "else" >> statement
@@ -222,7 +218,6 @@ abstractDeclarator =  do
   pts <- many $ L.punctuator "*"
   AbstractDec (length pts) <$> directAbstractDeclarator
 
--- | experimental (trying some left-factoring)
 directAbstractDeclarator :: Parser m DirectAbstractDeclarator
 directAbstractDeclarator = DirectAbstractDeclarator <$> many (x <|> y)
   where
@@ -232,7 +227,7 @@ directAbstractDeclarator = DirectAbstractDeclarator <$> many (x <|> y)
     y = try (L.brackets $ L.keyword "static" >> (StaticArrayAssignment <$> assignmentExpr))  <|>
         try (L.brackets $ ArrayAssignment <$> assignmentExpr) <|>
         try (L.brackets $ L.punctuator "*" >> return ArrayStar) <|>
-            (L.parens $ DADEParameterList <$> parameterList)
+        L.parens (DADEParameterList <$> parameterList)
 
 
 

@@ -164,8 +164,8 @@ stringLexeme = lexeme . string
 keyword :: ByteString -> Parser m ()
 keyword s = try $ void $ lexeme $ string s
 
-punctuator :: ByteString -> Parser m ByteString
-punctuator = lexeme . string
+punctuator :: ByteString -> Parser m ()
+punctuator = void . lexeme . string
 
 cToken :: Parser m CToken
 cToken = DecConstant <$> integerConstant <|>
