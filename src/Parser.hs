@@ -14,15 +14,15 @@ import qualified Lexer                as L
 import           Types
 
 
-runParser :: String -> ByteString -> Either ParseError [ExternalDeclaration]
+runParser :: String -> ByteString -> Either ParseError TranslationUnit
 runParser = Text.Megaparsec.runParser translationUnit
 
 --------------------------------------------------------------------------------
 -- Root Parsers
 --------------------------------------------------------------------------------
 
-translationUnit :: Parser m [ExternalDeclaration]
-translationUnit = L.sc >> some externalDeclaration <* eof
+translationUnit :: Parser m TranslationUnit
+translationUnit = L.sc >> TranslationUnit <$> some externalDeclaration <* eof
 
 externalDeclaration :: Parser m ExternalDeclaration
 externalDeclaration = try (ExtDeclarationFunction <$> functionDefinition) <|>
@@ -35,27 +35,24 @@ functionDefinition = FunctionDefinition <$> typeSpecifier <*> declarator <*> com
 -- PrimaryExpr Parsers
 --------------------------------------------------------------------------------
 
-identifier :: Parser m Expr
-identifier = ExprIdent <$> L.identifier
-
-constant :: Parser m Expr
-constant = Constant <$> (L.integerConstant <|> L.charConstant)
-
-stringLit :: Parser m Expr
-stringLit = StringLiteral <$> L.stringLiteral
-
-parenExpr :: Parser m Expr
-parenExpr = L.parens expression
-
 primaryExpr :: Parser m Expr
-primaryExpr = identifier <|>  constant <|> stringLit <|> parenExpr
+primaryExpr =     L.parens expression
+              <|> stringLit
+              <|> constant
+              <|> identifier
+  where
+    stringLit = StringLiteral <$> L.stringLiteral
+    constant = Constant <$> (L.integerConstant <|> L.charConstant)
 
 --------------------------------------------------------------------------------
 -- UnaryExpr Parsers
 --------------------------------------------------------------------------------
 
 unaryExpr :: Parser m Expr
-unaryExpr = try prefixUnaryExpr <|> postfixUnaryExpr
+unaryExpr = prefixUnaryExpr <|> postfixUnaryExpr
+
+prefixUnaryExpr :: Parser m Expr
+prefixUnaryExpr = UExpr <$> uOp <*> unaryExpr
 
 postfixUnaryExpr :: Parser m Expr
 postfixUnaryExpr = chainl1unary primaryExpr postElem
@@ -65,8 +62,6 @@ postfixUnaryExpr = chainl1unary primaryExpr postElem
                   <|> (L.punctuator "("  >> flip Func <$> expression  <* L.punctuator ")")
                   <|> (L.punctuator "("  >> L.punctuator ")" >> return (flip Func (List [])))
 
-prefixUnaryExpr :: Parser m Expr
-prefixUnaryExpr = UExpr <$> uOp <*> unaryExpr
 
 uOp :: Parser m UOp
 uOp = (L.keyword "sizeof" >> return SizeOf)  <|>
@@ -79,42 +74,18 @@ uOp = (L.keyword "sizeof" >> return SizeOf)  <|>
 -- BinaryExpr Parsers
 --------------------------------------------------------------------------------
 
-chainr1 :: Parser m a -> Parser m (a -> a -> a) -> Parser m a
-chainr1 p op = do
-  x <- p
-  let recurse = do
-        o <- op
-        y <- chainr1 p op
-        return $ x `o` y
-  recurse <|> return x
-
--- TODO: rewrite this
-chainl1 :: Parser m a -> Parser m (a -> a -> a) -> Parser m a
-chainl1 p op = p >>= rest
-  where rest x = do f <- op
-                    y <- p
-                    rest (f x y)
-                 <|> return x
-
--- | like  chainl but for unary operators.
-chainl1unary :: Parser m a -> Parser m (a -> a) -> Parser m a
-chainl1unary p op = p >>= rest
-  where rest x = do f <- op
-                    rest (f x)
-                 <|> return x
-
 binaryExpr :: Parser m Expr
 binaryExpr =  binaryExpr' operators
-
-binaryExpr' :: [[BOperator m]]-> Parser m Expr
-binaryExpr' [] = unaryExpr
-binaryExpr' (o:ops) =
-        case associativity (head o) of
-          LeftAssoc  -> chainl1 (binaryExpr' ops) (eqPrecedence o)
-          RightAssoc -> chainr1 (binaryExpr' ops) (eqPrecedence o)
   where
-    eqPrecedence :: [BOperator m] -> Parser m (Expr -> Expr -> Expr)
-    eqPrecedence ops' = asum $ map opParser ops'
+    binaryExpr' :: [[BOperator m]]-> Parser m Expr
+    binaryExpr' [] = unaryExpr
+    binaryExpr' (o:ops) =
+            case associativity (head o) of
+              LeftAssoc  -> chainl1 (binaryExpr' ops) (eqPrecedence o)
+              RightAssoc -> chainr1 (binaryExpr' ops) (eqPrecedence o)
+      where
+        eqPrecedence :: [BOperator m] -> Parser m (Expr -> Expr -> Expr)
+        eqPrecedence ops' = asum $ map opParser ops'
 
 
 operators :: [[BOperator m]]
@@ -164,15 +135,15 @@ conditionalExpression = do
 --------------------------------------------------------------------------------
 
 statement :: Parser m Stmt
-statement = (L.keyword "break" >> return Break <* sem) <|>
-            (L.keyword "continue" >> return Continue <* sem) <|>
-            (L.keyword "return" >> (Return <$> optional expression) <* sem) <|>
-            (L.keyword "goto" >> (Goto <$> L.identifier) <* sem) <|>
-            (L.keyword "while" >> (WhileStmt <$> L.parens expression <*> statement)) <|>
-            (L.keyword "if" >> (IfStmt <$> L.parens expression <*> statement <*> optional elseParser)) <|>
-            try (ExpressionStmt <$> optional expression <* sem) <|>
-            compoundStatement <|>
-            (LabeledStmt <$> L.identifier <* L.punctuator ":" <*> statement)
+statement =     (L.keyword "break" >> return Break <* sem)
+            <|> (L.keyword "continue" >> return Continue <* sem)
+            <|> (L.keyword "return" >> (Return <$> optional expression) <* sem)
+            <|> (L.keyword "goto" >> (Goto <$> L.identifier) <* sem)
+            <|> (L.keyword "while" >> (WhileStmt <$> L.parens expression <*> statement))
+            <|> (L.keyword "if" >> (IfStmt <$> L.parens expression <*> statement <*> optional elseParser))
+            <|> compoundStatement
+            <|> try (ExpressionStmt <$> optional expression <* sem)
+            <|> (LabeledStmt <$> L.identifier <* L.punctuator ":" <*> statement)
   where
     sem = L.punctuator ";"
     elseParser = L.keyword "else" >> statement
@@ -185,13 +156,13 @@ compoundStatement = L.braces (CompoundStmt <$> many blockitem)
 -- Declaration Parsers
 --------------------------------------------------------------------------------
 typeSpecifier :: Parser m Type
-typeSpecifier = (L.keyword "void"    >> return Void)  <|>
-                (L.keyword "char"    >> return Char) <|>
-                (L.keyword "int"     >> return Int)  <|>
-                (L.keyword "struct"  >> structSpecifier)
+typeSpecifier =     (L.keyword "void"    >> return Void)
+                <|> (L.keyword "char"    >> return Char)
+                <|> (L.keyword "int"     >> return Int)
+                <|> (L.keyword "struct"  >> structSpecifier)
 
 structSpecifier :: Parser m Type
-structSpecifier = try structInline <|> try structIdentifier
+structSpecifier = try structInline <|> structIdentifier
   where
     structIdentifier = StructIdentifier <$> L.identifier
     structInline = StructInline <$> optional L.identifier <*> L.braces structDeclarationList
@@ -256,3 +227,34 @@ parameterDeclaration :: Parser m Parameter
 parameterDeclaration = try x <|>  y
   where x = Parameter <$> typeSpecifier <*> declarator
         y = AbstractParameter <$> typeSpecifier <*> optional abstractDeclarator
+
+
+identifier :: Parser m Expr
+identifier = ExprIdent <$> L.identifier
+
+--------------------------------------------------------------------------------
+-- Useful combinators
+--------------------------------------------------------------------------------
+chainr1 :: Parser m a -> Parser m (a -> a -> a) -> Parser m a
+chainr1 p op = do
+  x <- p
+  let recurse = do
+        o <- op
+        y <- chainr1 p op
+        return $ x `o` y
+  recurse <|> return x
+
+-- TODO: rewrite this
+chainl1 :: Parser m a -> Parser m (a -> a -> a) -> Parser m a
+chainl1 p op = p >>= rest
+  where rest x = do f <- op
+                    y <- p
+                    rest (f x y)
+                 <|> return x
+
+-- | like  chainl but for unary operators.
+chainl1unary :: Parser m a -> Parser m (a -> a) -> Parser m a
+chainl1unary p op = p >>= rest
+  where rest x = do f <- op
+                    rest (f x)
+                 <|> return x

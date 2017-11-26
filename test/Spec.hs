@@ -11,6 +11,7 @@ import           SpecQC
 
 import           Spec.Lexer           as SL
 import           Spec.Parser          as SP
+import           Spec.PrettyPrinter   as PP
 
 main :: IO ()
 main = do
@@ -31,4 +32,5 @@ runTests :: IO ()
 runTests = hspec $ do
     unitTestsLexer
     unitTestsParser
+    testPrettyPrinter
     qcBasedTests

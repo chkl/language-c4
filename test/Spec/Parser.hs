@@ -181,7 +181,7 @@ testTranslationUnit :: SpecWith ()
 testTranslationUnit = describe "translation unit parser" $
   it "parses a minimal c file" $
     testParser translationUnit (addFunctionCode <> simpleMainCode ) `shouldBe`
-      Right [ addFunction, simpleMain ]
+      Right (TranslationUnit [ addFunction, simpleMain ])
 
 --------------------------------------------------------------------------------
 -- some sample definitions

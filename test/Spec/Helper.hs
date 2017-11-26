@@ -24,7 +24,7 @@ import qualified Text.Megaparsec      as MP
 import           Text.Megaparsec.Pos
 
 import           Lexer                hiding (runLexer_)
-import           PrettyPrint          (myParseErrorPretty)
+import           PrettyPrinter        (myParseErrorPretty)
 import           Types
 
 

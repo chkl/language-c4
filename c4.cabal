@@ -17,7 +17,7 @@ library
                      , Lexer
                      , Parser
                      , CLangDef
-                     , PrettyPrint
+                     , PrettyPrinter
                      , Types
   build-depends:       base >= 4.7 && < 5
                      , mtl
@@ -47,6 +47,7 @@ test-suite c4-test
   other-modules:       Spec.Helper
                      , Spec.Lexer
                      , Spec.Parser
+                     , Spec.PrettyPrinter
                      , SpecQC
   build-depends:       base
                      , c4

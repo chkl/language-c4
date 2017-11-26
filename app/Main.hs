@@ -1,23 +1,26 @@
 module Main where
 
-import qualified Data.ByteString.Lazy as BS
+import           Control.Monad         (when)
+import qualified Data.ByteString.Lazy  as BS
 import           System.Environment
-import           System.Exit          (exitFailure, exitSuccess)
-import           System.IO            (hPutStr, stderr)
+import           System.Exit           (exitFailure, exitSuccess)
+import           System.IO             (hPutStr, stderr, stdout)
 
 import           Lexer
-import           Parser               (runParser)
-import           PrettyPrint
+import           Parser                (runParser)
 
+import           PrettyPrinter
 
+type PrintAST = Bool
 
 main :: IO ()
 main = do
   args <- getArgs
   case args of
-    ["--tokenize", filename] -> tokenize filename
-    ["--parse", filename]    -> parse filename
-    _                        -> showHelp
+    ["--tokenize", filename]  -> tokenize filename
+    ["--parse", filename]     -> parse False filename
+    ["--print-ast", filename] -> parse True filename
+    _                         -> showHelp
 
 tokenize :: String -> IO ()
 tokenize filename = do
@@ -29,15 +32,20 @@ tokenize filename = do
       exitFailure
     Right () -> exitSuccess
 
-parse :: String -> IO ()
-parse filename = do
+parse :: PrintAST -> String -> IO ()
+parse pr filename = do
   contents <- BS.readFile filename
   case runParser filename contents of
     Left err -> do
       hPutStr stderr $ myParseErrorPretty err
       exitFailure
-    Right r -> print r >> exitSuccess
+    Right ast -> do
+      when pr $ do
+        hPutPrettyPrint ast stdout
+      exitSuccess
+
 
 showHelp :: IO ()
 showHelp = putStrLn "Available options: --tokenize and --help"
+
 
