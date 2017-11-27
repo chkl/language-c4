@@ -52,7 +52,9 @@ unaryExpr :: Parser m Expr
 unaryExpr = prefixUnaryExpr <|> postfixUnaryExpr
 
 prefixUnaryExpr :: Parser m Expr
-prefixUnaryExpr = UExpr <$> uOp <*> unaryExpr
+prefixUnaryExpr =     (try sizeofTypename)
+                  <|> UExpr <$> uOp <*> unaryExpr
+  where sizeofTypename = L.keyword "sizeof" >> L.parens (SizeOfType <$> typeSpecifier)
 
 postfixUnaryExpr :: Parser m Expr
 postfixUnaryExpr = chainl1unary primaryExpr postElem

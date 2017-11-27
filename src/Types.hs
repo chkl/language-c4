@@ -54,6 +54,7 @@ data Expr = List [Expr]
           | Assign Expr Expr
           | BExpr BOp Expr Expr
           | UExpr UOp Expr
+          | SizeOfType Type
           | Array Expr Expr
           | Func Expr Expr
           | ExprIdent ByteString

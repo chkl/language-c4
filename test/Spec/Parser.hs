@@ -107,6 +107,9 @@ testExpressions = describe "expression parser" $ do
       testParser unaryExpr "&foo" `shouldBe` Right (UExpr Address (ExprIdent "foo"))
       testParser unaryExpr "&func(x, y, z)" `shouldBe`  Right (UExpr Address (Func (ExprIdent "func") (List [ExprIdent "x",ExprIdent "y",ExprIdent "z"])))
       testParser unaryExpr "sizeof f(x)" `shouldBe` Right (UExpr SizeOf (Func (ExprIdent "f") (ExprIdent "x")))
+      testParser unaryExpr "sizeof(int)" `shouldSatisfy` isRight
+      testParser unaryExpr "sizeof sizeof (int)" `shouldSatisfy` isRight
+      testParser unaryExpr "sizeof sizeof x" `shouldSatisfy` isRight
       testParser unaryExpr "-x" `shouldBe` Right (UExpr Neg (ExprIdent "x"))
       testParser unaryExpr "*x" `shouldBe` Right (UExpr Deref (ExprIdent "x"))
       testParser unaryExpr "!x" `shouldBe` Right (UExpr Not (ExprIdent "x"))
