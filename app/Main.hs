@@ -40,8 +40,9 @@ parse pr filename = do
       hPutStr stderr $ myParseErrorPretty err
       exitFailure
     Right ast -> do
-      when pr $ do
-        hPutPrettyPrint ast stdout
+      if pr
+        then hPutPrettyPrint ast stdout
+        else Prelude.print ast
       exitSuccess
 
 
