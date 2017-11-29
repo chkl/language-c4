@@ -24,6 +24,7 @@ type Level = Int
 class PrettyPrint a where
   prettyPrint :: a -> Printer ()
 
+
   toPrettyString :: a -> LB.ByteString
   toPrettyString x = toLazyByteString (prettyBuilder x)
 
@@ -79,7 +80,7 @@ instance IsString (Printer ()) where
 nest :: Int -> Printer a -> Printer a
 nest n p = Printer $ \env ->
   let (x, env') = runPrinter p (env{level = level env + n})
-  in (x, env')
+  in (x, env' {level = level env})
 
 ident :: Printer a -> Printer a
 ident = nest 1
@@ -89,6 +90,11 @@ newline = do
   s <- get
   put s { builder = builder s <> "\n"
         , startLine = True}
+
+commaSep :: [Printer ()] -> Printer ()
+commaSep []     = return ()
+commaSep [p]    = p
+commaSep (p:ps) = p >> mapM_ (\p -> print ", " >> p) ps
 
 -- TODO: rewrite this
 print :: LB.ByteString -> Printer ()
@@ -111,16 +117,22 @@ printLn s = print s >> newline
 ---- Some combinators
 ----------------------------------------------------------------------------------
 
+prettyPrintLn :: PrettyPrint p => p -> Printer ()
+prettyPrintLn p = prettyPrint p >> newline
+
 -- | K&R style braces
 braces :: Printer () -> Printer ()
 braces p = do
   printLn "{"
-  newline
   ident p
-  print "}"
+  newline
+  printLn "}"
 
 parens :: Printer () -> Printer ()
 parens p = print "(" <> p <> print ")"
+
+brackets :: Printer () -> Printer ()
+brackets p = print "[" <> p <> print "]"
 
 spaces :: Printer () -> Printer ()
 spaces p = print " " <> p <> print " "
@@ -129,25 +141,88 @@ spaces p = print " " <> p <> print " "
 -- Instance definitions
 --------------------------------------------------------------------------------
 instance PrettyPrint TranslationUnit where
-  prettyPrint (TranslationUnit units) =
-    forM_ units $ \u -> do
-      prettyPrint u
-      newline
+  prettyPrint (TranslationUnit units) = mapM_ prettyPrintLn units
+
 instance PrettyPrint ExternalDeclaration where
   prettyPrint (ExtDeclarationFunction funDec ) = prettyPrint funDec
   prettyPrint (ExtDeclarationDeclaration dec ) = prettyPrint dec
 
 instance PrettyPrint FunctionDefinition where
-  prettyPrint (FunctionDefinition t dec stmt) = printLn "/* function definition */"
+  prettyPrint (FunctionDefinition t dec stmt) = do
+    prettyPrint t
+    spaces $ prettyPrint dec
+    newline
+    prettyPrint stmt
+
+instance PrettyPrint Type where
+  prettyPrint Int = "int"
+  prettyPrint Char = "char"
+  prettyPrint Void = "void"
+  prettyPrint (StructIdentifier i)  = "struct " <> print i
+  prettyPrint (StructInline mi decls)  = do
+    print "struct "
+    maybe "" print mi
+    print " "
+    braces $ forM_ decls $ \d -> do
+      prettyPrint d
+      newline
+
+instance PrettyPrint Declarator where
+  prettyPrint (Declarator 0 dir) = prettyPrint dir
+  prettyPrint (Declarator n dir) = parens $ replicateM_ n (print "*") >> prettyPrint dir
+
+instance PrettyPrint DirectDeclarator where
+  prettyPrint (DirectDeclaratorId i) =  print i
+  prettyPrint (DirectDeclaratorParens d) =  prettyPrint d
+  prettyPrint (DirectDeclaratorParams d ps) =  prettyPrint d >> parens (commaSep $ map prettyPrint ps)
+
+instance PrettyPrint StructDeclaration where
+  prettyPrint (StructDeclaration t decls) = do
+    prettyPrint t
+    print " "
+    commaSep $ map prettyPrint decls
+    print ";"
+
+instance PrettyPrint Parameter where
+  prettyPrint (Parameter t dec) = prettyPrint t >> print " " >> prettyPrint dec
+  prettyPrint (AbstractParameter t md) = prettyPrint t >> whenM md prettyPrint
+
+instance PrettyPrint AbstractDec where
+  prettyPrint x = print "/* TODO: abstract dec */"
+
+whenM :: Monad m => Maybe a -> (a -> m ()) -> m ()
+whenM Nothing _  = return ()
+whenM (Just x) f = f x
 
 instance PrettyPrint Stmt where
+  prettyPrint (LabeledStmt lbl stmt)    = print lbl <> ": " <> prettyPrint stmt
   prettyPrint (CompoundStmt stmts)      = braces $ mapM_ prettyPrint stmts
   prettyPrint (ExpressionStmt Nothing)  = print ";"
   prettyPrint (ExpressionStmt (Just e)) = prettyPrint e
-  prettyPrint (IfStmt e stmt Nothing)   = print "/* TODO if */"
+  prettyPrint (IfStmt e stmt elseP)   = do
+    print "if "
+    parens $ prettyPrint e
+    newline
+    braces (prettyPrint stmt)
+    whenM elseP $ \s -> do
+      print "else"
+      newline
+      braces $ prettyPrint s
+
+  prettyPrint (WhileStmt e stmt) = do
+    print "while "
+    parens $ prettyPrint e
+    newline
+    braces (prettyPrint stmt)
+  prettyPrint (Goto i) = print "goto " <> print i <> ";"
+  prettyPrint (Return me) = do
+    print "return"
+    whenM me $ \e -> do
+      print " "
+      prettyPrint e
+    print ";"
   prettyPrint Break                     = print "break;"
   prettyPrint Continue                  = print "continue;"
-  prettyPrint _                         = print "/* TODO: stmt */"
 
 instance (PrettyPrint a, PrettyPrint b) => PrettyPrint (Either a b) where
   prettyPrint (Left a)  = prettyPrint a
@@ -158,11 +233,21 @@ instance PrettyPrint Declaration where
 
 
 instance PrettyPrint Expr where
-  prettyPrint (BExpr op e1 e2) = parens $ mconcat [prettyPrint e1, prettyPrint op, prettyPrint e2]
-  prettyPrint (UExpr op e)     = prettyPrint op <> parens (prettyPrint e)
-  prettyPrint (ExprIdent i)    = print i
-  prettyPrint (Ternary e1 e2 e3) = parens $ prettyPrint e1 <> " ? " <> prettyPrint e2 <> " : " <> prettyPrint e3
-  prettyPrint _                = print "/* TODO: expression */"
+  prettyPrint (BExpr op e1 e2)    = parens $ mconcat [prettyPrint e1, prettyPrint op, prettyPrint e2]
+  prettyPrint (UExpr op e)        = prettyPrint op <> parens (prettyPrint e)
+  prettyPrint (ExprIdent i)       = print i
+  prettyPrint (Ternary e1 e2 e3)  = parens $ prettyPrint e1 <> " ? " <> prettyPrint e2 <> " : " <> prettyPrint e3
+  prettyPrint (SizeOfType t)      = print "sizeof" >> parens (prettyPrint t)
+  prettyPrint (Assign l r)        = prettyPrint l >> print " = " >> prettyPrint r
+  prettyPrint (Func f a)          = prettyPrint f >> parens (prettyPrint a)
+  prettyPrint (Constant c)        = print c
+  prettyPrint (Array a b )        = prettyPrint a >> brackets (prettyPrint b)
+  prettyPrint (FieldAccess a b)   = prettyPrint a >> brackets (prettyPrint b)
+  prettyPrint (PointerAccess a b) = prettyPrint a >> print "->" >> prettyPrint b
+  prettyPrint (StringLiteral s)   = print "\"" >> print s >> print "\""
+  prettyPrint (List es)           = print "/* TODO: list */"
+
+
 
 instance PrettyPrint BOp where
   prettyPrint Mult         = spaces "*"

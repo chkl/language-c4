@@ -123,6 +123,8 @@ testExpressions = describe "expression parser" $ do
     testParser expression "!x" `shouldSatisfy` isRight
   it "parses deeply nested expressions" $ do
     testParser expression "((((((((((((((((((((x+y))))))))))))))))))))" `shouldSatisfy` isRight
+  it "rejects baseless array access" $ do
+    testParser expression "[5]" `shouldSatisfy` isLeft
 
 testAbstractDeclarator :: SpecWith ()
 testAbstractDeclarator = it "parses abstract declarators" $ do
