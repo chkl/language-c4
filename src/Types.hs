@@ -88,10 +88,9 @@ data StructDeclaration = StructDeclaration Type [Declarator]
 data Declarator = Declarator Pointers DirectDeclarator
   deriving (Show, Eq)
 
--- that each declarator can have a list of parameter list is due to an ambiguous grammar
-data DirectDeclarator = DirectDeclaratorId Ident [[Parameter]]
-                      | DirectDeclaratorParens Declarator [[Parameter]] -- this may be simplified
---                      | DirectDeclaratorWithParams DirectDeclarator (Maybe [Parameter])
+data DirectDeclarator = DirectDeclaratorId Ident
+                      | DirectDeclaratorParens Declarator
+                      | DirectDeclaratorParams DirectDeclarator [Parameter]
                       deriving (Show, Eq)
 
 -- | In contrast to the spec this takes only one initializer
@@ -109,15 +108,20 @@ data Parameter =  Parameter Type Declarator
 data AbstractDec = AbstractDec Pointers DirectAbstractDeclarator
   deriving (Show, Eq)
 
-data DirectAbstractDeclarator = DirectAbstractDeclarator [DirectAbstractDeclaratorElem]
-  deriving (Show, Eq)
+data DirectAbstractDeclarator = DADTerminal (Maybe AbstractDec)
+                              | DADEParameterList DirectAbstractDeclarator [Parameter]
+                              | ArrayStar DirectAbstractDeclarator
+                              deriving (Show, Eq)
 
-data DirectAbstractDeclaratorElem = ArrayAssignment Expr -- assignment expr
-                                  | StaticArrayAssignment Expr
-                                  | ArrayStar -- [*]
-                                  | DADENested AbstractDec
-                                  | DADEParameterList [Parameter]
-                                  deriving (Show,Eq)
+--data DirectAbstractDeclarator = DirectAbstractDeclarator [DirectAbstractDeclaratorElem]
+--  deriving (Show, Eq)
+--
+--data DirectAbstractDeclaratorElem = ArrayAssignment Expr -- assignment expr
+--                                  | StaticArrayAssignment Expr
+--                                  | ArrayStar -- [*]
+--                                  | DADENested AbstractDec
+--                                  | DADEParameterList [Parameter]
+--                                  deriving (Show,Eq)
 
 
 --------------------------------------------------------------------------------

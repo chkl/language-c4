@@ -52,7 +52,7 @@ unaryExpr :: Parser m Expr
 unaryExpr = prefixUnaryExpr <|> postfixUnaryExpr
 
 prefixUnaryExpr :: Parser m Expr
-prefixUnaryExpr =     (try sizeofTypename)
+prefixUnaryExpr =     try sizeofTypename
                   <|> UExpr <$> uOp <*> unaryExpr
   where sizeofTypename = L.keyword "sizeof" >> L.parens (SizeOfType <$> typeSpecifier)
 
@@ -181,10 +181,11 @@ declarator = do
 
 
 directDeclarator :: Parser m DirectDeclarator
-directDeclarator = pParent <|> pId
+directDeclarator = chainl1unary dcore dparams
   where
-    pId = DirectDeclaratorId <$> L.identifier <*> many parameterList
-    pParent = DirectDeclaratorParens <$> L.parens declarator <*> many parameterList
+    dcore =   L.parens ( DirectDeclaratorParens <$> declarator)
+              <|> (DirectDeclaratorId <$> L.identifier)
+    dparams = flip DirectDeclaratorParams <$> parameterList
 
 abstractDeclarator :: Parser m AbstractDec
 abstractDeclarator =  do
@@ -192,18 +193,11 @@ abstractDeclarator =  do
   AbstractDec (length pts) <$> directAbstractDeclarator
 
 directAbstractDeclarator :: Parser m DirectAbstractDeclarator
-directAbstractDeclarator = DirectAbstractDeclarator <$> many (x <|> y)
+directAbstractDeclarator = chainl1unary core ops
   where
-    x :: Parser m DirectAbstractDeclaratorElem
-    x = L.parens (DADENested <$> abstractDeclarator)
-    y :: Parser m DirectAbstractDeclaratorElem
-    y = try (L.brackets $ L.keyword "static" >> (StaticArrayAssignment <$> assignmentExpr))  <|>
-        try (L.brackets $ ArrayAssignment <$> assignmentExpr) <|>
-        try (L.brackets $ L.punctuator "*" >> return ArrayStar) <|>
-        L.parens (DADEParameterList <$> parameterList)
-
-
-
+    core = DADTerminal <$> optional (L.parens abstractDeclarator)
+    ops = flip DADEParameterList <$> parameterList <|>
+          L.brackets (L.punctuator "*" >> return ArrayStar)
 
 declaration :: Parser m Declaration
 declaration = Declaration <$> typeSpecifier  <*>  initDeclaratorList <* L.punctuator ";"

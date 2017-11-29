@@ -76,8 +76,8 @@ isRight  = either (const False) (const True)
 
 -- | like runParser but sets file name to "test.c" and renders the error message
 -- into a human-readable format
-testParser :: MP.Token s ~ Word8 =>  MP.Parsec ErrorMsg s a -> s -> Either String a
-testParser p i = pe $ MP.runParser p "test.c" i -- :: Either ParseError a
+testParser :: (MP.Token s ~ Word8, MP.Stream s) =>  MP.Parsec ErrorMsg s a -> s -> Either String a
+testParser p i = pe $ MP.runParser (p <* MP.eof) "test.c" i -- :: Either ParseError a
   where
     pe :: Either ParseError a -> Either String a
     pe (Left err) = Left $ myParseErrorPretty err
