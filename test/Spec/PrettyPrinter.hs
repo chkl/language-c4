@@ -12,6 +12,7 @@ import           Test.Hspec
 import           PrettyPrinter
 import           Spec.Helper
 import           Types
+import qualified Parser as P
 
 
 runPrinter' :: Printer a -> ByteString
@@ -23,6 +24,8 @@ testPrettyPrinter :: SpecWith ()
 testPrettyPrinter = do
   testPrimitives
   testExpressions
+  testFunctionDefinition
+  testDeclarations
 
 
 testPrimitives :: SpecWith ()
@@ -49,3 +52,14 @@ testExpressions = describe "expression pretty-printer" $ do
     runPrinter' (prettyPrint (UExpr Address (ExprIdent "foo"))) `shouldBe` "&(foo)"
   it "prints ternary expressions" $ do
     runPrinter' (prettyPrint (Ternary x y z)) `shouldBe` "(x ? y : z)"
+
+testFunctionDefinition :: SpecWith ()
+testFunctionDefinition = describe "function definition" $ do
+ it "prints simple function definitions " $ do
+   roundtrip P.functionDefinition "int dbl(int x)\n{\n\treturn (2 * x);\n}\n"
+
+testDeclarations :: SpecWith ()
+testDeclarations = describe "declarations" $ do
+  describe "struct declarations" $ do
+    it "roundtrips simple struct declaration" $ do
+      roundtrip P.structDeclaration "struct S\n{\n\tint x;\n} s;\n"

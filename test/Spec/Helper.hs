@@ -16,15 +16,17 @@ module Spec.Helper ( plus
   , newPos'
   , isLeft
   , isRight
-              ) where
+  , roundtrip
+  ) where
 
 import qualified Data.ByteString.Lazy as BS
 import           Data.Word            (Word8)
+import           Test.Hspec
 import qualified Text.Megaparsec      as MP
 import           Text.Megaparsec.Pos
 
 import           Lexer                hiding (runLexer_)
-import           PrettyPrinter        (myParseErrorPretty)
+import           PrettyPrinter
 import           Types
 
 
@@ -82,3 +84,8 @@ testParser p i = pe $ MP.runParser (p <* MP.eof) "test.c" i -- :: Either ParseEr
     pe :: Either ParseError a -> Either String a
     pe (Left err) = Left $ myParseErrorPretty err
     pe (Right b)  = Right b
+
+roundtrip :: (PrettyPrint a) => MP.Parsec ErrorMsg BS.ByteString a -> BS.ByteString -> Expectation
+roundtrip p s = case testParser p s of
+  Left err  -> expectationFailure err -- TODO How to fail a test?
+  Right ast -> toPrettyString ast `shouldBe` s
