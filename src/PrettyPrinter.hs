@@ -96,9 +96,14 @@ newline :: Printer ()
 newline = do
   b <- gets startLine
   unless b $ do
-    modify $ \s -> s { builder = builder s <> "\n"
-                     , startLine = True
-                     }
+    modify $ \s -> s { builder = builder s <> "\n" , startLine = True }
+
+emptyLine :: Printer ()
+emptyLine = do
+  at0 <- gets startLine
+  if at0
+    then modify $ \s -> s {builder = builder s <> "\n", startLine = True}
+    else modify $ \s -> s {builder = builder s <> "\n\n", startLine = True}
 
 
 intercalate :: Printer () -> [Printer ()] -> Printer ()
@@ -166,7 +171,7 @@ spaces p = space <> p <> space
 -- Instance definitions
 --------------------------------------------------------------------------------
 instance PrettyPrint TranslationUnit where
-  prettyPrint (TranslationUnit units) = mapM_ prettyPrintLn units
+  prettyPrint (TranslationUnit units) = intercalate "\n" (map prettyPrint units)
 
 instance PrettyPrint ExternalDeclaration where
   prettyPrint (ExtDeclarationFunction funDec ) = prettyPrint funDec
@@ -212,7 +217,14 @@ instance PrettyPrint Parameter where
   prettyPrint (AbstractParameter t md) = prettyPrint t >> whenM md prettyPrint
 
 instance PrettyPrint AbstractDec where
-  prettyPrint x = print "/* TODO: abstract dec */"
+  prettyPrint (AbstractDec 0 dec) = prettyPrint dec
+  prettyPrint (AbstractDec n dec) = parens $ replicateM_ n (print "*") >> prettyPrint dec
+
+instance PrettyPrint DirectAbstractDeclarator where
+  prettyPrint (DADTerminal Nothing)    = return ()  -- "/* TODO: DADTerminal */"
+  prettyPrint (DADTerminal (Just d))   = prettyPrint d-- "/* TODO: DADTerminal */"
+  prettyPrint (DADEParameterList _ _ ) = print "/*TODO: DADParameterList*/"
+  prettyPrint (ArrayStar _ )           = print "/*TODO: ArrayStar*/"
 
 whenM :: Monad m => Maybe a -> (a -> m ()) -> m ()
 whenM Nothing _  = return ()
@@ -247,7 +259,10 @@ instance PrettyPrint Stmt where
     print "if" >> space
     parens $ prettyPrint e
     smartBraces stmt1
-    space >> print "else"
+    at0 <- gets startLine
+    if at0
+      then print "else"
+      else print " else"
     smartBraces stmt2
     newline
 
@@ -293,9 +308,9 @@ instance PrettyPrint Expr where
   prettyPrint (UExpr op e)        = parens $ prettyPrint op >> prettyPrint e
   prettyPrint (ExprIdent i)       = print i
   prettyPrint (Ternary e1 e2 e3)  = parens $ prettyPrint e1 <> " ? " <> prettyPrint e2 <> " : " <> prettyPrint e3
-  prettyPrint (SizeOfType t)      = parens $ print "sizeof" >> space >> parens (prettyPrint t)
+  prettyPrint (SizeOfType t)      = parens $ print "sizeof" >> parens (prettyPrint t)
   prettyPrint (Assign l r)        = prettyPrint l >> print " = " >> prettyPrint r
-  prettyPrint (Func f a)          = prettyPrint f >> parens (prettyPrint a)
+  prettyPrint (Func f a)          = parens $ prettyPrint f >> parens (prettyPrint a)
   prettyPrint (Constant c)        = print c
   prettyPrint (Array a b )        = prettyPrint a >> brackets (prettyPrint b)
   prettyPrint (FieldAccess a b)   = parens $ prettyPrint a >> period >> prettyPrint b
