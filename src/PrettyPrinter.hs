@@ -91,11 +91,14 @@ indent :: Printer a -> Printer a
 indent = nest 1
 
 
+-- | "smart" newline: only inserts a "\n" character if the cursor is not the first position in a line.
 newline :: Printer ()
 newline = do
-  s <- get
-  put s { builder = builder s <> "\n"
-        , startLine = True}
+  b <- gets startLine
+  unless b $ do
+    modify $ \s -> s { builder = builder s <> "\n"
+                     , startLine = True
+                     }
 
 
 intercalate :: Printer () -> [Printer ()] -> Printer ()
