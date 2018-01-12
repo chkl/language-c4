@@ -1,23 +1,23 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Spec.Lexer where
+module Spec.Lexer ( lexerQC
+                  , unitTestsLexer
+                  ) where
 
 
 import           Control.Monad         (forM_)
 import           Test.Hspec
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import           Test.QuickCheck
-import qualified Text.Megaparsec       as MP
 
 import           CLangDef
-import           Parser
 import           SpecQC
 import           Types
 
 import           Spec.Helper
 
-qcBasedTests :: SpecWith ()
-qcBasedTests = describe "QuickCheck" $
+lexerQC :: SpecWith ()
+lexerQC = describe "QuickCheck properties" $
   modifyMaxSuccess (const 1000) $ do
     it "generated files" $ property prop_genCFile
     it "all keywords"    $ property prop_genKeyword

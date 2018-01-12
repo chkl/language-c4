@@ -30,7 +30,10 @@ generateSampleFile = do
 -- | run both, quickcheck and unit test based tests
 runTests :: IO ()
 runTests = hspec $ do
+  describe "Lexer" $ do
     unitTestsLexer
+    lexerQC
+  describe "Parser" $ do
     unitTestsParser
+  describe "Pretty-Printer" $ do
     testPrettyPrinter
-    qcBasedTests
