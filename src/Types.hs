@@ -85,13 +85,11 @@ data StructDeclaration = StructDeclaration Type [Declarator]
 
 
 -- | first parameter is the number of stars
-data Declarator = Declarator Pointers DirectDeclarator
-  deriving (Show, Eq)
+data Declarator = IndirectDeclarator Pointers Declarator
+                | DeclaratorId Ident
+                | FunctionDeclarator Declarator [Parameter]
+                deriving (Show, Eq)
 
-data DirectDeclarator = DirectDeclaratorId Ident
-                      | DirectDeclaratorParens Declarator
-                      | DirectDeclaratorParams DirectDeclarator [Parameter]
-                      deriving (Show, Eq)
 
 -- | In contrast to the spec this takes only one initializer
 data InitDeclarator = InitializedDec Declarator (Maybe Initializer)

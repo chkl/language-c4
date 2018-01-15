@@ -197,13 +197,10 @@ instance PrettyPrint Type where
     bracesNN $ unlines $ map prettyPrint decls
 
 instance PrettyPrint Declarator where
-  prettyPrint (Declarator 0 dir) = prettyPrint dir
-  prettyPrint (Declarator n dir) = parens $ replicateM_ n (print "*") >> prettyPrint dir
+  prettyPrint (IndirectDeclarator n dir) = parens $ replicateM_ n (print "*") >> prettyPrint dir
+  prettyPrint (DeclaratorId i) =  print i
+  prettyPrint (FunctionDeclarator d ps) =  parens $ prettyPrint d >> parens (commaSep $ map prettyPrint ps)
 
-instance PrettyPrint DirectDeclarator where
-  prettyPrint (DirectDeclaratorId i) =  print i
-  prettyPrint (DirectDeclaratorParens d) =  prettyPrint d
-  prettyPrint (DirectDeclaratorParams d ps) =  parens $ prettyPrint d >> parens (commaSep $ map prettyPrint ps)
 
 instance PrettyPrint StructDeclaration where
   prettyPrint (StructDeclaration t decls) = do

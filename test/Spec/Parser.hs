@@ -33,13 +33,13 @@ testTypeSpecifier = describe "typeSpecifier parser" $ do
       testParser typeSpecifier "struct A" `shouldBe` Right (StructIdentifier "A")
       testParser typeSpecifier "struct A {}" `shouldBe` Right (StructInline (Just "A") [])
       testParser typeSpecifier "struct A {int foo;}" `shouldBe`
-        Right (StructInline (Just "A") [StructDeclaration Int [Declarator 0 $ DirectDeclaratorId "foo" ]])
+        Right (StructInline (Just "A") [StructDeclaration Int [DeclaratorId "foo" ]])
 
 
     it "parses declarators" $ do
-      testParser declarator "x" `shouldBe` Right  (Declarator 0 $ DirectDeclaratorId "x" )
-      testParser declarator "*x" `shouldBe` Right  (Declarator 1 $ DirectDeclaratorId "x" )
-      testParser declarator "**x" `shouldBe` Right  (Declarator 2 $ DirectDeclaratorId "x" )
+      testParser declarator "x" `shouldBe` Right  (DeclaratorId "x" )
+      testParser declarator "*x" `shouldBe` Right  (IndirectDeclarator 1 $ DeclaratorId "x" )
+      testParser declarator "**x" `shouldBe` Right  (IndirectDeclarator 2 $ DeclaratorId "x" )
       testParser declarator "f()" `shouldSatisfy` isRight
       testParser declarator "f(int x)" `shouldSatisfy` isRight
       testParser declarator "f(int x, int y)" `shouldSatisfy` isRight
@@ -49,16 +49,14 @@ testTypeSpecifier = describe "typeSpecifier parser" $ do
         Right  (StructDeclaration Int [])
 
       testParser structDeclaration "int x;" `shouldBe`
-        Right  (StructDeclaration Int [ Declarator 0 (DirectDeclaratorId "x" )])
+        Right  (StructDeclaration Int [ DeclaratorId "x"])
 
       testParser structDeclaration "int x,y;" `shouldBe`
-        Right  (StructDeclaration Int [ Declarator 0 (DirectDeclaratorId "x" )
-                                      , Declarator 0 (DirectDeclaratorId "y" )
-                                      ])
+        Right  (StructDeclaration Int [ DeclaratorId "x", DeclaratorId "y"])
 
       testParser structDeclaration "int x,*y;" `shouldBe`
-        Right  (StructDeclaration Int [ Declarator 0 (DirectDeclaratorId "x" )
-                                      , Declarator 1 (DirectDeclaratorId "y" )
+        Right  (StructDeclaration Int [ DeclaratorId "x"
+                                      , IndirectDeclarator 1 (DeclaratorId "y" )
                                       ])
 
       testParser structDeclaration "int f(int y);" `shouldSatisfy` isRight
@@ -175,13 +173,13 @@ testTranslationUnit = describe "translation unit parser" $ do
 --------------------------------------------------------------------------------
 -- some sample definitions
 simpleMain :: ExternalDeclaration
-simpleMain = ExtDeclarationFunction ( FunctionDefinition Int ( Declarator 0 (DirectDeclaratorId "main"))
+simpleMain = ExtDeclarationFunction ( FunctionDefinition Int ( DeclaratorId "main")
                                        (CompoundStmt [Right (Return (Just (Constant "1")))]))
 simpleMainCode :: ByteString
 simpleMainCode = "int main() { return 1;}"
 
 addFunction :: ExternalDeclaration
-addFunction = ExtDeclarationFunction ( FunctionDefinition Int (Declarator 0 (DirectDeclaratorId "add")) stmt)
+addFunction = ExtDeclarationFunction ( FunctionDefinition Int (DeclaratorId "add") stmt)
   where
     stmt = CompoundStmt [Right (Return (Just (ExprIdent "x" `plus` ExprIdent "y")))]
 

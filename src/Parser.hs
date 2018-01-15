@@ -176,16 +176,19 @@ structDeclaration = StructDeclaration <$> typeSpecifier <*> L.commaSep declarato
 -- | like a direct declarator but with many * in front
 declarator :: Parser m Declarator
 declarator = do
-  pts <- many $ L.punctuator "*"
-  Declarator (length pts) <$> directDeclarator
+  pts <- length <$> many (L.punctuator "*")
+  if pts > 0 then
+      IndirectDeclarator pts <$> directDeclarator
+    else
+      directDeclarator
 
 
-directDeclarator :: Parser m DirectDeclarator
+directDeclarator :: Parser m Declarator
 directDeclarator = chainl1unary dcore dparams
   where
-    dcore =   L.parens ( DirectDeclaratorParens <$> declarator)
-              <|> (DirectDeclaratorId <$> L.identifier)
-    dparams = flip DirectDeclaratorParams <$> parameterList
+    dcore =   L.parens declarator
+              <|> (DeclaratorId <$> L.identifier)
+    dparams = flip FunctionDeclarator <$> parameterList
 
 abstractDeclarator :: Parser m AbstractDec
 abstractDeclarator =  do
