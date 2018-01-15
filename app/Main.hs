@@ -48,6 +48,6 @@ parse pr filename = do
 
 
 showHelp :: IO ()
-showHelp = putStrLn "Available options: --tokenize and --help"
+showHelp = putStrLn "Available options: --tokenize --parse --print-ast  and --help"
 
 
