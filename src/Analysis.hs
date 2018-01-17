@@ -9,11 +9,12 @@ import qualified Data.Map.Strict      as Map
 
 import           Types
 
--- core monad
+-- | Any analysis that runs inside the @Analysis monad can write @SemanticErrors
+-- and has a "scope" which acts as state.
 type Analysis = WriterT [SemanticError] (State Scope)
 
 
--- | adds name to the scope without checking for existing declarations.
+-- | Adds name to the scope without checking for existing declarations.
 -- This is useful shadowing declarations (e.g. function parameters or loop
 -- variables). For actual declarations use @declare which will emit an error for
 -- declaring a already declared variable.
@@ -33,10 +34,6 @@ declare n t = do
     (Just _) -> tell [AlreadyDeclaredName n]
 
 -- some data types
--- TODO: Move to Types.hs
-newtype Path = Path [Ident]
-  deriving (Show, Eq)
-
 data CType = Primitive Type
            | Pointer CType
            | Tuple [CType]
@@ -52,12 +49,13 @@ instance Show Scope where
     where f (k,v) = show k ++ " :: " ++ show v
 
 instance Show CType where
-  show (Primitive t) = show t
-  show (Pointer t) = "*" ++ show t
+  show Bottom         = "⊥"
+  show (Primitive t)  = show t
+  show (Pointer t)    = "*" ++ show t
   show (Function t p) = "(" ++ pl ++ ") -> " ++ show t
-    where pl = intercalate ", " $ map show p
-  show (Tuple p) = "(" ++ pl ++ ")"
-    where pl = intercalate ", " $ map show p
+    where pl          = intercalate ", " $ map show p
+  show (Tuple p)      = "(" ++ pl ++ ")"
+    where pl          = intercalate ", " $ map show p
 
 emptyScope :: Scope
 emptyScope = Scope Map.empty
@@ -86,27 +84,63 @@ enterScope a = do
     let (_,errs,_) = runAnalyzer a s
     tell errs
 
+-- | Should: Matches two types and returns the more general type.
+--   Currently: "Matching"  means equality
+matchTypes :: CType -> CType -> Analysis CType
+matchTypes Bottom _ = return Bottom
+matchTypes _ Bottom = return Bottom
+matchTypes t1 t2 = do
+  when (t1 /= t2) $ tell [TypeMismatch t1 t2]
+  return t1
+
+matchTypes_ :: CType -> CType -> Analysis ()
+matchTypes_ t1 t2 = void $ matchTypes t1 t2
+
+--------------------------------------------------------------------------------
+-- Analyses
+--------------------------------------------------------------------------------
 translationUnit :: TranslationUnit -> Analysis ()
-translationUnit (TranslationUnit es) = mapM_ externalDeclaration es
+translationUnit (TranslationUnit es) = forM_ es (either declaration functionDefinition)
 
-
-externalDeclaration :: ExternalDeclaration -> Analysis ()
-externalDeclaration e = case e of
-  (Left d) -> declaration d
-  (Right (FunctionDefinition t d stmt) ) -> do
+functionDefinition :: FunctionDefinition -> Analysis ()
+functionDefinition (FunctionDefinition t d stmt)  = do
     let (fn, t') = declarator (Primitive t) d
     enterScope $ do
-      addName fn t'
+      declare fn t'
+    --TODO: Add parameters to scope
       statement stmt
 
 declaration :: Declaration -> Analysis ()
-declaration (Declaration t is) = forM_ is (initDeclarator (Primitive t))
+declaration (Declaration t is) = forM_ is $ \i -> do
+  let (n, t') = (initDeclarator (Primitive t) i)
+  declare n t'
+
+initDeclarator :: CType -> InitDeclarator -> (Ident, CType)
+initDeclarator t (InitializedDec d _ ) = declarator t d
+
+
+declarator :: CType -> Declarator -> (Ident, CType)
+declarator t (DeclaratorId n) = (n,t)
+declarator t (IndirectDeclarator n d) = declarator (it n Pointer t) d
+declarator t (FunctionDeclarator d ps) = 
+  let (n, t') = declarator t d
+      p = map parameter ps
+  in (n, Function t' p)
+
+abstractDeclarator :: CType -> AbstractDeclarator -> CType
+abstractDeclarator = undefined -- TODO: Basically as declarator but abstract
+
+parameter :: Parameter -> CType
+parameter (Parameter t d) = snd $ declarator (Primitive t) d
+parameter (AbstractParameter t Nothing) = Primitive t
+parameter (AbstractParameter t (Just ad)) = abstractDeclarator (Primitive t) ad
 
 statement :: Stmt -> Analysis ()
 statement (LabeledStmt _ stmt)      = statement stmt
 statement (CompoundStmt xs)         = enterScope $ forM_ xs (either declaration statement)
 statement (IfStmt e s1 Nothing)     = expression e >> statement s1
 statement (IfStmt e s1 (Just s2))   = expression e >> statement s1 >> statement s2
+statement (WhileStmt e stmt)        = expression e >> statement stmt
 statement (Goto _)                  = return ()
 statement Continue                  = return ()
 statement Break                     = return ()
@@ -116,26 +150,15 @@ statement (ExpressionStmt Nothing)  = return ()
 statement (ExpressionStmt (Just e)) = void $ expression e
 
 
--- | Should: Matches two types and returns the more general type.
---   Currently: "Matching"  means equality
-matchTypes :: CType -> CType -> Analysis CType
-matchTypes t1 t2 = do
-  when (t1 /= t2) $ tell [TypeMismatch t1 t2]
-  return t1
-
-matchTypes_ :: CType -> CType -> Analysis ()
-matchTypes_ t1 t2 = void $ matchTypes t1 t2
-
 expression :: Expr -> Analysis CType
 expression (List es) = Tuple <$> forM es expression
 
 expression (Ternary e1 e2 e3) = do
   t1 <- expression e1
-  _ <- matchTypes t1 (Primitive Int) -- TODO: No bool type?
   t2 <- expression e2
   t3 <- expression e3
+  _ <- matchTypes t1 (Primitive Int) -- TODO: No bool type?
   matchTypes t2 t3
-
 
 expression (BExpr bop e1 e2) = do
     t1 <- expression e1
@@ -149,9 +172,15 @@ expression (BExpr bop e1 e2) = do
            then do
               matchTypes_ t1 t2
               return (Primitive Int) -- should be Bool
-      else return (Primitive Void) -- should not happen
+      else return Bottom -- should not happen
 
 expression (UExpr op e) = error "unary expression not implemented"
+expression (SizeOfType t) = error "sizeof type not implemented"
+expression (Func _ _) = error "func type not implemented"
+expression (PointerAccess _ _ ) = error "pointer access not implemented"
+expression (Array _ _ ) = error "array access not implemented"
+expression (FieldAccess _ _ ) = error "field access not implemented"
+expression (StringLiteral _ ) = return $ Pointer $ Primitive Char
 
 expression (ExprIdent n) = do
   mt <- lookupType n
@@ -167,28 +196,6 @@ expression (Assign e1 e2) = do
   matchTypes t1 t2
 
 expression (Constant _) = return (Primitive Int)
-
-initDeclarator :: CType -> InitDeclarator -> Analysis ()
-initDeclarator t (InitializedDec d _ ) = let (n,t') = declarator t d
-                                         in declare n t'
-
-
--- general pattern: analyse type and modify the Analysis state
-declarator :: CType -> Declarator -> (Ident, CType)
-declarator t (DeclaratorId i) = (i, t)
-declarator t (IndirectDeclarator n d) = declarator (it n Pointer t) d
-declarator t (FunctionDeclarator d ps) =
-  let (n, t') = declarator t d
-      p = map parameter ps
-  in (n, Function t' p)
-
-abstractDeclarator :: CType -> AbstractDeclarator -> CType
-abstractDeclarator = undefined -- TODO: Basically as declarator but abstract
-
-parameter :: Parameter -> CType
-parameter (Parameter t d) = snd $ declarator (Primitive t) d
-parameter (AbstractParameter t Nothing) = Primitive t
-parameter (AbstractParameter t (Just ad)) = abstractDeclarator (Primitive t) ad
 
 
 it :: Int -> (a -> a) -> a -> a

@@ -19,6 +19,7 @@ type Parser m a = ParsecT ErrorMsg ByteString m a
 --------------------------------------------------------------------------------
 -- Root / Translation Units
 --------------------------------------------------------------------------------
+
 newtype TranslationUnit = TranslationUnit [ExternalDeclaration]
                         deriving (Show, Eq)
 
