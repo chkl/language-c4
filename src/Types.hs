@@ -22,12 +22,12 @@ type Parser m a = ParsecT ErrorMsg ByteString m a
 newtype TranslationUnit = TranslationUnit [ExternalDeclaration]
                         deriving (Show, Eq)
 
+type ExternalDeclaration = Either Declaration FunctionDefinition
+
 data FunctionDefinition = FunctionDefinition Type Declarator Stmt
                         deriving (Show, Eq)
 
-data ExternalDeclaration = ExtDeclarationFunction FunctionDefinition
-                         | ExtDeclarationDeclaration Declaration
-                         deriving (Show, Eq)
+
 --------------------------------------------------------------------------------
 -- Expressions
 --------------------------------------------------------------------------------
@@ -90,26 +90,25 @@ data Declarator = IndirectDeclarator Pointers Declarator
                 | FunctionDeclarator Declarator [Parameter]
                 deriving (Show, Eq)
 
+-- TODO: Find a way to unify declarator and abstract declarator
+data AbstractDeclarator = IndirectAbstractDeclarator Pointers AbstractDeclarator
+                        | AbstractFunctionDeclarator AbstractDeclarator [Parameter]
+                        | ArrayStar AbstractDeclarator
+                              deriving (Show, Eq)
 
 -- | In contrast to the spec this takes only one initializer
 data InitDeclarator = InitializedDec Declarator (Maybe Initializer)
   deriving (Show, Eq)
+
 
 data Initializer = InitializerAssignment Expr -- assignment expression
                  | InitializerList [Initializer]
   deriving (Show, Eq)
 
 data Parameter =  Parameter Type Declarator
-               |  AbstractParameter Type (Maybe AbstractDec)
+               |  AbstractParameter Type (Maybe AbstractDeclarator)
   deriving (Show, Eq)
 
-data AbstractDec = AbstractDec Pointers DirectAbstractDeclarator
-  deriving (Show, Eq)
-
-data DirectAbstractDeclarator = DADTerminal (Maybe AbstractDec)
-                              | DADEParameterList DirectAbstractDeclarator [Parameter]
-                              | ArrayStar DirectAbstractDeclarator
-                              deriving (Show, Eq)
 
 --data DirectAbstractDeclarator = DirectAbstractDeclarator [DirectAbstractDeclaratorElem]
 --  deriving (Show, Eq)

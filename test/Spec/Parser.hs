@@ -18,7 +18,7 @@ unitTestsParser = do
   testExpressions
   testStatements
   testTranslationUnit
-  testAbstractDeclarator
+--  testAbstractDeclarator
   testAbstractDeclarations
   testDirectDeclarations
 
@@ -124,10 +124,10 @@ testExpressions = describe "expression parser" $ do
   it "rejects baseless array access" $ do
     testParser expression "[5]" `shouldSatisfy` isLeft
 
-testAbstractDeclarator :: SpecWith ()
-testAbstractDeclarator = it "parses abstract declarators" $ do
-  testParser directAbstractDeclarator "[*]" `shouldSatisfy` isRight
+--testAbstractDeclarator :: SpecWith ()
+--testAbstractDeclarator = it "parses abstract declarators" $ do
 -- TODO: Probably, we don't have to handle those
+--  testParser directAbstractDeclarator "[*]" `shouldSatisfy` isRight
 --  testParser directAbstractDeclarator "[static x = 5]" `shouldSatisfy` isRight
 --  testParser directAbstractDeclarator "[*][static y = 3]" `shouldSatisfy` isRight
 --  testParser directAbstractDeclarator "([*])" `shouldSatisfy` isRight
@@ -138,13 +138,13 @@ testAbstractDeclarations = it "parses declarations with abstract parameters" $ d
   testParser declaration "int f;" `shouldSatisfy` isRight
   testParser declaration "int f();" `shouldSatisfy` isRight
   testParser declaration "int f(int x);" `shouldSatisfy` isRight
-  testParser declaration "int f(int[*]);" `shouldSatisfy` isRight
+--  testParser declaration "int f(int[*]);" `shouldSatisfy` isRight
 --  testParser declaration "int f(int[static x=3]);" `shouldSatisfy` isRight
-  testParser declaration "int f(int[*]);" `shouldSatisfy` isRight
-  testParser declaration "int f(int[*][*]);" `shouldSatisfy` isRight
-  testParser declaration "int f(int [*]);" `shouldSatisfy` isRight
-  testParser declaration "int f(int*[*]);" `shouldSatisfy` isRight
-  testParser declaration "int f(int**[*]);" `shouldSatisfy` isRight
+--  testParser declaration "int f(int[*]);" `shouldSatisfy` isRight
+--  testParser declaration "int f(int[*][*]);" `shouldSatisfy` isRight
+--  testParser declaration "int f(int [*]);" `shouldSatisfy` isRight
+--  testParser declaration "int f(int*[*]);" `shouldSatisfy` isRight
+--  testParser declaration "int f(int**[*]);" `shouldSatisfy` isRight
 
 testDirectDeclarations :: SpecWith()
 testDirectDeclarations = it "parses declarations with (direct) parameters" $ do
@@ -171,17 +171,9 @@ testTranslationUnit = describe "translation unit parser" $ do
     testParser translationUnit "int (int x) {;}" `shouldSatisfy` isLeft
     testParser translationUnit "int () {;}" `shouldSatisfy` isLeft
 --------------------------------------------------------------------------------
--- some sample definitions
-simpleMain :: ExternalDeclaration
-simpleMain = ExtDeclarationFunction ( FunctionDefinition Int ( DeclaratorId "main")
-                                       (CompoundStmt [Right (Return (Just (Constant "1")))]))
 simpleMainCode :: ByteString
 simpleMainCode = "int main() { return 1;}"
 
-addFunction :: ExternalDeclaration
-addFunction = ExtDeclarationFunction ( FunctionDefinition Int (DeclaratorId "add") stmt)
-  where
-    stmt = CompoundStmt [Right (Return (Just (ExprIdent "x" `plus` ExprIdent "y")))]
 
 addFunctionCode :: ByteString
 addFunctionCode  = "int add(int x, int y) { return x + y; }"

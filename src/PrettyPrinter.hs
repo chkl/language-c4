@@ -173,10 +173,6 @@ spaces p = space <> p <> space
 instance PrettyPrint TranslationUnit where
   prettyPrint (TranslationUnit units) = intercalate "\n" (map prettyPrint units)
 
-instance PrettyPrint ExternalDeclaration where
-  prettyPrint (ExtDeclarationFunction funDec ) = prettyPrint funDec
-  prettyPrint (ExtDeclarationDeclaration dec ) = prettyPrint dec
-
 instance PrettyPrint FunctionDefinition where
   prettyPrint (FunctionDefinition t dec stmt) = do
     prettyPrint t
@@ -213,15 +209,10 @@ instance PrettyPrint Parameter where
   prettyPrint (Parameter t dec) = prettyPrint t >> space >> prettyPrint dec
   prettyPrint (AbstractParameter t md) = prettyPrint t >> whenM md prettyPrint
 
-instance PrettyPrint AbstractDec where
-  prettyPrint (AbstractDec 0 dec) = prettyPrint dec
-  prettyPrint (AbstractDec n dec) = parens $ replicateM_ n (print "*") >> prettyPrint dec
+instance PrettyPrint AbstractDeclarator where
+  prettyPrint (IndirectAbstractDeclarator n dir) = parens $ replicateM_ n (print "*") >> prettyPrint dir
+  prettyPrint _ = print "/* TODO: complicated Abstract declarators */"
 
-instance PrettyPrint DirectAbstractDeclarator where
-  prettyPrint (DADTerminal Nothing)    = return ()  -- "/* TODO: DADTerminal */"
-  prettyPrint (DADTerminal (Just d))   = prettyPrint d-- "/* TODO: DADTerminal */"
-  prettyPrint (DADEParameterList _ _ ) = print "/*TODO: DADParameterList*/"
-  prettyPrint (ArrayStar _ )           = print "/*TODO: ArrayStar*/"
 
 whenM :: Monad m => Maybe a -> (a -> m ()) -> m ()
 whenM Nothing _  = return ()

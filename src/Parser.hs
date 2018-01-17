@@ -25,8 +25,8 @@ translationUnit :: Parser m TranslationUnit
 translationUnit = L.sc >> TranslationUnit <$> some externalDeclaration <* eof
 
 externalDeclaration :: Parser m ExternalDeclaration
-externalDeclaration = try (ExtDeclarationFunction <$> functionDefinition) <|>
-                      ExtDeclarationDeclaration <$> declaration
+externalDeclaration =     try (Right <$> functionDefinition)
+                      <|> Left <$> declaration
 
 functionDefinition :: Parser m FunctionDefinition
 functionDefinition = FunctionDefinition <$> typeSpecifier <*> declarator <*> compoundStatement
@@ -190,16 +190,19 @@ directDeclarator = chainl1unary dcore dparams
               <|> (DeclaratorId <$> L.identifier)
     dparams = flip FunctionDeclarator <$> parameterList
 
-abstractDeclarator :: Parser m AbstractDec
+abstractDeclarator :: Parser m AbstractDeclarator
 abstractDeclarator =  do
-  pts <- many $ L.punctuator "*"
-  AbstractDec (length pts) <$> directAbstractDeclarator
+  pts <- length <$> many (L.punctuator "*")
+  if pts > 0 then
+    IndirectAbstractDeclarator pts <$> directAbstractDeclarator
+  else
+    directAbstractDeclarator
 
-directAbstractDeclarator :: Parser m DirectAbstractDeclarator
+directAbstractDeclarator :: Parser m AbstractDeclarator
 directAbstractDeclarator = chainl1unary core ops
   where
-    core = DADTerminal <$> optional (L.parens abstractDeclarator)
-    ops = flip DADEParameterList <$> parameterList <|>
+    core = L.parens abstractDeclarator
+    ops = flip AbstractFunctionDeclarator <$> parameterList <|>
           L.brackets (L.punctuator "*" >> return ArrayStar)
 
 declaration :: Parser m Declaration

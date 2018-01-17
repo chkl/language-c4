@@ -6,6 +6,7 @@ import           System.Environment
 import           System.Exit          (exitFailure, exitSuccess)
 import           System.IO            (hPutStr, stderr, stdout)
 
+import           Analysis
 import           Lexer
 import           Parser               (runParser)
 
@@ -43,7 +44,16 @@ parse pr filename = do
     Right ast -> do
       if pr
         then hPutPrettyPrint ast stdout
-        else PS.pPrint ast
+        else do
+          putStrLn "---------------- AST ----------------"
+          PS.pPrint ast
+          putStrLn "--------- SEMANTIC ANALYSIS ---------"
+          putStrLn "semantic analysis"
+          let (err, s) = analyze ast
+          putStrLn "top scope:"
+          Prelude.print s
+          putStrLn "errors:"
+          PS.pPrint err
       exitSuccess
 
 
