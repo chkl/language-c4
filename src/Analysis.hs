@@ -199,5 +199,5 @@ expression (Constant _) = return (Primitive Int)
 
 
 it :: Int -> (a -> a) -> a -> a
-it 0 _ x = x
-it n f x = f (it (n-1) f x)
+it 0 = id
+it n =  \f -> it (n-1) f . f

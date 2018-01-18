@@ -1,4 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE TypeFamilies      #-}
 
 module Parser where
 
@@ -14,51 +16,94 @@ import qualified Lexer                as L
 import           Types
 
 
-runParser :: String -> ByteString -> Either ParseError TranslationUnit
+--------------------------------------------------------------------------------
+-- Type-FU
+--------------------------------------------------------------------------------
+data SynAnn
+
+type instance AnnTranslationUnit SynAnn    =  ()
+type instance AnnFunctionDefinition SynAnn =  SourcePos
+type instance AnnTernary SynAnn            =  SourcePos
+type instance AnnAssign SynAnn             =  SourcePos
+type instance AnnArray SynAnn              =  SourcePos
+type instance AnnBExpr SynAnn              =  SourcePos
+type instance AnnUExpr SynAnn              =  SourcePos
+type instance AnnFunc SynAnn               =  SourcePos
+type instance AnnSizeOfType SynAnn         =  SourcePos
+type instance AnnExprIdent SynAnn          =  SourcePos
+type instance AnnConstant SynAnn           =  SourcePos
+type instance AnnFieldAccess SynAnn        =  SourcePos
+type instance AnnPointerAccess SynAnn      =  SourcePos
+type instance AnnStringLiteral SynAnn      =  SourcePos
+type instance AnnDeclaration SynAnn        =  SourcePos
+type instance AnnIndirectDeclarator SynAnn =  SourcePos
+type instance AnnStructDeclaration SynAnn  =  SourcePos
+type instance AnnDeclaratorId SynAnn       =  SourcePos
+type instance AnnFunctionDeclarator SynAnn =  SourcePos
+type instance AnnCompoundStmt SynAnn       =  SourcePos
+type instance AnnIfStmt SynAnn             =  SourcePos
+type instance AnnWhileStmt SynAnn          =  SourcePos
+type instance AnnGoto SynAnn               =  SourcePos
+type instance AnnContinue SynAnn           =  SourcePos
+type instance AnnBreak SynAnn              =  SourcePos
+type instance AnnReturn SynAnn             =  SourcePos
+type instance AnnLabeledStmt SynAnn        =  SourcePos
+
+
+runParser :: String -> ByteString -> Either ParseError (TranslationUnit SynAnn)
 runParser = Text.Megaparsec.runParser translationUnit
 
 --------------------------------------------------------------------------------
 -- Root Parsers
 --------------------------------------------------------------------------------
 
-translationUnit :: Parser m TranslationUnit
-translationUnit = L.sc >> TranslationUnit <$> some externalDeclaration <* eof
+translationUnit :: Parser m (TranslationUnit SynAnn)
+translationUnit = L.sc >> TranslationUnit () <$>  some externalDeclaration <* eof
 
-externalDeclaration :: Parser m ExternalDeclaration
+externalDeclaration :: Parser m (ExternalDeclaration SynAnn)
 externalDeclaration =     try (Right <$> functionDefinition)
                       <|> Left <$> declaration
 
-functionDefinition :: Parser m FunctionDefinition
-functionDefinition = FunctionDefinition <$> typeSpecifier <*> declarator <*> compoundStatement
+functionDefinition :: Parser m (FunctionDefinition SynAnn)
+functionDefinition = FunctionDefinition <$> getPosition <*> typeSpecifier <*> declarator <*> compoundStatement
 
 --------------------------------------------------------------------------------
 -- PrimaryExpr Parsers
 --------------------------------------------------------------------------------
 
-primaryExpr :: Parser m Expr
+primaryExpr :: Parser m (Expr SynAnn)
 primaryExpr =     L.parens expression
               <|> stringLit
               <|> constant
               <|> identifier
   where
-    stringLit = StringLiteral <$> L.stringLiteral
-    constant = Constant <$> (L.integerConstant <|> L.charConstant)
+    stringLit = StringLiteral <$> getPosition <*> L.stringLiteral
+    constant = Constant <$> getPosition <*> (L.integerConstant <|> L.charConstant)
 
 --------------------------------------------------------------------------------
 -- UnaryExpr Parsers
 --------------------------------------------------------------------------------
 
-unaryExpr :: Parser m Expr
+unaryExpr :: Parser m (Expr SynAnn)
 unaryExpr = prefixUnaryExpr <|> postfixUnaryExpr
 
-prefixUnaryExpr :: Parser m Expr
+prefixUnaryExpr :: Parser m (Expr SynAnn)
 prefixUnaryExpr =     try sizeofTypename
-                  <|> UExpr <$> uOp <*> unaryExpr
-  where sizeofTypename = L.keyword "sizeof" >> L.parens (SizeOfType <$> typeSpecifier)
+                  <|> sizeOfOtherwise
+  where sizeofTypename = do
+          p <- getPosition
+          L.keyword "sizeof"
+          t <- L.parens typeSpecifier
+          return (SizeOfType p t)
+        sizeOfOtherwise = do
+          p <- getPosition
+          u <- uOp
+          e <- unaryExpr
+          return (UExpr p u e)
 
-postfixUnaryExpr :: Parser m Expr
+postfixUnaryExpr :: Parser m (Expr SynAnn)
 postfixUnaryExpr = chainl1unary primaryExpr postElem
-  where postElem =    (L.punctuator "["  >> flip Array <$> expression <* L.punctuator "]")
+  where postElem =    (L.punctuator "["  >> Array <$> expression <* L.punctuator "]")
                   <|> (L.punctuator "."  >> flip FieldAccess <$> identifier)
                   <|> (L.punctuator "->" >> flip PointerAccess <$> identifier)
                   <|> (L.punctuator "("  >> flip Func <$> expression  <* L.punctuator ")")
@@ -76,7 +121,7 @@ uOp = (L.keyword "sizeof" >> return SizeOf)  <|>
 -- BinaryExpr Parsers
 --------------------------------------------------------------------------------
 
-binaryExpr :: Parser m Expr
+binaryExpr :: Parser m (Expr SynAnn)
 binaryExpr =  binaryExpr' operators
   where
     binaryExpr' :: [[BOperator m]]-> Parser m Expr
@@ -107,19 +152,19 @@ operators = groupBy eqPrec $  sortBy (flip $ comparing precedence)
 --------------------------------------------------------------------------------
 -- Expr Parsers
 ------------------------------------------------------------------------------
-expression :: Parser m Expr
+expression :: Parser m (Expr SynAnn)
 expression = listElim <$> (List <$> L.commaSep1 assignmentExpr)
   where listElim (List [x]) = x
         listElim exprs      = exprs
 
-assignmentExpr :: Parser m Expr
+assignmentExpr :: Parser m (Expr SynAnn)
 assignmentExpr = conditionalExpression <|>
   Assign <$> unaryExpr <* L.punctuator "=" <*> assignmentExpr
 
 -- | writing this monadically is better than using alternatives as this avoid
 -- very long backtracking for ternary operators.
 -- TODO: Maybe some kind of chainl/r would make this nicer too?
-conditionalExpression :: Parser m Expr
+conditionalExpression :: Parser m (Expr SynAnn)
 conditionalExpression = do
   x <- binaryExpr
   y <- optional $ do
@@ -136,7 +181,7 @@ conditionalExpression = do
 -- Statement Parsers
 --------------------------------------------------------------------------------
 
-statement :: Parser m Stmt
+statement :: Parser m (Stmt SynAnn)
 statement =     (L.keyword "break" >> return Break <* sem)
             <|> (L.keyword "continue" >> return Continue <* sem)
             <|> (L.keyword "return" >> (Return <$> optional expression) <* sem)
@@ -150,31 +195,31 @@ statement =     (L.keyword "break" >> return Break <* sem)
     sem = L.punctuator ";"
     elseParser = L.keyword "else" >> statement
 
-compoundStatement :: Parser m Stmt
+compoundStatement :: Parser m (Stmt SynAnn)
 compoundStatement = L.braces (CompoundStmt <$> many blockitem)
   where blockitem = (Left <$> declaration) <|> (Right <$> statement)
 
 --------------------------------------------------------------------------------
 -- Declaration Parsers
 --------------------------------------------------------------------------------
-typeSpecifier :: Parser m Type
+typeSpecifier :: Parser m (Type SynAnn)
 typeSpecifier =     (L.keyword "void"    >> return Void)
                 <|> (L.keyword "char"    >> return Char)
                 <|> (L.keyword "int"     >> return Int)
                 <|> (L.keyword "struct"  >> structSpecifier)
 
-structSpecifier :: Parser m Type
+structSpecifier :: Parser m (Type SynAnn)
 structSpecifier = try structInline <|> structIdentifier
   where
     structIdentifier = StructIdentifier <$> L.identifier
     structInline = StructInline <$> optional L.identifier <*> L.braces structDeclarationList
     structDeclarationList = many structDeclaration
 
-structDeclaration :: Parser m StructDeclaration
+structDeclaration :: Parser m (StructDeclaration SynAnn)
 structDeclaration = StructDeclaration <$> typeSpecifier <*> L.commaSep declarator <* L.punctuator ";"
 
 -- | like a direct declarator but with many * in front
-declarator :: Parser m Declarator
+declarator :: Parser m (Declarator SynAnn)
 declarator = do
   pts <- length <$> many (L.punctuator "*")
   if pts > 0 then
@@ -183,14 +228,14 @@ declarator = do
       directDeclarator
 
 
-directDeclarator :: Parser m Declarator
+directDeclarator :: Parser m (Declarator SynAnn)
 directDeclarator = chainl1unary dcore dparams
   where
     dcore =   L.parens declarator
               <|> (DeclaratorId <$> L.identifier)
     dparams = flip FunctionDeclarator <$> parameterList
 
-abstractDeclarator :: Parser m AbstractDeclarator
+abstractDeclarator :: Parser m (AbstractDeclarator SynAnn)
 abstractDeclarator =  do
   pts <- length <$> many (L.punctuator "*")
   if pts > 0 then
@@ -198,40 +243,40 @@ abstractDeclarator =  do
   else
     directAbstractDeclarator
 
-directAbstractDeclarator :: Parser m AbstractDeclarator
+directAbstractDeclarator :: Parser m (AbstractDeclarator SynAnn)
 directAbstractDeclarator = chainl1unary core ops
   where
     core = L.parens abstractDeclarator
     ops = flip AbstractFunctionDeclarator <$> parameterList <|>
           L.brackets (L.punctuator "*" >> return ArrayStar)
 
-declaration :: Parser m Declaration
+declaration :: Parser m (Declaration SynAnn)
 declaration = Declaration <$> typeSpecifier  <*>  initDeclaratorList <* L.punctuator ";"
   where initDeclaratorList = L.commaSep initDeclarator
 
-initDeclarator :: Parser m InitDeclarator
+initDeclarator :: Parser m (InitDeclarator SynAnn)
 initDeclarator = do
   d <- declarator
   ini <- optional $ L.punctuator "=" >> initializer -- this is simplified (not spec)
   return $ InitializedDec d ini
 
-initializer :: Parser m Initializer
+initializer :: Parser m (Initializer SynAnn)
 initializer = InitializerList <$> initList <|>
               InitializerAssignment <$> assignmentExpr
   where
     initList = L.braces (L.commaSep initializer <* optional L.comma)
 
 
-parameterList :: Parser m [Parameter]
+parameterList :: Parser m [Parameter SynAnn]
 parameterList = L.parens $ L.commaSep parameterDeclaration
 
-parameterDeclaration :: Parser m Parameter
+parameterDeclaration :: Parser m (Parameter SynAnn)
 parameterDeclaration = try x <|>  y
   where x = Parameter <$> typeSpecifier <*> declarator
         y = AbstractParameter <$> typeSpecifier <*> optional abstractDeclarator
 
 
-identifier :: Parser m Expr
+identifier :: Parser m (Expr SynAnn)
 identifier = ExprIdent <$> L.identifier
 
 --------------------------------------------------------------------------------
