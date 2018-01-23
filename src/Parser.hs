@@ -103,11 +103,12 @@ prefixUnaryExpr =     try sizeofTypename
 
 postfixUnaryExpr :: Parser m (Expr SynAnn)
 postfixUnaryExpr = chainl1unary primaryExpr postElem
-  where postElem =    (L.punctuator "["  >> Array <$> expression <* L.punctuator "]")
-                  <|> (L.punctuator "."  >> flip FieldAccess <$> identifier)
-                  <|> (L.punctuator "->" >> flip PointerAccess <$> identifier)
-                  <|> (L.punctuator "("  >> flip Func <$> expression  <* L.punctuator ")")
-                  <|> (L.punctuator "("  >> L.punctuator ")" >> return (flip Func (List [])))
+  where postElem = getPosition >>= \p ->
+              (L.punctuator "["  >> Array p <$> expression <* L.punctuator "]")
+          <|> (L.punctuator "."  >> flip (FieldAccess p) <$> identifier)
+          <|> (L.punctuator "->" >> flip (PointerAccess p) <$> identifier)
+          <|> (L.punctuator "("  >> flip (Func p) <$> expression  <* L.punctuator ")")
+          <|> (L.punctuator "("  >> L.punctuator ")" >> return (flip (Func p) (List [])))
 
 
 uOp :: Parser m UOp
@@ -124,30 +125,39 @@ uOp = (L.keyword "sizeof" >> return SizeOf)  <|>
 binaryExpr :: Parser m (Expr SynAnn)
 binaryExpr =  binaryExpr' operators
   where
-    binaryExpr' :: [[BOperator m]]-> Parser m Expr
+    binaryExpr' :: [[BOperator m]]-> Parser m (Expr SynAnn)
     binaryExpr' [] = unaryExpr
     binaryExpr' (o:ops) =
             case associativity (head o) of
               LeftAssoc  -> chainl1 (binaryExpr' ops) (eqPrecedence o)
               RightAssoc -> chainr1 (binaryExpr' ops) (eqPrecedence o)
       where
-        eqPrecedence :: [BOperator m] -> Parser m (Expr -> Expr -> Expr)
+        eqPrecedence :: [BOperator m] -> Parser m (Expr SynAnn -> Expr SynAnn -> Expr SynAnn)
         eqPrecedence ops' = asum $ map opParser ops'
 
 
+data BOperator m = BOperator { associativity :: Associativity
+                             , operatorP     :: BOp
+                             , opParser      :: Parser m (Expr SynAnn -> Expr SynAnn -> Expr SynAnn)
+                             , precedence    :: Int
+                             }
 operators :: [[BOperator m]]
 operators = groupBy eqPrec $  sortBy (flip $ comparing precedence)
-            [ BOperator LeftAssoc Plus  (L.punctuator "+" >> return (BExpr Plus)) 4
-            , BOperator LeftAssoc Minus (L.punctuator "-" >> return (BExpr Minus)) 4
-            , BOperator LeftAssoc Mult  (L.punctuator "*" >> return (BExpr Mult)) 2
-            , BOperator LeftAssoc Minus (L.punctuator "<" >> return (BExpr LessThan)) 6
-            , BOperator LeftAssoc EqualsEquals (L.punctuator "==" >> return (BExpr EqualsEquals)) 7
-            , BOperator LeftAssoc NotEqual (L.punctuator "!=" >> return (BExpr NotEqual)) 7
-            , BOperator LeftAssoc LAnd (L.punctuator "&&" >> return (BExpr LAnd)) 11
-            , BOperator LeftAssoc LOr (L.punctuator "||" >> return (BExpr LOr)) 12
-            , BOperator LeftAssoc AssignOp (L.punctuator "=" >> return (BExpr AssignOp)) 14
+            [ BOperator LeftAssoc Plus  (mk Plus "+") 4
+            , BOperator LeftAssoc Minus (mk Minus "-") 4
+            , BOperator LeftAssoc Mult  (mk Mult "*") 2
+            , BOperator LeftAssoc Minus (mk LessThan "<") 6
+            , BOperator LeftAssoc EqualsEquals (mk EqualsEquals "==") 7
+            , BOperator LeftAssoc NotEqual (mk NotEqual "!=") 7
+            , BOperator LeftAssoc LAnd (mk LAnd "&&") 11
+            , BOperator LeftAssoc LOr (mk LOr "||") 12
+            , BOperator LeftAssoc AssignOp (mk AssignOp "=") 14
             ]
   where eqPrec o1 o2 = precedence o1 == precedence o2
+        mk op pun = do
+          p <- getPosition
+          L.punctuator pun
+          return $ BExpr p op
 
 --------------------------------------------------------------------------------
 -- Expr Parsers
@@ -159,13 +169,14 @@ expression = listElim <$> (List <$> L.commaSep1 assignmentExpr)
 
 assignmentExpr :: Parser m (Expr SynAnn)
 assignmentExpr = conditionalExpression <|>
-  Assign <$> unaryExpr <* L.punctuator "=" <*> assignmentExpr
+  Assign <$> getPosition <*> unaryExpr <* L.punctuator "=" <*> assignmentExpr
 
 -- | writing this monadically is better than using alternatives as this avoid
 -- very long backtracking for ternary operators.
 -- TODO: Maybe some kind of chainl/r would make this nicer too?
 conditionalExpression :: Parser m (Expr SynAnn)
 conditionalExpression = do
+  p <- getPosition
   x <- binaryExpr
   y <- optional $ do
     L.punctuator "?"
@@ -175,29 +186,34 @@ conditionalExpression = do
     return (e1,e2)
   case y of
     Nothing      -> return x
-    Just (e1,e2) -> return $ Ternary x e1 e2
+    Just (e1,e2) -> return $ Ternary p x e1 e2
 
 --------------------------------------------------------------------------------
 -- Statement Parsers
 --------------------------------------------------------------------------------
 
 statement :: Parser m (Stmt SynAnn)
-statement =     (L.keyword "break" >> return Break <* sem)
-            <|> (L.keyword "continue" >> return Continue <* sem)
-            <|> (L.keyword "return" >> (Return <$> optional expression) <* sem)
-            <|> (L.keyword "goto" >> (Goto <$> L.identifier) <* sem)
-            <|> (L.keyword "while" >> (WhileStmt <$> L.parens expression <*> statement))
-            <|> (L.keyword "if" >> (IfStmt <$> L.parens expression <*> statement <*> optional elseParser))
-            <|> compoundStatement
-            <|> try (ExpressionStmt <$> optional expression <* sem)
-            <|> (LabeledStmt <$> L.identifier <* L.punctuator ":" <*> statement)
+statement =  getPosition >>= \p -> (L.keyword "break" >> return (Break p) <* sem)
+                               <|> (L.keyword "continue" >> return (Continue p) <* sem)
+                               <|> (L.keyword "return" >> (Return p <$> optional expression) <* sem)
+                               <|> (L.keyword "goto" >> (Goto p <$> L.identifier) <* sem)
+                               <|> (L.keyword "while" >> (WhileStmt p <$> L.parens expression <*> statement))
+                               <|> (L.keyword "if" >> (IfStmt p <$> L.parens expression <*> statement <*> optional elseParser))
+                               <|> compoundStatement
+                               <|> try (ExpressionStmt <$> optional expression <* sem)
+                               <|> (LabeledStmt p <$> L.identifier <* L.punctuator ":" <*> statement)
   where
     sem = L.punctuator ";"
     elseParser = L.keyword "else" >> statement
 
+parseEither :: Parser m a -> Parser m b -> Parser m (Either a b)
+parseEither pa pb = try (Left <$> pa) <|> Right <$> pb
+
 compoundStatement :: Parser m (Stmt SynAnn)
-compoundStatement = L.braces (CompoundStmt <$> many blockitem)
-  where blockitem = (Left <$> declaration) <|> (Right <$> statement)
+compoundStatement = do
+  p <- getPosition
+  x <- L.braces $ many (parseEither declaration statement)
+  return $ CompoundStmt p x
 
 --------------------------------------------------------------------------------
 -- Declaration Parsers
@@ -216,14 +232,15 @@ structSpecifier = try structInline <|> structIdentifier
     structDeclarationList = many structDeclaration
 
 structDeclaration :: Parser m (StructDeclaration SynAnn)
-structDeclaration = StructDeclaration <$> typeSpecifier <*> L.commaSep declarator <* L.punctuator ";"
+structDeclaration = StructDeclaration <$> getPosition <*> typeSpecifier <*> L.commaSep declarator <* L.punctuator ";"
 
 -- | like a direct declarator but with many * in front
 declarator :: Parser m (Declarator SynAnn)
 declarator = do
+  p <- getPosition
   pts <- length <$> many (L.punctuator "*")
   if pts > 0 then
-      IndirectDeclarator pts <$> directDeclarator
+      IndirectDeclarator p pts <$> directDeclarator
     else
       directDeclarator
 
@@ -232,8 +249,8 @@ directDeclarator :: Parser m (Declarator SynAnn)
 directDeclarator = chainl1unary dcore dparams
   where
     dcore =   L.parens declarator
-              <|> (DeclaratorId <$> L.identifier)
-    dparams = flip FunctionDeclarator <$> parameterList
+              <|> (DeclaratorId <$> getPosition <*> L.identifier)
+    dparams = getPosition >>= \p -> flip (FunctionDeclarator p) <$> parameterList
 
 abstractDeclarator :: Parser m (AbstractDeclarator SynAnn)
 abstractDeclarator =  do
@@ -251,7 +268,7 @@ directAbstractDeclarator = chainl1unary core ops
           L.brackets (L.punctuator "*" >> return ArrayStar)
 
 declaration :: Parser m (Declaration SynAnn)
-declaration = Declaration <$> typeSpecifier  <*>  initDeclaratorList <* L.punctuator ";"
+declaration = Declaration <$> getPosition <*> typeSpecifier  <*>  initDeclaratorList <* L.punctuator ";"
   where initDeclaratorList = L.commaSep initDeclarator
 
 initDeclarator :: Parser m (InitDeclarator SynAnn)
@@ -277,7 +294,7 @@ parameterDeclaration = try x <|>  y
 
 
 identifier :: Parser m (Expr SynAnn)
-identifier = ExprIdent <$> L.identifier
+identifier = ExprIdent <$> getPosition <*> L.identifier
 
 --------------------------------------------------------------------------------
 -- Useful combinators
