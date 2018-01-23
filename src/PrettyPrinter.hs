@@ -170,18 +170,19 @@ spaces p = space <> p <> space
 ----------------------------------------------------------------------------------
 -- Instance definitions
 --------------------------------------------------------------------------------
-instance PrettyPrint TranslationUnit where
-  prettyPrint (TranslationUnit units) = intercalate "\n" (map prettyPrint units)
 
-instance PrettyPrint FunctionDefinition where
-  prettyPrint (FunctionDefinition t dec stmt) = do
+instance PrettyPrint (TranslationUnit x) where
+  prettyPrint (TranslationUnit _ units) = intercalate "\n" (map prettyPrint units)
+
+instance PrettyPrint (FunctionDefinition x) where
+  prettyPrint (FunctionDefinition _ t dec stmt) = do
     prettyPrint t
     space
     prettyPrint dec
     newline
     prettyPrint stmt
 
-instance PrettyPrint Type where
+instance PrettyPrint (Type x) where
   prettyPrint Int = "int"
   prettyPrint Char = "char"
   prettyPrint Void = "void"
@@ -192,24 +193,24 @@ instance PrettyPrint Type where
     newline
     bracesNN $ unlines $ map prettyPrint decls
 
-instance PrettyPrint Declarator where
-  prettyPrint (IndirectDeclarator n dir) = parens $ replicateM_ n (print "*") >> prettyPrint dir
-  prettyPrint (DeclaratorId i) =  print i
-  prettyPrint (FunctionDeclarator d ps) =  parens $ prettyPrint d >> parens (commaSep $ map prettyPrint ps)
+instance PrettyPrint (Declarator x) where
+  prettyPrint (IndirectDeclarator _ n dir) = parens $ replicateM_ n (print "*") >> prettyPrint dir
+  prettyPrint (DeclaratorId _ i) =  print i
+  prettyPrint (FunctionDeclarator _ d ps) =  parens $ prettyPrint d >> parens (commaSep $ map prettyPrint ps)
 
 
-instance PrettyPrint StructDeclaration where
-  prettyPrint (StructDeclaration t decls) = do
+instance PrettyPrint (StructDeclaration x) where
+  prettyPrint (StructDeclaration _ t decls) = do
     prettyPrint t
     print " "
     commaSep $ map prettyPrint decls
     eos
 
-instance PrettyPrint Parameter where
+instance PrettyPrint (Parameter x) where
   prettyPrint (Parameter t dec) = prettyPrint t >> space >> prettyPrint dec
   prettyPrint (AbstractParameter t md) = prettyPrint t >> whenM md prettyPrint
 
-instance PrettyPrint AbstractDeclarator where
+instance PrettyPrint (AbstractDeclarator x) where
   prettyPrint (IndirectAbstractDeclarator n dir) = parens $ replicateM_ n (print "*") >> prettyPrint dir
   prettyPrint _ = print "/* TODO: complicated Abstract declarators */"
 
@@ -220,22 +221,22 @@ whenM (Just x) f = f x
 
 -- implements this rule I don't completely understand yet... TODO: Investigate
 -- omits trailing new line to allow for a potential "else"
-smartBraces :: Stmt -> Printer()
+smartBraces :: Stmt x -> Printer()
 smartBraces stmt =
   case stmt of
-    (Return _)           -> noBraces
-    (LabeledStmt _ _ )   -> noBraces
-    (Goto _ )            -> noBraces
-    (CompoundStmt stmts) -> space >> bracesNN (unlines $ map prettyPrint stmts)
+    (Return _ _)           -> noBraces
+    (LabeledStmt _ _ _ )   -> noBraces
+    (Goto _ _ )            -> noBraces
+    (CompoundStmt _ stmts) -> space >> bracesNN (unlines $ map prettyPrint stmts)
     _                    -> space >> prettyPrint stmt
     where noBraces = newline >> indent (prettyPrint stmt)
 
-instance PrettyPrint Stmt where
-  prettyPrint (LabeledStmt lbl stmt)    = noNest (print lbl >> print ":") >> newline >>  prettyPrint stmt
-  prettyPrint (CompoundStmt stmts)      = braces $ mapM_ prettyPrint stmts
+instance PrettyPrint (Stmt x) where
+  prettyPrint (LabeledStmt _ lbl stmt)    = noNest (print lbl >> print ":") >> newline >>  prettyPrint stmt
+  prettyPrint (CompoundStmt _ stmts)      = braces $ mapM_ prettyPrint stmts
   prettyPrint (ExpressionStmt Nothing)  = eos
   prettyPrint (ExpressionStmt (Just e)) = prettyPrint e >> eos
-  prettyPrint (IfStmt e stmt Nothing)   = do
+  prettyPrint (IfStmt _ e stmt Nothing)   = do
     print "if"
     space
     parens $ prettyPrint e
@@ -243,7 +244,7 @@ instance PrettyPrint Stmt where
     smartBraces stmt
     newline
 
-  prettyPrint (IfStmt e stmt1 (Just stmt2))   = do
+  prettyPrint (IfStmt _ e stmt1 (Just stmt2))   = do
     print "if" >> space
     parens $ prettyPrint e
     smartBraces stmt1
@@ -254,56 +255,57 @@ instance PrettyPrint Stmt where
     smartBraces stmt2
     newline
 
-  prettyPrint (WhileStmt e stmt) = do
+  prettyPrint (WhileStmt _ e stmt) = do
     print "while "
     parens $ prettyPrint e
     smartBraces stmt
     newline
 
-  prettyPrint (Goto i) = print "goto " <> print i <> ";"
-  prettyPrint (Return me) = do
+  prettyPrint (Goto _ i) = print "goto " <> print i <> ";"
+  prettyPrint (Return _ me) = do
     print "return"
     whenM me $ \e -> do
       print " "
       prettyPrint e
     eos
-  prettyPrint Break                     = print "break" >> eos
-  prettyPrint Continue                  = print "continue" >> eos
+  prettyPrint (Break _)  = print "break" >> eos
+  prettyPrint (Continue _) = print "continue" >> eos
 
 instance (PrettyPrint a, PrettyPrint b) => PrettyPrint (Either a b) where
   prettyPrint (Left a)  = prettyPrint a
   prettyPrint (Right a) = prettyPrint a
 
-instance PrettyPrint Declaration where
-  prettyPrint (Declaration t initDecls) = do
+instance PrettyPrint (Declaration x) where
+  prettyPrint (Declaration _ t initDecls) = do
     prettyPrint t
     space
     commaSep $ map prettyPrint initDecls
     eos
 
-instance PrettyPrint InitDeclarator where
+instance PrettyPrint (InitDeclarator x) where
   prettyPrint (InitializedDec d Nothing) = prettyPrint d
   prettyPrint (InitializedDec d (Just i))= do
     prettyPrint d
     prettyPrint i
 
-instance PrettyPrint Initializer where
+instance PrettyPrint (Initializer x) where
   prettyPrint (InitializerAssignment e) = print " = " >> prettyPrint e
-  prettyPrint _ = print "/* TODO: Not implemented yet: InitializerList */"
+--   prettyPrint _ = print "/* TODO: Not implemented yet: InitializerList */"
 
-instance PrettyPrint Expr where
-  prettyPrint (BExpr op e1 e2)    = parens $ mconcat [prettyPrint e1, prettyPrint op, prettyPrint e2]
-  prettyPrint (UExpr op e)        = parens $ prettyPrint op >> prettyPrint e
-  prettyPrint (ExprIdent i)       = print i
-  prettyPrint (Ternary e1 e2 e3)  = parens $ prettyPrint e1 <> " ? " <> prettyPrint e2 <> " : " <> prettyPrint e3
-  prettyPrint (SizeOfType t)      = parens $ print "sizeof" >> parens (prettyPrint t)
-  prettyPrint (Assign l r)        = prettyPrint l >> print " = " >> prettyPrint r
-  prettyPrint (Func f a)          = parens $ prettyPrint f >> parens (prettyPrint a)
-  prettyPrint (Constant c)        = print c
-  prettyPrint (Array a b )        = prettyPrint a >> brackets (prettyPrint b)
-  prettyPrint (FieldAccess a b)   = parens $ prettyPrint a >> period >> prettyPrint b
-  prettyPrint (PointerAccess a b) = parens $ prettyPrint a >> print "->" >> prettyPrint b
-  prettyPrint (StringLiteral s)   = print "\"" >> print s >> print "\""
+
+instance PrettyPrint (Expr x) where
+  prettyPrint (BExpr _ op e1 e2)    = parens $ mconcat [prettyPrint e1, prettyPrint op, prettyPrint e2]
+  prettyPrint (UExpr _ op e)        = parens $ prettyPrint op >> prettyPrint e
+  prettyPrint (ExprIdent _ i)       = print i
+  prettyPrint (Ternary _ e1 e2 e3)  = parens $ prettyPrint e1 <> " ? " <> prettyPrint e2 <> " : " <> prettyPrint e3
+  prettyPrint (SizeOfType _ t)      = parens $ print "sizeof" >> parens (prettyPrint t)
+  prettyPrint (Assign _ l r)        = prettyPrint l >> print " = " >> prettyPrint r
+  prettyPrint (Func _ f a)          = parens $ prettyPrint f >> parens (prettyPrint a)
+  prettyPrint (Constant _ c)        = print c
+  prettyPrint (Array _ a b )        = prettyPrint a >> brackets (prettyPrint b)
+  prettyPrint (FieldAccess _ a b)   = parens $ prettyPrint a >> period >> prettyPrint b
+  prettyPrint (PointerAccess _ a b) = parens $ prettyPrint a >> print "->" >> prettyPrint b
+  prettyPrint (StringLiteral _ s)   = print "\"" >> print s >> print "\""
   prettyPrint (List es)           = commaSep $ map prettyPrint es
 
 
