@@ -46,14 +46,17 @@ parse pr filename = do
         then hPutPrettyPrint ast stdout
         else do
           putStrLn "---------------- AST ----------------"
-          PS.pPrint ast
+          -- PS.pPrint ast
           putStrLn "--------- SEMANTIC ANALYSIS ---------"
           putStrLn "semantic analysis"
-          let (err, s) = analyze ast
-          putStrLn "top scope:"
-          Prelude.print s
-          putStrLn "errors:"
-          PS.pPrint err
+          case semanticAnalysis ast of
+            Left err -> do
+              Prelude.putStrLn "errors:"
+              PS.pPrint err
+            Right ast' -> do
+--              Prelude.print ast'
+              putStrLn "top scope:"
+              Prelude.print (getScope ast')
       exitSuccess
 
 

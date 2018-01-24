@@ -1,12 +1,15 @@
 {-# LANGUAGE RankNTypes         #-}
 {-# LANGUAGE TypeFamilies       #-}
 
-module Types where
+module Types
+  ( module Types
+  ) where
 
 import           Data.ByteString.Lazy  (ByteString)
 import           Data.Word             (Word8)
 import           Text.Megaparsec
 import qualified Text.Megaparsec.Error as E
+
 
 newtype ErrorMsg = ErrorMsg { toString :: String
                          } deriving (Ord, Eq, Show)
@@ -57,14 +60,15 @@ type family AnnContinue x
 type family AnnBreak x
 type family AnnReturn x
 type family AnnLabeledStmt x
+type family AnnParameter x
+type family AnnAbstractParameter x
+
 
 data TranslationUnit x = TranslationUnit (AnnTranslationUnit x) [ExternalDeclaration x]
-
 
 type ExternalDeclaration x = Either (Declaration x) (FunctionDefinition x)
 
 data FunctionDefinition x = FunctionDefinition (AnnFunctionDefinition x) (Type x) (Declarator x) (Stmt x)
-
 
 --------------------------------------------------------------------------------
 -- Expressions
@@ -93,6 +97,7 @@ data Expr x = List [Expr x]
           | FieldAccess (AnnFieldAccess x) (Expr x) (Expr x)
           | PointerAccess (AnnPointerAccess x) (Expr x) (Expr x)
           | StringLiteral (AnnStringLiteral x) ByteString
+
 
 
 --------------------------------------------------------------------------------
@@ -128,8 +133,8 @@ data InitDeclarator x = InitializedDec (Declarator x) (Maybe (Initializer x))
 data Initializer x = InitializerAssignment (Expr x) -- assignment expression
                  | InitializerList [Initializer x]
 
-data Parameter x =  Parameter (Type x) (Declarator x)
-               |  AbstractParameter (Type x) (Maybe (AbstractDeclarator x))
+data Parameter x =  Parameter (AnnParameter x) (Type x) (Declarator x)
+               |  AbstractParameter (AnnAbstractParameter x) (Type x) (Maybe (AbstractDeclarator x))
 
 
 --------------------------------------------------------------------------------
@@ -148,8 +153,3 @@ data Stmt x = LabeledStmt (AnnLabeledStmt x) Ident (Stmt x)
 
 data Associativity = LeftAssoc | RightAssoc
 
-data BOperator m = BOperator { associativity :: Associativity
-                             , operatorP     :: BOp
-                             , opParser      :: forall a . Parser m (Expr a -> Expr a -> Expr a)
-                             , precedence    :: Int
-                             }

@@ -207,8 +207,8 @@ instance PrettyPrint (StructDeclaration x) where
     eos
 
 instance PrettyPrint (Parameter x) where
-  prettyPrint (Parameter t dec) = prettyPrint t >> space >> prettyPrint dec
-  prettyPrint (AbstractParameter t md) = prettyPrint t >> whenM md prettyPrint
+  prettyPrint (Parameter _ t dec) = prettyPrint t >> space >> prettyPrint dec
+  prettyPrint (AbstractParameter _ t md) = prettyPrint t >> whenM md prettyPrint
 
 instance PrettyPrint (AbstractDeclarator x) where
   prettyPrint (IndirectAbstractDeclarator n dir) = parens $ replicateM_ n (print "*") >> prettyPrint dir

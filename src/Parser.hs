@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE TypeFamilies      #-}
@@ -9,8 +10,8 @@ import           Data.ByteString.Lazy (ByteString)
 import           Data.Foldable        (asum)
 import           Data.List            (groupBy, sortBy)
 import           Data.Ord             (comparing)
-import           Text.Megaparsec      hiding (ParseError)
-
+import           Text.Megaparsec      hiding (ParseError, SourcePos)
+import           Text.Megaparsec.Pos  (SourcePos)
 
 import qualified Lexer                as L
 import           Types
@@ -19,59 +20,73 @@ import           Types
 --------------------------------------------------------------------------------
 -- Type-FU
 --------------------------------------------------------------------------------
-data SynAnn
+data SynPhase
 
-type instance AnnTranslationUnit SynAnn    =  ()
-type instance AnnFunctionDefinition SynAnn =  SourcePos
-type instance AnnTernary SynAnn            =  SourcePos
-type instance AnnAssign SynAnn             =  SourcePos
-type instance AnnArray SynAnn              =  SourcePos
-type instance AnnBExpr SynAnn              =  SourcePos
-type instance AnnUExpr SynAnn              =  SourcePos
-type instance AnnFunc SynAnn               =  SourcePos
-type instance AnnSizeOfType SynAnn         =  SourcePos
-type instance AnnExprIdent SynAnn          =  SourcePos
-type instance AnnConstant SynAnn           =  SourcePos
-type instance AnnFieldAccess SynAnn        =  SourcePos
-type instance AnnPointerAccess SynAnn      =  SourcePos
-type instance AnnStringLiteral SynAnn      =  SourcePos
-type instance AnnDeclaration SynAnn        =  SourcePos
-type instance AnnIndirectDeclarator SynAnn =  SourcePos
-type instance AnnStructDeclaration SynAnn  =  SourcePos
-type instance AnnDeclaratorId SynAnn       =  SourcePos
-type instance AnnFunctionDeclarator SynAnn =  SourcePos
-type instance AnnCompoundStmt SynAnn       =  SourcePos
-type instance AnnIfStmt SynAnn             =  SourcePos
-type instance AnnWhileStmt SynAnn          =  SourcePos
-type instance AnnGoto SynAnn               =  SourcePos
-type instance AnnContinue SynAnn           =  SourcePos
-type instance AnnBreak SynAnn              =  SourcePos
-type instance AnnReturn SynAnn             =  SourcePos
-type instance AnnLabeledStmt SynAnn        =  SourcePos
+type instance AnnTranslationUnit SynPhase    =  ()
+type instance AnnFunctionDefinition SynPhase =  SourcePos
+type instance AnnTernary SynPhase            =  SourcePos
+type instance AnnAssign SynPhase             =  SourcePos
+type instance AnnArray SynPhase              =  SourcePos
+type instance AnnBExpr SynPhase              =  SourcePos
+type instance AnnUExpr SynPhase              =  SourcePos
+type instance AnnFunc SynPhase               =  SourcePos
+type instance AnnSizeOfType SynPhase         =  SourcePos
+type instance AnnExprIdent SynPhase          =  SourcePos
+type instance AnnConstant SynPhase           =  SourcePos
+type instance AnnFieldAccess SynPhase        =  SourcePos
+type instance AnnPointerAccess SynPhase      =  SourcePos
+type instance AnnStringLiteral SynPhase      =  SourcePos
+type instance AnnDeclaration SynPhase        =  SourcePos
+type instance AnnIndirectDeclarator SynPhase =  SourcePos
+type instance AnnStructDeclaration SynPhase  =  SourcePos
+type instance AnnDeclaratorId SynPhase       =  SourcePos
+type instance AnnFunctionDeclarator SynPhase =  SourcePos
+type instance AnnCompoundStmt SynPhase       =  SourcePos
+type instance AnnIfStmt SynPhase             =  SourcePos
+type instance AnnWhileStmt SynPhase          =  SourcePos
+type instance AnnGoto SynPhase               =  SourcePos
+type instance AnnContinue SynPhase           =  SourcePos
+type instance AnnBreak SynPhase              =  SourcePos
+type instance AnnReturn SynPhase             =  SourcePos
+type instance AnnLabeledStmt SynPhase        =  SourcePos
+type instance AnnParameter SynPhase = SourcePos
+type instance AnnAbstractParameter SynPhase = SourcePos
 
+class HasSourcePos x where
+  getSourcePos :: x -> SourcePos
 
-runParser :: String -> ByteString -> Either ParseError (TranslationUnit SynAnn)
+instance HasSourcePos SourcePos where
+  getSourcePos = id
+
+instance HasSourcePos (Stmt SynPhase) where
+  getSourcePos (LabeledStmt p _ _ ) = p
+  getSourcePos _                    = error "niy"
+
+instance HasSourcePos (Expr SynPhase) where
+  getSourcePos = error "niy"
+
+runParser :: String -> ByteString -> Either ParseError (TranslationUnit SynPhase)
 runParser = Text.Megaparsec.runParser translationUnit
 
 --------------------------------------------------------------------------------
 -- Root Parsers
 --------------------------------------------------------------------------------
 
-translationUnit :: Parser m (TranslationUnit SynAnn)
+translationUnit :: Parser m (TranslationUnit SynPhase)
 translationUnit = L.sc >> TranslationUnit () <$>  some externalDeclaration <* eof
 
-externalDeclaration :: Parser m (ExternalDeclaration SynAnn)
+externalDeclaration :: Parser m (ExternalDeclaration SynPhase)
 externalDeclaration =     try (Right <$> functionDefinition)
                       <|> Left <$> declaration
 
-functionDefinition :: Parser m (FunctionDefinition SynAnn)
+functionDefinition :: Parser m (FunctionDefinition SynPhase)
 functionDefinition = FunctionDefinition <$> getPosition <*> typeSpecifier <*> declarator <*> compoundStatement
 
 --------------------------------------------------------------------------------
 -- PrimaryExpr Parsers
 --------------------------------------------------------------------------------
 
-primaryExpr :: Parser m (Expr SynAnn)
+primaryExpr :: Parser m (Expr SynPhase)
 primaryExpr =     L.parens expression
               <|> stringLit
               <|> constant
@@ -84,10 +99,10 @@ primaryExpr =     L.parens expression
 -- UnaryExpr Parsers
 --------------------------------------------------------------------------------
 
-unaryExpr :: Parser m (Expr SynAnn)
+unaryExpr :: Parser m (Expr SynPhase)
 unaryExpr = prefixUnaryExpr <|> postfixUnaryExpr
 
-prefixUnaryExpr :: Parser m (Expr SynAnn)
+prefixUnaryExpr :: Parser m (Expr SynPhase)
 prefixUnaryExpr =     try sizeofTypename
                   <|> sizeOfOtherwise
   where sizeofTypename = do
@@ -101,7 +116,7 @@ prefixUnaryExpr =     try sizeofTypename
           e <- unaryExpr
           return (UExpr p u e)
 
-postfixUnaryExpr :: Parser m (Expr SynAnn)
+postfixUnaryExpr :: Parser m (Expr SynPhase)
 postfixUnaryExpr = chainl1unary primaryExpr postElem
   where postElem = getPosition >>= \p ->
               (L.punctuator "["  >> Array p <$> expression <* L.punctuator "]")
@@ -122,23 +137,23 @@ uOp = (L.keyword "sizeof" >> return SizeOf)  <|>
 -- BinaryExpr Parsers
 --------------------------------------------------------------------------------
 
-binaryExpr :: Parser m (Expr SynAnn)
+binaryExpr :: Parser m (Expr SynPhase)
 binaryExpr =  binaryExpr' operators
   where
-    binaryExpr' :: [[BOperator m]]-> Parser m (Expr SynAnn)
+    binaryExpr' :: [[BOperator m]]-> Parser m (Expr SynPhase)
     binaryExpr' [] = unaryExpr
     binaryExpr' (o:ops) =
             case associativity (head o) of
               LeftAssoc  -> chainl1 (binaryExpr' ops) (eqPrecedence o)
               RightAssoc -> chainr1 (binaryExpr' ops) (eqPrecedence o)
       where
-        eqPrecedence :: [BOperator m] -> Parser m (Expr SynAnn -> Expr SynAnn -> Expr SynAnn)
+        eqPrecedence :: [BOperator m] -> Parser m (Expr SynPhase -> Expr SynPhase -> Expr SynPhase)
         eqPrecedence ops' = asum $ map opParser ops'
 
 
 data BOperator m = BOperator { associativity :: Associativity
                              , operatorP     :: BOp
-                             , opParser      :: Parser m (Expr SynAnn -> Expr SynAnn -> Expr SynAnn)
+                             , opParser      :: Parser m (Expr SynPhase -> Expr SynPhase -> Expr SynPhase)
                              , precedence    :: Int
                              }
 operators :: [[BOperator m]]
@@ -162,19 +177,19 @@ operators = groupBy eqPrec $  sortBy (flip $ comparing precedence)
 --------------------------------------------------------------------------------
 -- Expr Parsers
 ------------------------------------------------------------------------------
-expression :: Parser m (Expr SynAnn)
+expression :: Parser m (Expr SynPhase)
 expression = listElim <$> (List <$> L.commaSep1 assignmentExpr)
   where listElim (List [x]) = x
         listElim exprs      = exprs
 
-assignmentExpr :: Parser m (Expr SynAnn)
+assignmentExpr :: Parser m (Expr SynPhase)
 assignmentExpr = conditionalExpression <|>
   Assign <$> getPosition <*> unaryExpr <* L.punctuator "=" <*> assignmentExpr
 
 -- | writing this monadically is better than using alternatives as this avoid
 -- very long backtracking for ternary operators.
 -- TODO: Maybe some kind of chainl/r would make this nicer too?
-conditionalExpression :: Parser m (Expr SynAnn)
+conditionalExpression :: Parser m (Expr SynPhase)
 conditionalExpression = do
   p <- getPosition
   x <- binaryExpr
@@ -192,7 +207,7 @@ conditionalExpression = do
 -- Statement Parsers
 --------------------------------------------------------------------------------
 
-statement :: Parser m (Stmt SynAnn)
+statement :: Parser m (Stmt SynPhase)
 statement =  getPosition >>= \p -> (L.keyword "break" >> return (Break p) <* sem)
                                <|> (L.keyword "continue" >> return (Continue p) <* sem)
                                <|> (L.keyword "return" >> (Return p <$> optional expression) <* sem)
@@ -209,7 +224,7 @@ statement =  getPosition >>= \p -> (L.keyword "break" >> return (Break p) <* sem
 parseEither :: Parser m a -> Parser m b -> Parser m (Either a b)
 parseEither pa pb = try (Left <$> pa) <|> Right <$> pb
 
-compoundStatement :: Parser m (Stmt SynAnn)
+compoundStatement :: Parser m (Stmt SynPhase)
 compoundStatement = do
   p <- getPosition
   x <- L.braces $ many (parseEither declaration statement)
@@ -218,24 +233,24 @@ compoundStatement = do
 --------------------------------------------------------------------------------
 -- Declaration Parsers
 --------------------------------------------------------------------------------
-typeSpecifier :: Parser m (Type SynAnn)
+typeSpecifier :: Parser m (Type SynPhase)
 typeSpecifier =     (L.keyword "void"    >> return Void)
                 <|> (L.keyword "char"    >> return Char)
                 <|> (L.keyword "int"     >> return Int)
                 <|> (L.keyword "struct"  >> structSpecifier)
 
-structSpecifier :: Parser m (Type SynAnn)
+structSpecifier :: Parser m (Type SynPhase)
 structSpecifier = try structInline <|> structIdentifier
   where
     structIdentifier = StructIdentifier <$> L.identifier
     structInline = StructInline <$> optional L.identifier <*> L.braces structDeclarationList
     structDeclarationList = many structDeclaration
 
-structDeclaration :: Parser m (StructDeclaration SynAnn)
+structDeclaration :: Parser m (StructDeclaration SynPhase)
 structDeclaration = StructDeclaration <$> getPosition <*> typeSpecifier <*> L.commaSep declarator <* L.punctuator ";"
 
 -- | like a direct declarator but with many * in front
-declarator :: Parser m (Declarator SynAnn)
+declarator :: Parser m (Declarator SynPhase)
 declarator = do
   p <- getPosition
   pts <- length <$> many (L.punctuator "*")
@@ -245,14 +260,14 @@ declarator = do
       directDeclarator
 
 
-directDeclarator :: Parser m (Declarator SynAnn)
+directDeclarator :: Parser m (Declarator SynPhase)
 directDeclarator = chainl1unary dcore dparams
   where
     dcore =   L.parens declarator
               <|> (DeclaratorId <$> getPosition <*> L.identifier)
     dparams = getPosition >>= \p -> flip (FunctionDeclarator p) <$> parameterList
 
-abstractDeclarator :: Parser m (AbstractDeclarator SynAnn)
+abstractDeclarator :: Parser m (AbstractDeclarator SynPhase)
 abstractDeclarator =  do
   pts <- length <$> many (L.punctuator "*")
   if pts > 0 then
@@ -260,40 +275,40 @@ abstractDeclarator =  do
   else
     directAbstractDeclarator
 
-directAbstractDeclarator :: Parser m (AbstractDeclarator SynAnn)
+directAbstractDeclarator :: Parser m (AbstractDeclarator SynPhase)
 directAbstractDeclarator = chainl1unary core ops
   where
     core = L.parens abstractDeclarator
     ops = flip AbstractFunctionDeclarator <$> parameterList <|>
           L.brackets (L.punctuator "*" >> return ArrayStar)
 
-declaration :: Parser m (Declaration SynAnn)
+declaration :: Parser m (Declaration SynPhase)
 declaration = Declaration <$> getPosition <*> typeSpecifier  <*>  initDeclaratorList <* L.punctuator ";"
   where initDeclaratorList = L.commaSep initDeclarator
 
-initDeclarator :: Parser m (InitDeclarator SynAnn)
+initDeclarator :: Parser m (InitDeclarator SynPhase)
 initDeclarator = do
   d <- declarator
   ini <- optional $ L.punctuator "=" >> initializer -- this is simplified (not spec)
   return $ InitializedDec d ini
 
-initializer :: Parser m (Initializer SynAnn)
+initializer :: Parser m (Initializer SynPhase)
 initializer = InitializerList <$> initList <|>
               InitializerAssignment <$> assignmentExpr
   where
     initList = L.braces (L.commaSep initializer <* optional L.comma)
 
 
-parameterList :: Parser m [Parameter SynAnn]
+parameterList :: Parser m [Parameter SynPhase]
 parameterList = L.parens $ L.commaSep parameterDeclaration
 
-parameterDeclaration :: Parser m (Parameter SynAnn)
+parameterDeclaration :: Parser m (Parameter SynPhase)
 parameterDeclaration = try x <|>  y
-  where x = Parameter <$> typeSpecifier <*> declarator
-        y = AbstractParameter <$> typeSpecifier <*> optional abstractDeclarator
+  where x = Parameter <$> getPosition <*> typeSpecifier <*> declarator
+        y = AbstractParameter <$> getPosition <*> typeSpecifier <*> optional abstractDeclarator
 
 
-identifier :: Parser m (Expr SynAnn)
+identifier :: Parser m (Expr SynPhase)
 identifier = ExprIdent <$> getPosition <*> L.identifier
 
 --------------------------------------------------------------------------------
