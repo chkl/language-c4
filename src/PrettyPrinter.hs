@@ -16,6 +16,7 @@ import           Data.String                  hiding (unlines)
 import           System.IO                    (Handle)
 import           Text.Megaparsec.Error        hiding (ParseError)
 
+import           Ast
 import           Types
 
 type Level = Int

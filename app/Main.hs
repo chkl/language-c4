@@ -1,17 +1,17 @@
 module Main where
 
-import           Control.Monad        (when)
 import qualified Data.ByteString.Lazy as BS
 import           System.Environment
 import           System.Exit          (exitFailure, exitSuccess)
 import           System.IO            (hPutStr, stderr, stdout)
 
 import           Analysis
+import           Ast.SemAst
 import           Lexer
 import           Parser               (runParser)
-
 import           PrettyPrinter
 import           Text.Pretty.Simple   as PS
+
 
 type PrintAST = Bool
 
