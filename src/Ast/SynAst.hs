@@ -33,6 +33,7 @@ type instance AnnFunctionDeclarator SynPhase =  SourcePos
 type instance AnnCompoundStmt SynPhase       =  SourcePos
 type instance AnnIfStmt SynPhase             =  SourcePos
 type instance AnnWhileStmt SynPhase          =  SourcePos
+type instance AnnExpressionStmt SynPhase     =  SourcePos
 type instance AnnGoto SynPhase               =  SourcePos
 type instance AnnContinue SynPhase           =  SourcePos
 type instance AnnBreak SynPhase              =  SourcePos
@@ -43,17 +44,47 @@ type instance AnnAbstractParameter SynPhase = SourcePos
 
 
 -- we would like to have a class "HasSourcePos" for each annotated element of
--- the AST, e.g. Stmt SynPhase, or Expr SynPhase.
+-- the AST, e.g. Stmt SynPhase, or Expr SynPhase. I could not come up with a way
+-- to get those automatically. Hence this tedious boilerplate.
 
 class HasSourcePos x where
-  getSourcePos :: x -> SourcePos
+ sourcePos :: x -> SourcePos
 
-instance HasSourcePos SourcePos where
-  getSourcePos = id
+instance HasSourcePos (FunctionDefinition SynPhase) where
+  sourcePos (FunctionDefinition p _ _ _) = p
+
+instance HasSourcePos (Declaration SynPhase) where
+  sourcePos (Declaration p _ _) = p
+
+instance HasSourcePos (Declarator SynPhase) where
+  sourcePos (IndirectDeclarator p _ _ ) = p
+  sourcePos (DeclaratorId p _)          = p
+  sourcePos (FunctionDeclarator p _ _ ) = p
 
 instance HasSourcePos (Stmt SynPhase) where
-  getSourcePos (LabeledStmt p _ _ ) = p
-  getSourcePos _                    = error "niy"
+ sourcePos (LabeledStmt p _ _ ) = p
+ sourcePos (CompoundStmt p _ )  = p
+ sourcePos (IfStmt p _ _ _ )    = p
+ sourcePos (Goto p _ )          = p
+ sourcePos (ExpressionStmt p _) = p
+ sourcePos (WhileStmt p _ _ )   = p
+ sourcePos (Continue p)         = p
+ sourcePos (Break p)            = p
+ sourcePos (Return p _ )        = p
+
 
 instance HasSourcePos (Expr SynPhase) where
-  getSourcePos = error "niy"
+  sourcePos (List es)             = sourcePos (head es)
+  sourcePos (Ternary p _ _ _)     = p
+  sourcePos (Assign p  _ _)       = p
+  sourcePos (BExpr p _ _ _)       = p
+  sourcePos (UExpr p _ _)         = p
+  sourcePos (SizeOfType p _)      = p
+  sourcePos (Array p _ _)         = p
+  sourcePos (Func p _ _)          = p
+  sourcePos (ExprIdent p _)       = p
+  sourcePos (Constant p _)        = p
+  sourcePos (FieldAccess p _ _)   = p
+  sourcePos (PointerAccess p _ _) = p
+  sourcePos (StringLiteral p _)   = p
+

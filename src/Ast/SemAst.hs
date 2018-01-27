@@ -7,9 +7,9 @@ module Ast.SemAst
   ) where
 
 import           Ast
+import           Data.List       (intercalate)
 import qualified Data.Map.Strict as Map
 import           Types
-import           Data.List            (intercalate)
 
 --------------------------------------------------------------------------------
 -- Define Types for our Type-Annotated AST
@@ -18,69 +18,77 @@ import           Data.List            (intercalate)
 data SemPhase
 
 type instance AnnTranslationUnit  SemPhase   =  Scope
-type instance AnnFunctionDefinition SemPhase = (SourcePos, Scope)
-type instance AnnTernary SemPhase            = (SourcePos, Scope, CType)
-type instance AnnAssign SemPhase             = (SourcePos, Scope, CType)
-type instance AnnArray SemPhase              = (SourcePos, Scope, CType)
-type instance AnnBExpr SemPhase              = (SourcePos, Scope, CType)
-type instance AnnUExpr SemPhase              = (SourcePos, Scope, CType)
-type instance AnnFunc SemPhase               = (SourcePos, Scope, CType)
-type instance AnnSizeOfType SemPhase         = (SourcePos, Scope, CType)
-type instance AnnExprIdent SemPhase          = (SourcePos, Scope, CType)
-type instance AnnConstant SemPhase           = (SourcePos, Scope, CType)
-type instance AnnFieldAccess SemPhase        = (SourcePos, Scope, CType)
-type instance AnnPointerAccess SemPhase      = (SourcePos, Scope, CType)
-type instance AnnStringLiteral SemPhase      = (SourcePos, Scope, CType)
-type instance AnnDeclaration SemPhase        = (SourcePos, Scope)
-type instance AnnStructDeclaration SemPhase  = (SourcePos, Scope, CType)
+type instance AnnFunctionDefinition SemPhase =  SourcePos
+
+-- expressions
+type instance AnnTernary SemPhase            = (SourcePos, CType)
+type instance AnnAssign SemPhase             = (SourcePos, CType)
+type instance AnnArray SemPhase              = (SourcePos, CType)
+type instance AnnBExpr SemPhase              = (SourcePos, CType)
+type instance AnnUExpr SemPhase              = (SourcePos, CType)
+type instance AnnFunc SemPhase               = (SourcePos, CType)
+type instance AnnSizeOfType SemPhase         = (SourcePos, CType)
+type instance AnnExprIdent SemPhase          = (SourcePos, CType)
+type instance AnnConstant SemPhase           = (SourcePos, CType)
+type instance AnnFieldAccess SemPhase        = (SourcePos, CType)
+type instance AnnPointerAccess SemPhase      = (SourcePos, CType)
+type instance AnnStringLiteral SemPhase      = (SourcePos, CType)
+type instance AnnExpressionStmt SemPhase     =  SourcePos
+
+-- declarations
+type instance AnnDeclaration SemPhase        = SourcePos
+type instance AnnStructDeclaration SemPhase  = SourcePos
 
 type instance AnnIndirectDeclarator SemPhase = DeclaratorSemAnn
 type instance AnnDeclaratorId SemPhase       = DeclaratorSemAnn
 type instance AnnFunctionDeclarator SemPhase = DeclaratorSemAnn
 
-type instance AnnParameter SemPhase = (SourcePos, Scope, CType)
-type instance AnnAbstractParameter SemPhase = (SourcePos, Scope, CType)
+type instance AnnParameter SemPhase = (SourcePos, CType)
+type instance AnnAbstractParameter SemPhase = (SourcePos, CType)
 
-type instance AnnCompoundStmt SemPhase       = (SourcePos, Scope)
-type instance AnnIfStmt SemPhase             = (SourcePos, Scope)
-type instance AnnWhileStmt SemPhase          = (SourcePos, Scope)
-type instance AnnGoto SemPhase               = (SourcePos, Scope)
-type instance AnnContinue SemPhase           = (SourcePos, Scope)
-type instance AnnBreak SemPhase              = (SourcePos, Scope)
-type instance AnnReturn SemPhase             = (SourcePos, Scope)
+-- statements
+type instance AnnCompoundStmt SemPhase       = SourcePos
+type instance AnnIfStmt SemPhase             = SourcePos
+type instance AnnWhileStmt SemPhase          = SourcePos
+type instance AnnGoto SemPhase               = SourcePos
+type instance AnnContinue SemPhase           = SourcePos
+type instance AnnBreak SemPhase              = SourcePos
+type instance AnnReturn SemPhase             = SourcePos
 type instance AnnLabeledStmt SemPhase        = SourcePos
 
 data DeclaratorSemAnn = DeclaratorSemAnn
   { _position :: SourcePos
-  , _scope    :: Scope
   , _type     :: CType
   , _name     :: Ident
   }
 
+-- this is getting insanely tedious!
 class HasType x where
   getType :: x -> CType
 
 class HasName x where
   getName :: x -> Ident
 
-class HasScope x where
-  getScope :: x -> Scope
 
 -- how to get the type of an expression?
 instance HasType (Expr SemPhase) where
-  getType (BExpr (p,s,t) _ _ _)= t
-  getType (Assign (p,s,t)  _ _)= t
-  getType (List es)              = Tuple $ map getType es
-  getType (Ternary _ _ _ _)      = error "ternary"
-  getType (UExpr _ _ _)          = error "unary"
-  getType (Func _ _ _ )          = error "func"
-  getType (Constant _ _ )        = error "const"
-  getType (Array _ _ _ )         = error "const"
-  getType (SizeOfType _ _ )      = error "sizeoftype"
-  getType (ExprIdent (p,s,t) n ) = t
+  getType (BExpr (_,t) _ _ _)=      t
+  getType (Assign (_,t)  _ _)=      t
+  getType (List es)                 = Tuple $ map getType es
+  getType (Ternary (_,t) _ _ _)     = t
+  getType (UExpr (_,t) _ _)         = t
+  getType (Func (_,t) _ _ )         = t
+  getType (Constant (_,t) _ )       = t
+  getType (Array (_,t) _ _ )        = t
+  getType (SizeOfType (_,t) _ )     = t
+  getType (ExprIdent (_,t) _ )      = t
+  getType (PointerAccess (_,t) _ _) = t
+  getType (FieldAccess (_,t) _ _)   = t
+  getType (StringLiteral (_,t) _)   = t
 
 instance HasType (Parameter SemPhase) where
-  getType (Parameter (p,s,t) _ _ ) = t
+  getType (Parameter (_,t) _ _ )         = t
+  getType (AbstractParameter (_,t) _ _ ) = t
 
 instance HasType (Declarator SemPhase) where
   getType = _type . getDeclaratorSemAnn
@@ -88,8 +96,6 @@ instance HasType (Declarator SemPhase) where
 instance HasName (Declarator SemPhase) where
   getName = _name . getDeclaratorSemAnn
 
-instance HasScope (TranslationUnit SemPhase) where
-  getScope (TranslationUnit a _) = a
 
 class GetDeclaratorSemAnn x where
   getDeclaratorSemAnn :: x -> DeclaratorSemAnn
@@ -103,11 +109,6 @@ instance GetDeclaratorSemAnn (Declarator SemPhase) where
   getDeclaratorSemAnn (DeclaratorId a _)         = a
   getDeclaratorSemAnn (FunctionDeclarator a _ _) = a
 
-
-
---------------------------------------------------------------------------------
--- Testing Lenses
---------------------------------------------------------------------------------
 
 --------------------------------------------------------------------------------
 --  some data types needed for semantic ASTs
@@ -148,5 +149,4 @@ fromType Void = CVoid
 fromType Int  = CInt
 fromType Char = CChar
 fromType _    = Bottom -- TODO:
-
 

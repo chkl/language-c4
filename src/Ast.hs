@@ -1,9 +1,9 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedLabels      #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 module Ast where
 
-import           Control.Lens.TH
 import           Data.ByteString.Lazy (ByteString)
 import           Types
 
@@ -30,6 +30,7 @@ type family AnnFunctionDeclarator x
 type family AnnCompoundStmt x
 type family AnnIfStmt x
 type family AnnWhileStmt x
+type family AnnExpressionStmt x
 type family AnnGoto x
 type family AnnContinue x
 type family AnnBreak x
@@ -43,7 +44,10 @@ type family AnnAbstractParameter x
 --------------------------------------------------------------------------------
 
 
-data TranslationUnit x = TranslationUnit (AnnTranslationUnit x) [ExternalDeclaration x]
+data TranslationUnit x = TranslationUnit
+  { _ann                  :: AnnTranslationUnit x
+  , _externalDeclarations :: [ExternalDeclaration x]
+  }
 
 type ExternalDeclaration x = Either (Declaration x) (FunctionDefinition x)
 
@@ -90,7 +94,7 @@ data Parameter x =  Parameter (AnnParameter x) (Type x) (Declarator x)
 
 data Stmt x = LabeledStmt (AnnLabeledStmt x) Ident (Stmt x)
           | CompoundStmt (AnnCompoundStmt x) [Either (Declaration x) (Stmt x)]
-          | ExpressionStmt (Maybe (Expr x))
+          | ExpressionStmt (AnnExpressionStmt x) (Maybe (Expr x))
           | IfStmt (AnnIfStmt x) (Expr x) (Stmt x) (Maybe (Stmt x))
           | WhileStmt (AnnWhileStmt x) (Expr x) (Stmt x)
           | Goto (AnnGoto x) Ident
@@ -111,8 +115,8 @@ data UOp = SizeOf | Address | Deref | Neg | Not
 
 
 
-data Expr x = List [Expr x]
-          | Ternary (AnnTernary x) (Expr x) (Expr x) (Expr x)
+data Expr x = List [Expr x] -- ^ should never be empty
+          | Ternary(AnnTernary x) (Expr x) (Expr x) (Expr x)
           | Assign (AnnAssign x) (Expr x) (Expr x)
           | BExpr (AnnBExpr x) BOp (Expr x) (Expr x)
           | UExpr (AnnUExpr x) UOp (Expr x)

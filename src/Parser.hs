@@ -11,10 +11,9 @@ import           Data.Foldable        (asum)
 import           Data.List            (groupBy, sortBy)
 import           Data.Ord             (comparing)
 import           Text.Megaparsec      hiding (ParseError, SourcePos)
-import           Text.Megaparsec.Pos  (SourcePos)
 
-import qualified Lexer                as L
 import           Ast.SynAst
+import qualified Lexer                as L
 import           Types
 
 
@@ -169,7 +168,7 @@ statement =  getPosition >>= \p -> (L.keyword "break" >> return (Break p) <* sem
                                <|> (L.keyword "while" >> (WhileStmt p <$> L.parens expression <*> statement))
                                <|> (L.keyword "if" >> (IfStmt p <$> L.parens expression <*> statement <*> optional elseParser))
                                <|> compoundStatement
-                               <|> try (ExpressionStmt <$> optional expression <* sem)
+                               <|> try (ExpressionStmt <$> getPosition <*> optional expression <* sem)
                                <|> (LabeledStmt p <$> L.identifier <* L.punctuator ":" <*> statement)
   where
     sem = L.punctuator ";"

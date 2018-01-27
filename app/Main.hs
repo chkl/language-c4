@@ -53,10 +53,10 @@ parse pr filename = do
             Left err -> do
               Prelude.putStrLn "errors:"
               PS.pPrint err
-            Right ast' -> do
+            Right (TranslationUnit s _) -> do
 --              Prelude.print ast'
               putStrLn "top scope:"
-              Prelude.print (getScope ast')
+              Prelude.print s
       exitSuccess
 
 
