@@ -64,9 +64,14 @@ data SemanticError = UndeclaredName !SourcePos !Ident
                    | AlreadyDeclaredName !SourcePos !Ident
                    | TypeMismatch {_pos :: !SourcePos, _leftType :: !CType, _rightType :: !CType }
                    | NoPointer SourcePos
-               deriving (Show)
 
-
+instance Show SemanticError where
+  show (UndeclaredName p i)      = (show p) ++ ": " <> "undeclared name " <> (show i)
+  show (AlreadyDeclaredName p i) = (show p) ++ ": " <> "name already declared " <> (show i)
+  show (TypeMismatch p l r)      = (show p) ++ ": " <> "type mismatch: expected " <> (show l) <>
+                                   " but got " <> (show r)
+  show (NoPointer p)             = (show p) ++ ": " <> "expects a pointer"
+  
 -- | runs an analysis in a copy of the current scope without modifying the
 -- original scope, but retains the errors.
 enterScope :: Analysis a -> Analysis a
