@@ -74,8 +74,8 @@ class HasName x where
 
 -- how to get the type of an expression?
 instance HasType (Expr SemPhase) where
-  getType (BExpr (_,t) _ _ _)=      t
-  getType (Assign (_,t)  _ _)=      t
+  getType (BExpr (_,t) _ _ _)       = t
+  getType (Assign (_,t)  _ _)       = t
   getType (List es)                 = Tuple $ map getType es
   getType (Ternary (_,t) _ _ _)     = t
   getType (UExpr (_,t) _ _)         = t
@@ -95,6 +95,9 @@ instance HasType (Parameter SemPhase) where
 
 instance HasType (Declarator SemPhase) where
   getType = _type . getDeclaratorSemAnn
+
+instance HasType (AbstractDeclarator SemPhase) where -- TODO
+  
 
 instance HasName (Declarator SemPhase) where
   getName = _name . getDeclaratorSemAnn

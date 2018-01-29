@@ -18,7 +18,8 @@ import           Control.Monad        (forM, when)
 import           Control.Monad.State
 import           Control.Monad.Writer
 import qualified Data.Map.Strict      as Map
-import           Text.Megaparsec.Pos  (SourcePos, sourceLine, sourceColumn, unPos)
+import           Text.Megaparsec.Pos  (SourcePos, sourceColumn, sourceLine,
+                                       unPos)
 
 import           Ast.SemAst
 import           Ast.SynAst
@@ -66,15 +67,15 @@ data SemanticError = UndeclaredName !SourcePos !Ident
                    | NoPointer SourcePos
 
 instance Show SemanticError where
-  show (UndeclaredName p i)      = (nicePos p) ++ " : " <> "undeclared name " <> (show i)
-  show (AlreadyDeclaredName p i) = (nicePos p) ++ " : " <> "name already declared " <> (show i)
-  show (TypeMismatch p l r)      = (nicePos p) ++ " : " <> "type mismatch: expected type: " <> (show l)
-                                   <> "; actual type: " <> (show r)
-  show (NoPointer p)             = (nicePos p) ++ " : " <> "expects a pointer"
+  show (UndeclaredName p i)      = nicePos p <> " : " <> "undeclared name " <> show i
+  show (AlreadyDeclaredName p i) = nicePos p <> " : " <> "name already declared " <> show i
+  show (TypeMismatch p l r)      = nicePos p <> " : " <> "type mismatch: expected type: " <> show l
+                                   <> "; actual type: " <> show r
+  show (NoPointer p)             = nicePos p <> " : " <> "expects a pointer"
 
 nicePos :: SourcePos -> String
-nicePos p = (show (unPos (sourceLine p))) <> ":" <> (show (unPos (sourceColumn p))) 
-  
+nicePos p = show (unPos (sourceLine p)) <> ":" <> show (unPos (sourceColumn p))
+
 -- | runs an analysis in a copy of the current scope without modifying the
 -- original scope, but retains the errors.
 enterScope :: Analysis a -> Analysis a
@@ -94,6 +95,9 @@ matchTypes p t1 (Tuple [t2]) = matchTypes p t1 t2
 matchTypes p t1 t2 = do
   when (t1 /= t2) $ tell [TypeMismatch p t1 t2]
   return t1
+
+matchTypes_ :: SourcePos -> CType -> CType -> Analysis ()
+matchTypes_ p t s = void (matchTypes p t s)
 
 semanticAnalysis :: TranslationUnit SynPhase -> Either [SemanticError] (TranslationUnit SemPhase)
 semanticAnalysis u = case runState (runWriterT (translationUnit u)) emptyScope of
@@ -133,7 +137,7 @@ typeA (StructInline i l) = do
 structDeclaration :: StructDeclaration SynPhase -> Analysis (StructDeclaration SemPhase)
 structDeclaration (StructDeclaration p t l) = do
   t' <- typeA t
-  l' <- mapM (declarator (fromType t')) l 
+  l' <- mapM (declarator (fromType t')) l
   return (StructDeclaration p t' l')
 
 declarator :: CType -> Declarator SynPhase -> Analysis (Declarator SemPhase)
@@ -150,7 +154,6 @@ declarator t (FunctionDeclarator p d params) = do
   let paramsType = map getType params'
   return $ FunctionDeclarator (DeclaratorSemAnn p (Function t paramsType) (getName d')) d' params'
 
-instance HasType (AbstractDeclarator SemPhase) -- todo
 
 parameter :: Parameter SynPhase -> Analysis (Parameter SemPhase)
 parameter (Parameter p t d) = do
@@ -161,7 +164,7 @@ parameter (AbstractParameter p t d) = do
   t' <- typeA t
   d' <- maybe' (abstractDeclarator (fromType t)) d
   let typ = case (d') of
-              Nothing -> (fromType t)
+              Nothing    -> (fromType t)
               (Just d'') -> (getType d'')
   return $ AbstractParameter (p, typ) t' d'
 
@@ -314,24 +317,24 @@ expression (Func p l r)           = do
 expression (PointerAccess p l r ) = do
   l' <- expression l
   r' <- expression r
-  return (PointerAccess (p, Bottom) l' r') 
-  
+  return (PointerAccess (p, Bottom) l' r')
+
 expression (ArrayAccess p l r)         = do
   l' <- expression l
   r' <- expression r
   case (getType l') of
     Pointer t -> do
-      matchTypes p (CInt) (getType r')
+      matchTypes_ p (CInt) (getType r')
       return (ArrayAccess (p, t) l' r')
     _ -> do
       tell [TypeMismatch p (Pointer Bottom) (getType l')]
       return (ArrayAccess (p, Bottom) l' r')
-  
-expression (FieldAccess p l r)   = do 
+
+expression (FieldAccess p l r)   = do
   l' <- expression l
   r' <- expression r
-  return (FieldAccess (p, Bottom) l' r') 
-  
+  return (FieldAccess (p, Bottom) l' r')
+
 expression (StringLiteral p b)   = return (StringLiteral (p, (Pointer CChar)) b)
 
 --------------------------------------------------------------------------------
