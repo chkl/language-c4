@@ -81,6 +81,8 @@ enterScope a = do
 matchTypes :: SourcePos -> CType -> CType -> Analysis CType
 matchTypes _ Bottom _ = return Bottom
 matchTypes _ _ Bottom = return Bottom
+matchTypes p (Tuple [t1]) t2 = matchTypes p t1 t2
+matchTypes p t1 (Tuple [t2]) = matchTypes p t1 t2
 matchTypes p t1 t2 = do
   when (t1 /= t2) $ tell [TypeMismatch p t1 t2]
   return t1
@@ -114,11 +116,25 @@ typeA :: Type SynPhase -> Analysis (Type SemPhase)
 typeA Void = return Void
 typeA Int  = return Int
 typeA Char = return Char
+typeA (StructIdentifier i) = return (StructIdentifier i)
+typeA (StructInline i l) = do
+  l' <- mapM structDeclaration l
+  return (StructInline i l')
+
+
+structDeclaration :: StructDeclaration SynPhase -> Analysis (StructDeclaration SemPhase)
+structDeclaration (StructDeclaration p t l) = do
+  t' <- typeA t
+  l' <- mapM (declarator (fromType t')) l 
+  return (StructDeclaration p t' l')
 
 declarator :: CType -> Declarator SynPhase -> Analysis (Declarator SemPhase)
 declarator t (DeclaratorId p n) = return (DeclaratorId (DeclaratorSemAnn p t n) n)
 
-declarator t (IndirectDeclarator p n d) = declarator (it n Pointer t) d
+declarator t (IndirectDeclarator p n d) = do
+  d' <- declarator (it n Pointer t) d
+  let t' = it n Pointer (getType d')
+  return (IndirectDeclarator (DeclaratorSemAnn p t' (getName d')) n d')
 
 declarator t (FunctionDeclarator p d params) = do
   d' <- declarator t d
@@ -126,11 +142,20 @@ declarator t (FunctionDeclarator p d params) = do
   let paramsType = map getType params'
   return $ FunctionDeclarator (DeclaratorSemAnn p (Function t paramsType) (getName d')) d' params'
 
+instance HasType (AbstractDeclarator SemPhase) -- todo
+
 parameter :: Parameter SynPhase -> Analysis (Parameter SemPhase)
 parameter (Parameter p t d) = do
   t' <- typeA t
   d' <- declarator (fromType t) d
   return $ Parameter (p, getType d') t' d'
+parameter (AbstractParameter p t d) = do
+  t' <- typeA t
+  d' <- maybe' (abstractDeclarator (fromType t)) d
+  let typ = case (d') of
+              Nothing -> (fromType t)
+              (Just d'') -> (getType d'')
+  return $ AbstractParameter (p, typ) t' d'
 
 declaration :: Declaration SynPhase -> Analysis (Declaration SemPhase)
 declaration (Declaration pos t is) = do
@@ -163,7 +188,7 @@ initializer (InitializerList es) = do
   es' <- mapM initializer es
   return $ InitializerList es'
 
-abstractDeclarator :: CType -> AbstractDeclarator SynPhase -> CType
+abstractDeclarator :: CType -> AbstractDeclarator SynPhase -> Analysis (AbstractDeclarator SemPhase)
 abstractDeclarator = undefined -- TODO: Basically as declarator but abstract
 
 
@@ -197,12 +222,7 @@ statement (IfStmt pos e s1 s2)     = do
     (Just s2') -> do
       s2'' <- statement s2'
       return $ IfStmt pos e' s1' (Just s2'')
--- statement (WhileStmt _ e stmt)        = expression e >> statement stmt
--- statement (Goto _ _)                  = return ()
--- statement (Continue _)                 = return ()
 statement (Break p)                    = return $ Break p
--- statement (Return _ Nothing)          = return ()
--- statement (Return _ (Just e))         = void $ expression e  -- TODO: Check return type
 statement (ExpressionStmt p Nothing)  = do
   return $ ExpressionStmt p Nothing
 
@@ -215,7 +235,11 @@ expression :: Expr SynPhase -> Analysis (Expr SemPhase)
 expression (Constant p x) = do
   return (Constant (p, CInt) x)
 
-expression (Assign p l r) = error "assignment is not implemented yet"
+expression (Assign p l r) = do
+  l' <- expression l
+  r' <- expression r
+  t <- matchTypes p (getType l') (getType r')
+  return (Assign (p, t) l' r')
 
 expression (ExprIdent p n) = do
   mt <- lookupType n
@@ -265,12 +289,42 @@ expression (UExpr p op e) = do
            Address -> return (Pointer t')
   return $ UExpr (p, t'') op e'
 
-expression (SizeOfType p t)       = error "sizeof type not implemented"
-expression (Func p _ _)           = error "func type not implemented"
-expression (PointerAccess p _ _ ) = error "pointer access not implemented"
-expression (Array p _ _ )         = error "array access not implemented"
-expression (FieldAccess p _ _ )   = error "field access not implemented"
-expression (StringLiteral p _ )   = error "string lit"
+expression (SizeOfType p t)       = do
+  t' <- typeA t
+  return (SizeOfType (p, fromType t) t')
+expression (Func p l r)           = do
+  l' <- expression l
+  r' <- expression r
+  case (getType l') of
+    Function t tp -> do
+      matchTypes p (Tuple tp) (getType r')
+      return (Func (p, t) l' r')
+    _ -> do
+      tell [TypeMismatch p (Function Bottom [getType r']) (getType l')]
+      return (Func (p, Bottom) l' r')
+
+expression (PointerAccess p l r ) = do
+  l' <- expression l
+  r' <- expression r
+  return (PointerAccess (p, Bottom) l' r') 
+  
+expression (Array p l r)         = do
+  l' <- expression l
+  r' <- expression r
+  case (getType l') of
+    Pointer t -> do
+      matchTypes p (CInt) (getType r')
+      return (Array (p, t) l' r')
+    _ -> do
+      tell [TypeMismatch p (Pointer Bottom) (getType l')]
+      return (Array (p, Bottom) l' r')
+  
+expression (FieldAccess p l r)   = do 
+  l' <- expression l
+  r' <- expression r
+  return (FieldAccess (p, Bottom) l' r') 
+  
+expression (StringLiteral p b)   = return (StringLiteral (p, (Pointer CChar)) b)
 
 --------------------------------------------------------------------------------
 -- little helpers
