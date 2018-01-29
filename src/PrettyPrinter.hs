@@ -4,7 +4,7 @@
 
 module PrettyPrinter where
 
-import           Prelude                      hiding (concatMap, print, unlines)
+import           Prelude                      hiding (print, unlines)
 
 import           Control.Monad.State
 
@@ -303,7 +303,7 @@ instance PrettyPrint (Expr x) where
   prettyPrint (Assign _ l r)        = prettyPrint l >> print " = " >> prettyPrint r
   prettyPrint (Func _ f a)          = parens $ prettyPrint f >> parens (prettyPrint a)
   prettyPrint (Constant _ c)        = print c
-  prettyPrint (Array _ a b )        = prettyPrint a >> brackets (prettyPrint b)
+  prettyPrint (ArrayAccess _ a b )  = prettyPrint a >> brackets (prettyPrint b)
   prettyPrint (FieldAccess _ a b)   = parens $ prettyPrint a >> period >> prettyPrint b
   prettyPrint (PointerAccess _ a b) = parens $ prettyPrint a >> print "->" >> prettyPrint b
   prettyPrint (StringLiteral _ s)   = print "\"" >> print s >> print "\""

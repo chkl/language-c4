@@ -16,7 +16,7 @@ type instance AnnTranslationUnit SynPhase    =  ()
 type instance AnnFunctionDefinition SynPhase =  SourcePos
 type instance AnnTernary SynPhase            =  SourcePos
 type instance AnnAssign SynPhase             =  SourcePos
-type instance AnnArray SynPhase              =  SourcePos
+type instance AnnArrayAccess SynPhase        =  SourcePos
 type instance AnnBExpr SynPhase              =  SourcePos
 type instance AnnUExpr SynPhase              =  SourcePos
 type instance AnnFunc SynPhase               =  SourcePos
@@ -107,7 +107,7 @@ instance HasSourcePos (Expr SynPhase) where
   sourcePos (BExpr p _ _ _)       = p
   sourcePos (UExpr p _ _)         = p
   sourcePos (SizeOfType p _)      = p
-  sourcePos (Array p _ _)         = p
+  sourcePos (ArrayAccess p _ _)   = p
   sourcePos (Func p _ _)          = p
   sourcePos (ExprIdent p _)       = p
   sourcePos (Constant p _)        = p

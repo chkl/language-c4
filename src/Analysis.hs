@@ -316,16 +316,16 @@ expression (PointerAccess p l r ) = do
   r' <- expression r
   return (PointerAccess (p, Bottom) l' r') 
   
-expression (Array p l r)         = do
+expression (ArrayAccess p l r)         = do
   l' <- expression l
   r' <- expression r
   case (getType l') of
     Pointer t -> do
       matchTypes p (CInt) (getType r')
-      return (Array (p, t) l' r')
+      return (ArrayAccess (p, t) l' r')
     _ -> do
       tell [TypeMismatch p (Pointer Bottom) (getType l')]
-      return (Array (p, Bottom) l' r')
+      return (ArrayAccess (p, Bottom) l' r')
   
 expression (FieldAccess p l r)   = do 
   l' <- expression l

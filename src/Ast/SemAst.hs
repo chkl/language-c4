@@ -23,7 +23,7 @@ type instance AnnFunctionDefinition SemPhase =  SourcePos
 -- expressions
 type instance AnnTernary SemPhase            = (SourcePos, CType)
 type instance AnnAssign SemPhase             = (SourcePos, CType)
-type instance AnnArray SemPhase              = (SourcePos, CType)
+type instance AnnArrayAccess SemPhase        = (SourcePos, CType)
 type instance AnnBExpr SemPhase              = (SourcePos, CType)
 type instance AnnUExpr SemPhase              = (SourcePos, CType)
 type instance AnnFunc SemPhase               = (SourcePos, CType)
@@ -81,7 +81,7 @@ instance HasType (Expr SemPhase) where
   getType (UExpr (_,t) _ _)         = t
   getType (Func (_,t) _ _ )         = t
   getType (Constant (_,t) _ )       = t
-  getType (Array (_,t) _ _ )        = t
+  getType (ArrayAccess (_,t) _ _ )  = t
   getType (SizeOfType (_,t) _ )     = t
   getType (ExprIdent (_,t) _ )      = t
   getType (PointerAccess (_,t) _ _) = t

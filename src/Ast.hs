@@ -15,7 +15,6 @@ type family AnnTranslationUnit x
 type family AnnFunctionDefinition x
 type family AnnTernary x
 type family AnnAssign x
-type family AnnArray x
 type family AnnBExpr x
 type family AnnUExpr x
 type family AnnFunc x
@@ -24,6 +23,7 @@ type family AnnExprIdent x
 type family AnnConstant x
 type family AnnFieldAccess x
 type family AnnPointerAccess x
+type family AnnArrayAccess x
 type family AnnStringLiteral x
 type family AnnDeclaration x
 type family AnnIndirectDeclarator x
@@ -124,7 +124,7 @@ data Expr x = List [Expr x] -- ^ should never be empty
           | BExpr (AnnBExpr x) BOp (Expr x) (Expr x)
           | UExpr (AnnUExpr x) UOp (Expr x)
           | SizeOfType (AnnSizeOfType x) (Type x)
-          | Array (AnnArray x) (Expr x) (Expr x)
+          | ArrayAccess (AnnArrayAccess x) (Expr x) (Expr x)
           | Func (AnnFunc x) (Expr x) (Expr x)
           | ExprIdent (AnnExprIdent x) ByteString
           | Constant (AnnConstant x) ByteString
@@ -141,7 +141,7 @@ type instance AnnTranslationUnit UD    = ()
 type instance AnnFunctionDefinition UD = ()
 type instance AnnTernary UD            = ()
 type instance AnnAssign UD             = ()
-type instance AnnArray UD              = ()
+type instance AnnArrayAccess UD        = ()
 type instance AnnBExpr UD              = ()
 type instance AnnUExpr UD              = ()
 type instance AnnFunc UD               = ()
@@ -206,8 +206,8 @@ pattern FuncUD e f <- Func _ e f
   where FuncUD e f = Func () e f
 
 pattern ArrayUD :: Expr UD -> Expr UD -> Expr UD
-pattern ArrayUD e f <- Array _ e f
-  where ArrayUD e f = Array () e f
+pattern ArrayUD e f <- ArrayAccess _ e f
+  where ArrayUD e f = ArrayAccess () e f
 
 pattern ConstantUD :: ByteString -> Expr UD
 pattern ConstantUD i <- Constant _ i
@@ -241,7 +241,7 @@ pattern GotoUD :: Ident -> Stmt UD
 pattern GotoUD i <- Goto _ i
   where GotoUD i = Goto () i
 
-pattern ExpressionStmtUD :: (Maybe (Expr UD)) -> Stmt UD
+pattern ExpressionStmtUD :: Maybe (Expr UD) -> Stmt UD
 pattern ExpressionStmtUD e <- ExpressionStmt _ e
   where ExpressionStmtUD e = ExpressionStmt () e
 
@@ -317,7 +317,7 @@ instance Undecorate Expr where
   undecorate (BExpr _ op e1 e2)      = BExpr () op (undecorate e1) (undecorate e2)
   undecorate (UExpr _ op e)          = UExpr () op (undecorate e)
   undecorate (SizeOfType _ t)        = SizeOfType () (undecorate t)
-  undecorate (Array _ e1 e2)         = Array () (undecorate e1)  (undecorate e2)
+  undecorate (ArrayAccess _ e1 e2)   = ArrayAccess () (undecorate e1)  (undecorate e2)
   undecorate (Func _ e1 e2)          = Func () (undecorate e1) (undecorate e2)
   undecorate (ExprIdent _ b)         = ExprIdent () b
   undecorate (Constant _ b)          = Constant  () b
@@ -337,16 +337,16 @@ instance Undecorate Initializer where
 instance Undecorate Parameter where
   undecorate (Parameter _ t d)          = Parameter () (undecorate t) (undecorate d)
   undecorate (AbstractParameter _ t d) = AbstractParameter () (undecorate t) (fmap undecorate d)
- 
+
 instance Undecorate AbstractDeclarator where
   undecorate (IndirectAbstractDeclarator n d) = IndirectAbstractDeclarator n (undecorate d)
   undecorate (AbstractFunctionDeclarator d p) = AbstractFunctionDeclarator (undecorate d) (map undecorate p)
   undecorate (ArrayStar d)                    = ArrayStar (undecorate d)
-  
+
 instance Undecorate Type where
-  undecorate Void = Void
-  undecorate Char = Char
-  undecorate Int  = Int
+  undecorate Void                 = Void
+  undecorate Char                 = Char
+  undecorate Int                  = Int
   undecorate (StructIdentifier b) = StructIdentifier b
   undecorate (StructInline b d)   = StructInline b (map undecorate d)
 
