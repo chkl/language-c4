@@ -13,10 +13,10 @@ import           Data.FileEmbed
 import           Data.Monoid             ((<>))
 import           Test.Hspec
 
+import           Ast.SynAst
 import qualified Parser                  as P
 import           PrettyPrinter
 import           Spec.Helper
-import           Types
 
 
 runPrinter' :: Printer a -> ByteString
@@ -42,21 +42,21 @@ testPrimitives =  describe "primitives" $ do
     it "correctly idents printers" $ do
       runPrinter' (indent (printLn "x" >> printLn "y" >> indent (printLn "z"))) `shouldBe` "\tx\n\ty\n\t\tz\n"
 
-x,y,z :: Expr
-x = ExprIdent "x"
-y = ExprIdent "y"
-z = ExprIdent "z"
+x,y,z :: Expr UD
+x = ExprIdentUD "x"
+y = ExprIdentUD "y"
+z = ExprIdentUD "z"
 
 testExpressions :: SpecWith ()
 testExpressions = describe "expression pretty-printer" $ do
   it "prints binary expressions" $ do
-    runPrinter' (prettyPrint (ExprIdent "x" `plus` ExprIdent "y")) `shouldBe` "(x + y)"
-    runPrinter' (prettyPrint (ExprIdent "x" `minus` ExprIdent "y")) `shouldBe` "(x - y)"
+    runPrinter' (prettyPrint (ExprIdentUD "x" `plus` ExprIdentUD "y")) `shouldBe` "(x + y)"
+    runPrinter' (prettyPrint (ExprIdentUD "x" `minus` ExprIdentUD "y")) `shouldBe` "(x - y)"
   it "prints unary expressions" $ do
-    runPrinter' (prettyPrint (UExpr Neg (ExprIdent "foo"))) `shouldBe` "(-foo)"
-    runPrinter' (prettyPrint (UExpr Address (ExprIdent "foo"))) `shouldBe` "(&foo)"
+    runPrinter' (prettyPrint (UExprUD Neg (ExprIdentUD "foo"))) `shouldBe` "(-foo)"
+    runPrinter' (prettyPrint (UExprUD Address (ExprIdentUD "foo"))) `shouldBe` "(&foo)"
   it "prints ternary expressions" $ do
-    runPrinter' (prettyPrint (Ternary x y z)) `shouldBe` "(x ? y : z)"
+    runPrinter' (prettyPrint (TernaryUD x y z)) `shouldBe` "(x ? y : z)"
 
 testFunctionDefinition :: SpecWith ()
 testFunctionDefinition = describe "function definition" $ do
