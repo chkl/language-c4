@@ -1,16 +1,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies      #-}
 
-module Spec.Helper ( plus
-  , mult
-  , minus
-  , lt
-  , eq
-  , ineq
-  , bOr
-  , bAnd
-  , assign
-  , runLexer'
+module Spec.Helper
+  (
+  --   plus
+  -- , mult
+  -- , minus
+  -- , lt
+  -- , eq
+  -- , ineq
+  -- , bOr
+  -- , bAnd
+  -- , assign
+  runLexer'
   , runLexer_
   , testParser
   , newPos'
@@ -34,32 +36,32 @@ import           Types
 --  some helper functions
 --------------------------------------------------------------------------------
 
-plus :: Expr -> Expr -> Expr
-plus = BExpr Plus
+-- plus :: Expr -> Expr -> Expr
+-- plus = BExpr Plus
 
-mult :: Expr -> Expr ->Expr
-mult = BExpr Mult
+-- mult :: Expr -> Expr ->Expr
+-- mult = BExpr Mult
 
-minus :: Expr -> Expr -> Expr
-minus = BExpr Minus
+-- minus :: Expr -> Expr -> Expr
+-- minus = BExpr Minus
 
-lt :: Expr -> Expr -> Expr
-lt = BExpr LessThan
+-- lt :: Expr -> Expr -> Expr
+-- lt = BExpr LessThan
 
-eq :: Expr -> Expr -> Expr
-eq = BExpr EqualsEquals
+-- eq :: Expr -> Expr -> Expr
+-- eq = BExpr EqualsEquals
 
-ineq :: Expr -> Expr -> Expr
-ineq = BExpr NotEqual
+-- ineq :: Expr -> Expr -> Expr
+-- ineq = BExpr NotEqual
 
-bOr :: Expr -> Expr -> Expr
-bOr = BExpr LOr
+-- bOr :: Expr -> Expr -> Expr
+-- bOr = BExpr LOr
 
-bAnd :: Expr -> Expr -> Expr
-bAnd = BExpr LAnd
+-- bAnd :: Expr -> Expr -> Expr
+-- bAnd = BExpr LAnd
 
-assign :: Expr -> Expr -> Expr
-assign = BExpr AssignOp
+-- assign :: Expr -> Expr -> Expr
+-- assign = BExpr AssignOp
 
 runLexer' :: BS.ByteString -> Either ParseError [(CToken, SourcePos)]
 runLexer' = runLexer "test.c"
@@ -87,5 +89,5 @@ testParser p i = pe $ MP.runParser (p <* MP.eof) "test.c" i -- :: Either ParseEr
 
 roundtrip :: (PrettyPrint a) => MP.Parsec ErrorMsg BS.ByteString a -> BS.ByteString -> Expectation
 roundtrip p s = case testParser p s of
-  Left err  -> expectationFailure err -- TODO How to fail a test?
+  Left err  -> expectationFailure err
   Right ast -> toPrettyString ast `shouldBe` s

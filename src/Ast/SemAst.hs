@@ -43,7 +43,7 @@ type instance AnnIndirectDeclarator SemPhase = DeclaratorSemAnn
 type instance AnnDeclaratorId SemPhase       = DeclaratorSemAnn
 type instance AnnFunctionDeclarator SemPhase = DeclaratorSemAnn
 
-type instance AnnParameter SemPhase = (SourcePos, CType)
+type instance AnnParameter SemPhase         = (SourcePos, CType)
 type instance AnnAbstractParameter SemPhase = (SourcePos, CType)
 
 -- statements

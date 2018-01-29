@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedLabels      #-}
+{-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE TypeFamilies          #-}
 
 module Ast where
@@ -128,4 +129,104 @@ data Expr x = List [Expr x] -- ^ should never be empty
           | FieldAccess (AnnFieldAccess x) (Expr x) (Expr x)
           | PointerAccess (AnnPointerAccess x) (Expr x) (Expr x)
           | StringLiteral (AnnStringLiteral x) ByteString
+
+--------------------------------------------------------------------------------
+--  Undecorated Trees
+--------------------------------------------------------------------------------
+data UD
+
+type instance AnnTranslationUnit UD    = ()
+type instance AnnFunctionDefinition UD = ()
+type instance AnnTernary UD            = ()
+type instance AnnAssign UD             = ()
+type instance AnnArray UD              = ()
+type instance AnnBExpr UD              = ()
+type instance AnnUExpr UD              = ()
+type instance AnnFunc UD               = ()
+type instance AnnSizeOfType UD         = ()
+type instance AnnExprIdent UD          = ()
+type instance AnnConstant UD           = ()
+type instance AnnFieldAccess UD        = ()
+type instance AnnPointerAccess UD      = ()
+type instance AnnStringLiteral UD      = ()
+type instance AnnDeclaration UD        = ()
+type instance AnnIndirectDeclarator UD = ()
+type instance AnnStructDeclaration UD  = ()
+type instance AnnDeclaratorId UD       = ()
+type instance AnnFunctionDeclarator UD = ()
+type instance AnnCompoundStmt UD       = ()
+type instance AnnIfStmt UD             = ()
+type instance AnnWhileStmt UD          = ()
+type instance AnnExpressionStmt UD     = ()
+type instance AnnGoto UD               = ()
+type instance AnnContinue UD           = ()
+type instance AnnBreak UD              = ()
+type instance AnnReturn UD             = ()
+type instance AnnLabeledStmt UD        = ()
+type instance AnnParameter UD          = ()
+type instance AnnAbstractParameter UD  = ()
+
+-- -- some pattern synonyms
+-- pattern LabeledStmtUD :: Ident -> Stmt UD -> Stmt UD
+-- pattern LabeledStmtUD l s <- LabeledStmt _ l s
+--   where LabeledStmtUD l s = LabeledStmt () l s
+
+-- pattern CompoundStmtUD :: [Either (Declaration UD) (Stmt UD)]-> Stmt UD
+-- pattern CompoundStmtUD ss <- CompoundStmt _ ss
+--   where CompoundStmtUD ss = CompoundStmt () ss
+
+
+class Undecorate a where
+  undecorate :: a x -> a UD
+
+instance Undecorate TranslationUnit where
+  undecorate (TranslationUnit _ s) = TranslationUnit () (map f s)
+    where f = either (Left . undecorate) (Right . undecorate)
+
+instance Undecorate FunctionDefinition where
+  undecorate (FunctionDefinition _ t d s) = FunctionDefinition () (undecorate t) (undecorate d) (undecorate s)
+
+
+instance Undecorate Declaration where
+  undecorate (Declaration _ t xs) = Declaration () (undecorate t) (map undecorate xs)
+
+instance Undecorate InitDeclarator where
+  undecorate (InitializedDec d mi ) = InitializedDec (undecorate d) (fmap undecorate mi)
+
+
+
+instance Undecorate Stmt where
+  undecorate (LabeledStmt _ l s)   = LabeledStmt () l (undecorate s)
+  undecorate (CompoundStmt _ es)   = CompoundStmt () (map f es)
+    where f                        = either (Left . undecorate) (Right . undecorate)
+  undecorate (ExpressionStmt _ me) = ExpressionStmt () (fmap undecorate me)
+  undecorate (IfStmt _ e s ms)     = IfStmt () (undecorate e) (undecorate s) (fmap undecorate ms)
+  undecorate (WhileStmt _ e s)     = WhileStmt () (undecorate e) (undecorate s)
+  undecorate (Goto _ l)            = Goto () l
+  undecorate (Break _)             = Break ()
+  undecorate (Continue _)          = Continue ()
+  undecorate (Return _ me)         = Return () (fmap undecorate me)
+
+instance Undecorate Expr where
+  undecorate (List es)               = List (map undecorate es)
+  undecorate (Ternary _ e1 e2 e3)    = Ternary () (undecorate e1) (undecorate e2) (undecorate e3)
+  undecorate (Assign _ e1 e2)        = Assign () (undecorate e1) (undecorate e2)
+  undecorate (BExpr _ op e1 e2)      = BExpr () op (undecorate e1) (undecorate e2)
+  undecorate (UExpr _ op e)          = UExpr () op (undecorate e)
+  undecorate (SizeOfType _ t)        = SizeOfType () (undecorate t)
+  undecorate (Array _ e1 e2)         = Array () (undecorate e1)  (undecorate e2)
+  undecorate (Func _ e1 e2)          = Func () (undecorate e1) (undecorate e2)
+  undecorate (ExprIdent _ b)         = ExprIdent () b
+  undecorate (Constant _ b)          = Constant  () b
+  undecorate (FieldAccess _ e1 e2)   = FieldAccess () (undecorate e1) (undecorate e2)
+  undecorate (PointerAccess _ e1 e2) = PointerAccess () (undecorate e1) (undecorate e2)
+  undecorate (StringLiteral _ b )    = StringLiteral () b
+
+instance Undecorate Declarator
+
+
+instance Undecorate Initializer
+
+instance Undecorate Type where
+  undecorate Void = Void
 

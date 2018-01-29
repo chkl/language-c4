@@ -39,8 +39,8 @@ type instance AnnContinue SynPhase           =  SourcePos
 type instance AnnBreak SynPhase              =  SourcePos
 type instance AnnReturn SynPhase             =  SourcePos
 type instance AnnLabeledStmt SynPhase        =  SourcePos
-type instance AnnParameter SynPhase = SourcePos
-type instance AnnAbstractParameter SynPhase = SourcePos
+type instance AnnParameter SynPhase          = SourcePos
+type instance AnnAbstractParameter SynPhase  = SourcePos
 
 
 -- we would like to have a class "HasSourcePos" for each annotated element of
