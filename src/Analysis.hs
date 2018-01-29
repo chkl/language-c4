@@ -23,7 +23,6 @@ import           Text.Megaparsec.Pos  (SourcePos)
 import           Ast.SemAst
 import           Ast.SynAst
 import           Types
-
 -- The functionality of the module can be summarized as converting from a
 -- semantic AST to a semantic one. In particular this means that e.g.
 -- 'TranslationUnit SynPhase' gets transformed into a 'TranslationUnit
