@@ -18,7 +18,7 @@ import           Control.Monad        (forM, when)
 import           Control.Monad.State
 import           Control.Monad.Writer
 import qualified Data.Map.Strict      as Map
-import           Text.Megaparsec.Pos  (SourcePos)
+import           Text.Megaparsec.Pos  (SourcePos, sourceLine, sourceColumn, unPos)
 
 import           Ast.SemAst
 import           Ast.SynAst
@@ -64,9 +64,17 @@ data SemanticError = UndeclaredName !SourcePos !Ident
                    | AlreadyDeclaredName !SourcePos !Ident
                    | TypeMismatch {_pos :: !SourcePos, _leftType :: !CType, _rightType :: !CType }
                    | NoPointer SourcePos
-               deriving (Show)
 
+instance Show SemanticError where
+  show (UndeclaredName p i)      = (nicePos p) ++ " : " <> "undeclared name " <> (show i)
+  show (AlreadyDeclaredName p i) = (nicePos p) ++ " : " <> "name already declared " <> (show i)
+  show (TypeMismatch p l r)      = (nicePos p) ++ " : " <> "type mismatch: expected type: " <> (show l)
+                                   <> "; actual type: " <> (show r)
+  show (NoPointer p)             = (nicePos p) ++ " : " <> "expects a pointer"
 
+nicePos :: SourcePos -> String
+nicePos p = (show (unPos (sourceLine p))) <> ":" <> (show (unPos (sourceColumn p))) 
+  
 -- | runs an analysis in a copy of the current scope without modifying the
 -- original scope, but retains the errors.
 enterScope :: Analysis a -> Analysis a

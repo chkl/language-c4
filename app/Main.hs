@@ -52,7 +52,7 @@ parse pr filename = do
           case semanticAnalysis ast of
             Left err -> do
               Prelude.putStrLn "errors:"
-              PS.pPrint err
+              mapM_ Prelude.print err
             Right (TranslationUnit s _) -> do
 --              Prelude.print ast'
               putStrLn "top scope:"
