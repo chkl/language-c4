@@ -10,7 +10,9 @@ import qualified Data.ByteString         as SB
 import           Data.ByteString.Builder
 import           Data.ByteString.Lazy    (ByteString, fromStrict)
 import           Data.FileEmbed
+import           Data.List               (isSuffixOf)
 import           Data.Monoid             ((<>))
+import           GHC.Exts                (sortWith)
 import           Test.Hspec
 
 import           Ast.SynAst
@@ -30,7 +32,7 @@ testPrettyPrinter = do
   testExpressions
   testFunctionDefinition
   testDeclarations
-  testAstRoundtrip
+  testAB
 
 
 testPrimitives :: SpecWith ()
@@ -70,9 +72,19 @@ testDeclarations = describe "declarations" $ do
       roundtrip P.structDeclaration "struct S\n{\n\tint x;\n} s;\n"
 
 -- | tests the 'roundtrip' property for all files in assets/test/ast
-testAstRoundtrip :: SpecWith ()
-testAstRoundtrip = do
-  let files = $(embedDir "assets/test/ast/") :: [(FilePath, SB.ByteString)]
-  describe "roundtrip test files" $
-    forM_ files $ \(fn, c) -> do
-      it fn $ roundtrip P.translationUnit (fromStrict c)
+testAB :: SpecWith ()
+testAB= do
+  let files = pairFiles $(embedDir "assets/test/ast/")
+  describe "A/B tests" $
+    forM_ files $ \((fnA, a), (fnB, b)) -> do
+      it ("prints " <> fnA <> " to " <> fnB) $ do
+        let res = P.runParser fnA (fromStrict a)
+        case res of
+          Left err  -> expectationFailure (show err)
+          Right ast -> toPrettyString ast `shouldBe` fromStrict b
+
+pairFiles :: [(FilePath, SB.ByteString)] -> [((FilePath, SB.ByteString), (FilePath, SB.ByteString))]
+pairFiles files =  let
+  inFiles  = sortWith fst $ filter (\fn -> "in.c"  `isSuffixOf` fst fn) files
+  outFiles = sortWith fst $ filter (\fn -> "out.c" `isSuffixOf` fst fn) files
+  in zip inFiles outFiles
