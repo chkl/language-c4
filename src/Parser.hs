@@ -72,7 +72,7 @@ prefixUnaryExpr =     try sizeofTypename
 postfixUnaryExpr :: Parser m (Expr SynPhase)
 postfixUnaryExpr = chainl1unary primaryExpr postElem
   where postElem = getPosition >>= \p ->
-              (L.punctuator "["  >> Array p <$> expression <* L.punctuator "]")
+              (L.punctuator "["  >> flip (Array p) <$> expression <* L.punctuator "]")
           <|> (L.punctuator "."  >> flip (FieldAccess p) <$> identifier)
           <|> (L.punctuator "->" >> flip (PointerAccess p) <$> identifier)
           <|> (L.punctuator "("  >> flip (Func p) <$> expression  <* L.punctuator ")")
