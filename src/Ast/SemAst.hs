@@ -86,6 +86,7 @@ instance HasType (Expr SemPhase) where
   getType (FieldAccess (_,t) _ _)   = t
   getType (StringLiteral (_,t) _)   = t
 
+
 instance HasType (Parameter SemPhase) where
   getType (Parameter (_,t) _ _ )         = t
   getType (AbstractParameter (_,t) _ _ ) = t
