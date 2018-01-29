@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies      #-}
 
 module Spec.Parser (
   unitTestsParser
@@ -7,6 +8,7 @@ import           Data.ByteString.Lazy (ByteString)
 import           Data.Monoid          ((<>))
 import           Test.Hspec
 
+import           Ast.SynAst
 import           Parser
 import           Types
 
@@ -22,46 +24,37 @@ unitTestsParser = do
   testAbstractDeclarations
   testDirectDeclarations
 
+
 testTypeSpecifier :: SpecWith ()
 testTypeSpecifier = describe "typeSpecifier parser" $ do
     it "parse primitive types correctly" $ do
-      testParser typeSpecifier "void" `shouldBe` Right Void
-      testParser typeSpecifier "char" `shouldBe` Right Char
-      testParser typeSpecifier "int" `shouldBe` Right Int
+      undecorate <$> (testParser typeSpecifier "void") `shouldBe` Right Void
+      undecorate <$> (testParser typeSpecifier "char") `shouldBe` Right Char
+      undecorate <$> (testParser typeSpecifier "int") `shouldBe` Right Int
 
     it "parse simple struct definition" $ do
       testParser typeSpecifier "struct A" `shouldBe` Right (StructIdentifier "A")
       testParser typeSpecifier "struct A {}" `shouldBe` Right (StructInline (Just "A") [])
-      testParser typeSpecifier "struct A {int foo;}" `shouldBe`
-        Right (StructInline (Just "A") [StructDeclaration Int [DeclaratorId "foo" ]])
+      undecorate <$> testParser typeSpecifier "struct A {int foo;}" `shouldBe`
+        Right (StructInline (Just "A") [StructDeclarationUD Int [DeclaratorIdUD "foo" ]])
 
 
     it "parses declarators" $ do
-      testParser declarator "x" `shouldBe` Right  (DeclaratorId "x" )
-      testParser declarator "*x" `shouldBe` Right  (IndirectDeclarator 1 $ DeclaratorId "x" )
-      testParser declarator "**x" `shouldBe` Right  (IndirectDeclarator 2 $ DeclaratorId "x" )
+      undecorate <$> testParser declarator "x" `shouldBe` Right  (DeclaratorIdUD "x" )
+      undecorate <$> testParser declarator "*x" `shouldBe` Right  (IndirectDeclaratorUD 1 $ DeclaratorIdUD "x" )
+      undecorate <$> testParser declarator "**x" `shouldBe` Right  (IndirectDeclaratorUD 2 $ DeclaratorIdUD "x" )
       testParser declarator "f()" `shouldSatisfy` isRight
       testParser declarator "f(int x)" `shouldSatisfy` isRight
       testParser declarator "f(int x, int y)" `shouldSatisfy` isRight
 
     it "parses struct declarations" $ do
-      testParser structDeclaration "int;" `shouldBe`
-        Right  (StructDeclaration Int [])
-
-      testParser structDeclaration "int x;" `shouldBe`
-        Right  (StructDeclaration Int [ DeclaratorId "x"])
-
-      testParser structDeclaration "int x,y;" `shouldBe`
-        Right  (StructDeclaration Int [ DeclaratorId "x", DeclaratorId "y"])
-
-      testParser structDeclaration "int x,*y;" `shouldBe`
-        Right  (StructDeclaration Int [ DeclaratorId "x"
-                                      , IndirectDeclarator 1 (DeclaratorId "y" )
-                                      ])
-
+      undecorate <$> testParser structDeclaration "int;" `shouldBe` Right  (StructDeclarationUD Int [])
+      undecorate <$> testParser structDeclaration "int x;" `shouldBe` Right  (StructDeclarationUD Int [ DeclaratorIdUD "x"])
+      undecorate <$> testParser structDeclaration "int x,y;" `shouldBe` Right  (StructDeclarationUD Int [ DeclaratorIdUD "x", DeclaratorIdUD "y"])
+      undecorate <$> testParser structDeclaration "int x,*y;" `shouldBe` Right  (StructDeclarationUD Int [ DeclaratorIdUD "x" , IndirectDeclaratorUD 1 (DeclaratorIdUD "y" )])
+      testParser structDeclaration "int f(int y);" `shouldSatisfy` isRight
       testParser structDeclaration "int f(int y);" `shouldSatisfy` isRight
 
-      testParser structDeclaration "int f(int y);" `shouldSatisfy` isRight
     it "parses struct declarations" $
       testParser declaration "struct Point {int x; int y;};"  `shouldSatisfy` isRight
 
@@ -72,43 +65,44 @@ testTypeSpecifier = describe "typeSpecifier parser" $ do
 testExpressions :: SpecWith ()
 testExpressions = describe "expression parser" $ do
   it "should parse field and pointer accesses" $ do
-      testParser postfixUnaryExpr "x.foo" `shouldBe` Right (FieldAccess (ExprIdent "x") (ExprIdent "foo"))
-      testParser postfixUnaryExpr "x->foo" `shouldBe` Right (PointerAccess (ExprIdent "x") (ExprIdent "foo"))
-      testParser postfixUnaryExpr "x.y.z.foo" `shouldBe` Right (FieldAccess (FieldAccess
-                                                 (FieldAccess (ExprIdent "x") (ExprIdent "y"))
-                                                              (ExprIdent "z")) (ExprIdent "foo"))
-      testParser postfixUnaryExpr "x.y->z.foo" `shouldBe` Right (FieldAccess (PointerAccess
-                                                 (FieldAccess (ExprIdent "x") (ExprIdent "y"))
-                                                              (ExprIdent "z")) (ExprIdent "foo"))
+      undecorate <$> testParser postfixUnaryExpr "x.foo" `shouldBe` Right (FieldAccessUD (ExprIdentUD "x") (ExprIdentUD "foo"))
+      undecorate <$> testParser postfixUnaryExpr "x->foo" `shouldBe` Right (PointerAccessUD (ExprIdentUD "x") (ExprIdentUD "foo"))
+      undecorate <$> testParser postfixUnaryExpr "x.y.z.foo" `shouldBe` Right (FieldAccessUD (FieldAccessUD
+                                                 (FieldAccessUD (ExprIdentUD "x") (ExprIdentUD "y"))
+                                                              (ExprIdentUD "z")) (ExprIdentUD "foo"))
+      undecorate <$> testParser postfixUnaryExpr "x.y->z.foo" `shouldBe` Right (FieldAccessUD (PointerAccessUD
+                                                 (FieldAccessUD (ExprIdentUD "x") (ExprIdentUD "y"))
+                                                              (ExprIdentUD "z")) (ExprIdentUD "foo"))
   it "should parse functions and arrays" $ do
-      testParser postfixUnaryExpr "func(x, y)" `shouldBe` Right (Func (ExprIdent "func") (List [ExprIdent "x",ExprIdent "y"]))
-      testParser postfixUnaryExpr "myArray[5]" `shouldBe` Right (Array (ExprIdent "myArray") (Constant "5"))
+      undecorate <$> testParser postfixUnaryExpr "func(x, y)" `shouldBe` Right (FuncUD (ExprIdentUD "func") (List [ExprIdentUD "x",ExprIdentUD "y"]))
+      undecorate <$> testParser postfixUnaryExpr "myArray[5]" `shouldBe` Right (ArrayUD (ExprIdentUD "myArray") (ConstantUD "5"))
   it "should parse unary operators" $ do
-      testParser unaryExpr "&foo" `shouldBe` Right (UExpr Address (ExprIdent "foo"))
-      testParser unaryExpr "&func(x, y, z)" `shouldBe`  Right (UExpr Address (Func (ExprIdent "func") (List [ExprIdent "x",ExprIdent "y",ExprIdent "z"])))
-      testParser unaryExpr "sizeof f(x)" `shouldBe` Right (UExpr SizeOf (Func (ExprIdent "f") (ExprIdent "x")))
-      testParser unaryExpr "sizeof(int)" `shouldSatisfy` isRight
-      testParser unaryExpr "sizeof sizeof (int)" `shouldSatisfy` isRight
-      testParser unaryExpr "sizeof sizeof x" `shouldSatisfy` isRight
-      testParser unaryExpr "-x" `shouldBe` Right (UExpr Neg (ExprIdent "x"))
-      testParser unaryExpr "*x" `shouldBe` Right (UExpr Deref (ExprIdent "x"))
-      testParser unaryExpr "!x" `shouldBe` Right (UExpr Not (ExprIdent "x"))
+      undecorate <$> testParser unaryExpr "&foo" `shouldBe` Right (UExprUD Address (ExprIdentUD "foo"))
+      undecorate <$> testParser unaryExpr "&func(x, y, z)" `shouldBe`  Right (UExprUD Address (FuncUD (ExprIdentUD "func") (List [ExprIdentUD "x",ExprIdentUD "y",ExprIdentUD "z"])))
+      undecorate <$> testParser unaryExpr "sizeof f(x)" `shouldBe` Right (UExprUD SizeOf (FuncUD (ExprIdentUD "f") (ExprIdentUD "x")))
+      undecorate <$> testParser unaryExpr "sizeof(int)" `shouldSatisfy` isRight
+      undecorate <$> testParser unaryExpr "sizeof sizeof (int)" `shouldSatisfy` isRight
+      undecorate <$> testParser unaryExpr "sizeof sizeof x" `shouldSatisfy` isRight
+      undecorate <$> testParser unaryExpr "-x" `shouldBe` Right (UExprUD Neg (ExprIdentUD "x"))
+      undecorate <$> testParser unaryExpr "*x" `shouldBe` Right (UExprUD Deref (ExprIdentUD "x"))
+      undecorate <$> testParser unaryExpr "!x" `shouldBe` Right (UExprUD Not (ExprIdentUD "x"))
   it "parses simple binary operators" $ do
-      testParser expression "5 + 4" `shouldBe` (Right $ BExpr Plus (Constant "5") (Constant "4"))
-      testParser expression "5 + 2 * 4" `shouldBe` (Right $ BExpr Plus (Constant "5") (BExpr Mult (Constant "2") (Constant "4")))
-      testParser binaryExpr   "x + y + z" `shouldBe` (Right $ ExprIdent "x" `plus` ExprIdent "y" `plus` ExprIdent "z")
-      testParser binaryExpr "x + y * z" `shouldBe` (Right $ ExprIdent "x" `plus` (ExprIdent "y" `mult` ExprIdent "z"))
-      testParser binaryExpr "x + y" `shouldBe` (Right $ ExprIdent "x" `plus` ExprIdent "y")
-      testParser binaryExpr "x - y" `shouldBe` (Right $ ExprIdent "x" `minus` ExprIdent "y")
-      testParser binaryExpr "x * y" `shouldBe` (Right $ ExprIdent "x" `mult` ExprIdent "y")
-      testParser binaryExpr "x < y" `shouldBe` (Right $ ExprIdent "x" `lt` ExprIdent "y")
-      testParser binaryExpr "x == y" `shouldBe` (Right $ ExprIdent "x" `eq` ExprIdent "y")
-      testParser binaryExpr "x != y" `shouldBe` (Right $ ExprIdent "x" `ineq` ExprIdent "y")
-      testParser binaryExpr "x && y" `shouldBe` (Right $ ExprIdent "x" `bAnd` ExprIdent "y")
-      testParser binaryExpr "x || y" `shouldBe` (Right $ ExprIdent "x" `bOr` ExprIdent "y")
-      testParser binaryExpr "x = y" `shouldBe` (Right $ ExprIdent "x" `assign` ExprIdent "y")
+      undecorate <$> testParser expression "5 + 4" `shouldBe` (Right $ BExprUD Plus (ConstantUD "5") (ConstantUD "4"))
+      undecorate <$> testParser expression "5 + 2 * 4" `shouldBe` (Right $ BExprUD Plus (ConstantUD "5") (BExprUD Mult (ConstantUD "2") (ConstantUD "4")))
+      undecorate <$> testParser binaryExpr   "x + y + z" `shouldBe` (Right $ ExprIdentUD "x" `plus` ExprIdentUD "y" `plus` ExprIdentUD "z")
+      undecorate <$> testParser binaryExpr "x + y * z" `shouldBe` (Right $ ExprIdentUD "x" `plus` (ExprIdentUD "y" `mult` ExprIdentUD "z"))
+      undecorate <$> testParser binaryExpr "x + y" `shouldBe` (Right $ ExprIdentUD "x" `plus` ExprIdentUD "y")
+      undecorate <$> testParser binaryExpr "x - y" `shouldBe` (Right $ ExprIdentUD "x" `minus` ExprIdentUD "y")
+      undecorate <$> testParser binaryExpr "x * y" `shouldBe` (Right $ ExprIdentUD "x" `mult` ExprIdentUD "y")
+      undecorate <$> testParser binaryExpr "x < y" `shouldBe` (Right $ ExprIdentUD "x" `lt` ExprIdentUD "y")
+      undecorate <$> testParser binaryExpr "x == y" `shouldBe` (Right $ ExprIdentUD "x" `eq` ExprIdentUD "y")
+      undecorate <$> testParser binaryExpr "x != y" `shouldBe` (Right $ ExprIdentUD "x" `ineq` ExprIdentUD "y")
+      undecorate <$> testParser binaryExpr "x && y" `shouldBe` (Right $ ExprIdentUD "x" `bAnd` ExprIdentUD "y")
+      undecorate <$> testParser binaryExpr "x || y" `shouldBe` (Right $ ExprIdentUD "x" `bOr` ExprIdentUD "y")
+      undecorate <$> testParser binaryExpr "x = y" `shouldBe` (Right $ ExprIdentUD "x" `assign` ExprIdentUD "y")
+
   it "parses ternary expressions" $ do
-      testParser expression "5 + 4 < 3 ? 0 : 1" `shouldBe` (Right (Ternary (BExpr LessThan (BExpr Plus (Constant "5") (Constant "4")) (Constant "3")) (Constant "0") (Constant "1")))
+      undecorate <$> testParser expression "5 + 4 < 3 ? 0 : 1" `shouldBe` (Right (TernaryUD (BExprUD LessThan (BExprUD Plus (ConstantUD "5") (ConstantUD "4")) (ConstantUD "3")) (ConstantUD "0") (ConstantUD "1")))
   it "parses unary expressions" $ do
     testParser expression "x[5]" `shouldSatisfy` isRight
 --    testParser expression "x[]" `shouldSatisfy` isRight -- TODO: Should we allow this?
@@ -155,13 +149,13 @@ testDirectDeclarations = it "parses declarations with (direct) parameters" $ do
 testStatements :: SpecWith ()
 testStatements = describe "statement parser" $ do
   it "parses simple statements (break,continue,goto,return)" $ do
-      testParser statement "break;" `shouldBe` Right Break
-      testParser statement "continue;" `shouldBe` Right Continue
-      testParser statement "goto testlabel;" `shouldBe` Right (Goto "testlabel")
-      testParser statement "return;" `shouldBe` Right (Return Nothing)
-      testParser statement "return 1;" `shouldBe` Right (Return (Just $ Constant "1"))
+      undecorate <$> testParser statement "break;" `shouldBe` Right BreakUD
+      undecorate <$> testParser statement "continue;" `shouldBe` Right ContinueUD
+      undecorate <$> testParser statement "goto testlabel;" `shouldBe` Right (GotoUD "testlabel")
+      undecorate <$> testParser statement "return;" `shouldBe` Right (ReturnUD Nothing)
+      undecorate <$> testParser statement "return 1;" `shouldBe` Right (ReturnUD (Just $ ConstantUD "1"))
   it "parses a labelled statement" $ do
-    testParser statement "start: x = 0;" `shouldBe` Right (LabeledStmt "start" (ExpressionStmt $ Just $ ExprIdent "x" `assign` Constant "0"))
+    undecorate <$> testParser statement "start: x = 0;" `shouldBe` Right (LabeledStmtUD "start" (ExpressionStmtUD $ Just $ ExprIdentUD "x" `assign` ConstantUD "0"))
 
 testTranslationUnit :: SpecWith ()
 testTranslationUnit = describe "translation unit parser" $ do

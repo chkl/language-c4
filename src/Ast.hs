@@ -1,6 +1,8 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE PatternSynonyms       #-}
+{-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TypeFamilies          #-}
 
 module Ast where
@@ -166,15 +168,116 @@ type instance AnnLabeledStmt UD        = ()
 type instance AnnParameter UD          = ()
 type instance AnnAbstractParameter UD  = ()
 
--- -- some pattern synonyms
--- pattern LabeledStmtUD :: Ident -> Stmt UD -> Stmt UD
--- pattern LabeledStmtUD l s <- LabeledStmt _ l s
---   where LabeledStmtUD l s = LabeledStmt () l s
+-- some pattern synonyms
+pattern LabeledStmtUD :: Ident -> Stmt UD -> Stmt UD
+pattern LabeledStmtUD l s <- LabeledStmt _ l s
+  where LabeledStmtUD l s = LabeledStmt () l s
 
--- pattern CompoundStmtUD :: [Either (Declaration UD) (Stmt UD)]-> Stmt UD
--- pattern CompoundStmtUD ss <- CompoundStmt _ ss
---   where CompoundStmtUD ss = CompoundStmt () ss
+pattern CompoundStmtUD :: [Either (Declaration UD) (Stmt UD)]-> Stmt UD
+pattern CompoundStmtUD ss <- CompoundStmt _ ss
+  where CompoundStmtUD ss = CompoundStmt () ss
 
+pattern FieldAccessUD :: Expr UD -> Expr UD -> Expr UD
+pattern FieldAccessUD x y <- FieldAccess _ x y
+  where FieldAccessUD x y = FieldAccess () x y
+
+pattern StructDeclarationUD :: Type UD -> [Declarator UD] -> StructDeclaration UD
+pattern StructDeclarationUD t d <- StructDeclaration _ t d
+  where StructDeclarationUD t d = StructDeclaration () t d
+
+pattern DeclaratorIdUD :: Ident -> Declarator UD
+pattern DeclaratorIdUD i <- DeclaratorId _ i
+  where DeclaratorIdUD i = DeclaratorId () i
+
+pattern IndirectDeclaratorUD ::  Pointers -> Declarator UD -> Declarator UD
+pattern IndirectDeclaratorUD n d <- IndirectDeclarator _ n d
+  where IndirectDeclaratorUD n d = IndirectDeclarator () n d
+
+pattern PointerAccessUD :: Expr UD -> Expr UD -> Expr UD
+pattern PointerAccessUD e f <- PointerAccess _ e f
+  where PointerAccessUD e f = PointerAccess () e f
+
+pattern ExprIdentUD :: Ident -> Expr UD
+pattern ExprIdentUD i <- ExprIdent _ i
+  where ExprIdentUD i = ExprIdent () i
+
+pattern FuncUD :: Expr UD -> Expr UD -> Expr UD
+pattern FuncUD e f <- Func _ e f
+  where FuncUD e f = Func () e f
+
+pattern ArrayUD :: Expr UD -> Expr UD -> Expr UD
+pattern ArrayUD e f <- Array _ e f
+  where ArrayUD e f = Array () e f
+
+pattern ConstantUD :: ByteString -> Expr UD
+pattern ConstantUD i <- Constant _ i
+  where ConstantUD i = Constant () i
+
+pattern UExprUD :: UOp -> Expr UD -> Expr UD
+pattern UExprUD op e <- UExpr _ op e
+  where UExprUD op e = UExpr () op e
+
+pattern BExprUD :: BOp -> Expr UD -> Expr UD -> Expr UD
+pattern BExprUD op e f <- BExpr _ op e f
+  where BExprUD op e f = BExpr () op e f
+
+pattern TernaryUD :: Expr UD -> Expr UD -> Expr UD -> Expr UD
+pattern TernaryUD e f g <- Ternary _ e f g
+  where TernaryUD e f g = Ternary () e f g
+
+pattern BreakUD :: Stmt UD
+pattern BreakUD <- Break _
+  where BreakUD = Break ()
+
+pattern ContinueUD :: Stmt UD
+pattern ContinueUD <- Continue _
+  where ContinueUD = Continue ()
+
+pattern ReturnUD :: Maybe (Expr UD) -> Stmt UD
+pattern ReturnUD e <- Return _ e
+  where ReturnUD e = Return () e
+
+pattern GotoUD :: Ident -> Stmt UD
+pattern GotoUD i <- Goto _ i
+  where GotoUD i = Goto () i
+
+pattern ExpressionStmtUD :: (Maybe (Expr UD)) -> Stmt UD
+pattern ExpressionStmtUD e <- ExpressionStmt _ e
+  where ExpressionStmtUD e = ExpressionStmt () e
+
+
+deriving instance Show UD
+deriving instance Show (Expr UD)
+deriving instance Show (Initializer UD)
+deriving instance Show (InitDeclarator UD)
+deriving instance Show (Declaration UD)
+deriving instance Show (Stmt UD)
+deriving instance Show (AbstractDeclarator UD)
+deriving instance Show (Parameter UD)
+deriving instance Show (Declarator UD)
+deriving instance Show (StructDeclaration UD)
+deriving instance Show (Type UD)
+deriving instance Show (FunctionDefinition UD)
+deriving instance Show (TranslationUnit UD)
+
+deriving instance Eq UD
+deriving instance Eq (Expr UD)
+deriving instance Eq (Initializer UD)
+deriving instance Eq (InitDeclarator UD)
+deriving instance Eq (Declaration UD)
+deriving instance Eq (Stmt UD)
+deriving instance Eq (AbstractDeclarator UD)
+deriving instance Eq (Parameter UD)
+deriving instance Eq (Declarator UD)
+deriving instance Eq (StructDeclaration UD)
+deriving instance Eq (Type UD)
+deriving instance Eq (FunctionDefinition UD)
+deriving instance Eq (TranslationUnit UD)
+
+
+--------------------------------------------------------------------------------
+-- Undecorate
+--------------------------------------------------------------------------------
 
 class Undecorate a where
   undecorate :: a x -> a UD

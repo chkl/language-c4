@@ -3,16 +3,16 @@
 
 module Spec.Helper
   (
-  --   plus
-  -- , mult
-  -- , minus
-  -- , lt
-  -- , eq
-  -- , ineq
-  -- , bOr
-  -- , bAnd
-  -- , assign
-  runLexer'
+    plus
+  , mult
+  , minus
+  , lt
+  , eq
+  , ineq
+  , bOr
+  , bAnd
+  , assign
+  , runLexer'
   , runLexer_
   , testParser
   , newPos'
@@ -21,14 +21,15 @@ module Spec.Helper
   , roundtrip
   ) where
 
-import qualified Data.ByteString.Lazy as BS
-import           Data.Word            (Word8)
-import           Test.Hspec
-import qualified Text.Megaparsec      as MP
-import           Text.Megaparsec.Pos
-
-import           Lexer                hiding (runLexer_)
+import           Ast.SynAst
+import qualified Data.ByteString.Lazy  as BS
+import           Data.Functor.Identity
+import           Data.Word             (Word8)
+import           Lexer                 hiding (runLexer_)
 import           PrettyPrinter
+import           Test.Hspec
+import qualified Text.Megaparsec       as MP
+import           Text.Megaparsec.Pos
 import           Types
 
 
@@ -36,32 +37,32 @@ import           Types
 --  some helper functions
 --------------------------------------------------------------------------------
 
--- plus :: Expr -> Expr -> Expr
--- plus = BExpr Plus
+plus ::  Expr UD ->  Expr UD ->  Expr UD
+plus = BExprUD Plus
 
--- mult :: Expr -> Expr ->Expr
--- mult = BExpr Mult
+mult ::  Expr UD ->  Expr UD -> Expr UD
+mult = BExprUD Mult
 
--- minus :: Expr -> Expr -> Expr
--- minus = BExpr Minus
+minus ::  Expr UD ->  Expr UD ->  Expr UD
+minus = BExprUD Minus
 
--- lt :: Expr -> Expr -> Expr
--- lt = BExpr LessThan
+lt ::  Expr UD ->  Expr UD ->  Expr UD
+lt = BExprUD LessThan
 
--- eq :: Expr -> Expr -> Expr
--- eq = BExpr EqualsEquals
+eq ::  Expr UD ->  Expr UD ->  Expr UD
+eq = BExprUD EqualsEquals
 
--- ineq :: Expr -> Expr -> Expr
--- ineq = BExpr NotEqual
+ineq ::  Expr UD ->  Expr UD ->  Expr UD
+ineq = BExprUD NotEqual
 
--- bOr :: Expr -> Expr -> Expr
--- bOr = BExpr LOr
+bOr ::  Expr UD ->  Expr UD ->  Expr UD
+bOr = BExprUD LOr
 
--- bAnd :: Expr -> Expr -> Expr
--- bAnd = BExpr LAnd
+bAnd ::  Expr UD ->  Expr UD ->  Expr UD
+bAnd = BExprUD LAnd
 
--- assign :: Expr -> Expr -> Expr
--- assign = BExpr AssignOp
+assign ::  Expr UD ->  Expr UD ->  Expr UD
+assign = BExprUD AssignOp
 
 runLexer' :: BS.ByteString -> Either ParseError [(CToken, SourcePos)]
 runLexer' = runLexer "test.c"
@@ -86,6 +87,9 @@ testParser p i = pe $ MP.runParser (p <* MP.eof) "test.c" i -- :: Either ParseEr
     pe :: Either ParseError a -> Either String a
     pe (Left err) = Left $ myParseErrorPretty err
     pe (Right b)  = Right b
+
+
+
 
 roundtrip :: (PrettyPrint a) => MP.Parsec ErrorMsg BS.ByteString a -> BS.ByteString -> Expectation
 roundtrip p s = case testParser p s of

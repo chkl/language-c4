@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 module Ast.SynAst
   ( module Ast.SynAst
@@ -42,6 +43,32 @@ type instance AnnLabeledStmt SynPhase        =  SourcePos
 type instance AnnParameter SynPhase          = SourcePos
 type instance AnnAbstractParameter SynPhase  = SourcePos
 
+deriving instance Show (Expr SynPhase)
+deriving instance Show (Initializer SynPhase)
+deriving instance Show (InitDeclarator SynPhase)
+deriving instance Show (Declaration SynPhase)
+deriving instance Show (Stmt SynPhase)
+deriving instance Show (AbstractDeclarator SynPhase)
+deriving instance Show (Parameter SynPhase)
+deriving instance Show (Declarator SynPhase)
+deriving instance Show (StructDeclaration SynPhase)
+deriving instance Show (Type SynPhase)
+deriving instance Show (FunctionDefinition SynPhase)
+deriving instance Show (TranslationUnit SynPhase)
+
+deriving instance Eq SynPhase
+deriving instance Eq (Expr SynPhase)
+deriving instance Eq (Initializer SynPhase)
+deriving instance Eq (InitDeclarator SynPhase)
+deriving instance Eq (Declaration SynPhase)
+deriving instance Eq (Stmt SynPhase)
+deriving instance Eq (AbstractDeclarator SynPhase)
+deriving instance Eq (Parameter SynPhase)
+deriving instance Eq (Declarator SynPhase)
+deriving instance Eq (StructDeclaration SynPhase)
+deriving instance Eq (Type SynPhase)
+deriving instance Eq (FunctionDefinition SynPhase)
+deriving instance Eq (TranslationUnit SynPhase)
 
 -- we would like to have a class "HasSourcePos" for each annotated element of
 -- the AST, e.g. Stmt SynPhase, or Expr SynPhase. I could not come up with a way
