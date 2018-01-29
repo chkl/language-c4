@@ -33,16 +33,17 @@ type instance AnnConstant SemPhase           = (SourcePos, CType)
 type instance AnnFieldAccess SemPhase        = (SourcePos, CType)
 type instance AnnPointerAccess SemPhase      = (SourcePos, CType)
 type instance AnnStringLiteral SemPhase      = (SourcePos, CType)
-type instance AnnExpressionStmt SemPhase     =  SourcePos
 
 -- declarations
 type instance AnnDeclaration SemPhase        = SourcePos
 type instance AnnStructDeclaration SemPhase  = SourcePos
 
+-- declarators
 type instance AnnIndirectDeclarator SemPhase = DeclaratorSemAnn
 type instance AnnDeclaratorId SemPhase       = DeclaratorSemAnn
 type instance AnnFunctionDeclarator SemPhase = DeclaratorSemAnn
 
+-- parameters
 type instance AnnParameter SemPhase         = (SourcePos, CType)
 type instance AnnAbstractParameter SemPhase = (SourcePos, CType)
 
@@ -55,6 +56,7 @@ type instance AnnContinue SemPhase           = SourcePos
 type instance AnnBreak SemPhase              = SourcePos
 type instance AnnReturn SemPhase             = SourcePos
 type instance AnnLabeledStmt SemPhase        = SourcePos
+type instance AnnExpressionStmt SemPhase     = SourcePos
 
 data DeclaratorSemAnn = DeclaratorSemAnn
   { _position :: SourcePos

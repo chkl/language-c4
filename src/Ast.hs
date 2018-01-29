@@ -222,11 +222,31 @@ instance Undecorate Expr where
   undecorate (PointerAccess _ e1 e2) = PointerAccess () (undecorate e1) (undecorate e2)
   undecorate (StringLiteral _ b )    = StringLiteral () b
 
-instance Undecorate Declarator
+instance Undecorate Declarator where
+  undecorate (IndirectDeclarator _ n d) = IndirectDeclarator () n (undecorate d)
+  undecorate (DeclaratorId _ i)         = DeclaratorId () i
+  undecorate (FunctionDeclarator _ d p) = FunctionDeclarator () (undecorate d) (map undecorate p)
 
+instance Undecorate Initializer where
+  undecorate (InitializerAssignment e) = InitializerAssignment (undecorate e)
+  undecorate (InitializerList l)       = InitializerList (map undecorate l)
 
-instance Undecorate Initializer
-
+instance Undecorate Parameter where
+  undecorate (Parameter _ t d)          = Parameter () (undecorate t) (undecorate d)
+  undecorate (AbstractParameter _ t d) = AbstractParameter () (undecorate t) (fmap undecorate d)
+ 
+instance Undecorate AbstractDeclarator where
+  undecorate (IndirectAbstractDeclarator n d) = IndirectAbstractDeclarator n (undecorate d)
+  undecorate (AbstractFunctionDeclarator d p) = AbstractFunctionDeclarator (undecorate d) (map undecorate p)
+  undecorate (ArrayStar d)                    = ArrayStar (undecorate d)
+  
 instance Undecorate Type where
   undecorate Void = Void
+  undecorate Char = Char
+  undecorate Int  = Int
+  undecorate (StructIdentifier b) = StructIdentifier b
+  undecorate (StructInline b d)   = StructInline b (map undecorate d)
+
+instance Undecorate StructDeclaration where
+  undecorate (StructDeclaration _ t d) = StructDeclaration () (undecorate t) (map undecorate d)
 
