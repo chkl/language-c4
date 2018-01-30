@@ -220,17 +220,21 @@ whenM :: Monad m => Maybe a -> (a -> m ()) -> m ()
 whenM Nothing _  = return ()
 whenM (Just x) f = f x
 
--- implements this rule I don't completely understand yet... TODO: Investigate
--- omits trailing new line to allow for a potential "else"
+-- TODO: Investigate
 smartBraces :: Stmt x -> Printer()
 smartBraces stmt =
   case stmt of
+    (CompoundStmt _ stmts) -> space >> bracesNN (unlines $ map prettyPrint stmts)
     (Return _ _)           -> noBraces
     (LabeledStmt _ _ _ )   -> noBraces
+    (Continue _ )          -> noBraces
+    (Break _ )             -> noBraces
     (Goto _ _ )            -> noBraces
-    (CompoundStmt _ stmts) -> space >> bracesNN (unlines $ map prettyPrint stmts)
-    _                    -> space >> prettyPrint stmt
-    where noBraces = newline >> indent (prettyPrint stmt)
+    (IfStmt _ _ _ _ )      -> withBraces
+    (WhileStmt _ _ _ )     -> withBraces
+    (ExpressionStmt _ _)   -> withBraces
+  where noBraces = newline >> indent (prettyPrint stmt)
+        withBraces = space >> prettyPrint stmt
 
 instance PrettyPrint (Stmt x) where
   prettyPrint (LabeledStmt _ lbl stmt)    = noNest (print lbl >> print ":") >> newline >>  prettyPrint stmt
