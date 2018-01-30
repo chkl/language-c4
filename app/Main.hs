@@ -10,7 +10,6 @@ import           Ast.SemAst
 import           Lexer
 import           Parser               (runParser)
 import           PrettyPrinter
-import           Text.Pretty.Simple   as PS
 
 
 type PrintAST = Bool
@@ -53,11 +52,12 @@ parse pr filename = do
             Left err -> do
               Prelude.putStrLn "errors:"
               mapM_ Prelude.print err
+              exitFailure
             Right (TranslationUnit s _) -> do
 --              Prelude.print ast'
               putStrLn "top scope:"
               Prelude.print s
-      exitSuccess
+              exitSuccess
 
 
 showHelp :: IO ()
