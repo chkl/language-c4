@@ -143,10 +143,10 @@ structDeclaration (StructDeclaration p t l) = do
 declarator :: CType -> Declarator SynPhase -> Analysis (Declarator SemPhase)
 declarator t (DeclaratorId p n) = return (DeclaratorId (DeclaratorSemAnn p t n) n)
 
-declarator t (IndirectDeclarator p n d) = do
-  d' <- declarator (it n Pointer t) d
-  let t' = it n Pointer (getType d')
-  return (IndirectDeclarator (DeclaratorSemAnn p t' (getName d')) n d')
+declarator t (IndirectDeclarator p d) = do
+  d' <- declarator (Pointer t) d
+  let t' = Pointer (getType d')
+  return (IndirectDeclarator (DeclaratorSemAnn p t' (getName d')) d')
 
 declarator t (FunctionDeclarator p d params) = do
   d' <- declarator t d

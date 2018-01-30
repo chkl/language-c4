@@ -97,7 +97,7 @@ instance HasType (Declarator SemPhase) where
   getType = _type . getDeclaratorSemAnn
 
 instance HasType (AbstractDeclarator SemPhase) where -- TODO
-  
+
 
 instance HasName (Declarator SemPhase) where
   getName = _name . getDeclaratorSemAnn
@@ -111,7 +111,7 @@ class GetDeclaratorSemAnn x where
 
 
 instance GetDeclaratorSemAnn (Declarator SemPhase) where
-  getDeclaratorSemAnn (IndirectDeclarator a _ _) = a
+  getDeclaratorSemAnn (IndirectDeclarator a  _)  = a
   getDeclaratorSemAnn (DeclaratorId a _)         = a
   getDeclaratorSemAnn (FunctionDeclarator a _ _) = a
 

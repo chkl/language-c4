@@ -206,11 +206,10 @@ structDeclaration = StructDeclaration <$> getPosition <*> typeSpecifier <*> L.co
 declarator :: Parser m (Declarator SynPhase)
 declarator = do
   p <- getPosition
-  pts <- length <$> many (L.punctuator "*")
-  if pts > 0 then
-      IndirectDeclarator p pts <$> directDeclarator
-    else
-      directDeclarator
+  x <- optional (L.punctuator "*")
+  case x of
+    Nothing -> directDeclarator
+    _       -> IndirectDeclarator p <$> declarator
 
 
 directDeclarator :: Parser m (Declarator SynPhase)
@@ -222,11 +221,10 @@ directDeclarator = chainl1unary dcore dparams
 
 abstractDeclarator :: Parser m (AbstractDeclarator SynPhase)
 abstractDeclarator =  do
-  pts <- length <$> many (L.punctuator "*")
-  if pts > 0 then
-    IndirectAbstractDeclarator pts <$> directAbstractDeclarator
-  else
-    directAbstractDeclarator
+  x <- optional (L.punctuator "*")
+  case x of
+    Nothing -> directAbstractDeclarator
+    _       -> IndirectAbstractDeclarator <$> abstractDeclarator
 
 directAbstractDeclarator :: Parser m (AbstractDeclarator SynPhase)
 directAbstractDeclarator = chainl1unary core ops

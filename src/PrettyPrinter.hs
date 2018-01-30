@@ -195,7 +195,7 @@ instance PrettyPrint (Type x) where
     bracesNN $ unlines $ map prettyPrint decls
 
 instance PrettyPrint (Declarator x) where
-  prettyPrint (IndirectDeclarator _ n dir) = parens $ replicateM_ n (print "*") >> prettyPrint dir
+  prettyPrint (IndirectDeclarator _ dir) = parens $ (print "*") >> prettyPrint dir
   prettyPrint (DeclaratorId _ i) =  print i
   prettyPrint (FunctionDeclarator _ d ps) =  parens $ prettyPrint d >> parens (commaSep $ map prettyPrint ps)
 
@@ -212,7 +212,7 @@ instance PrettyPrint (Parameter x) where
   prettyPrint (AbstractParameter _ t md) = prettyPrint t >> whenM md prettyPrint
 
 instance PrettyPrint (AbstractDeclarator x) where
-  prettyPrint (IndirectAbstractDeclarator n dir) = parens $ replicateM_ n (print "*") >> prettyPrint dir
+  prettyPrint (IndirectAbstractDeclarator dir) = parens $ (print "*") >> prettyPrint dir
   prettyPrint _ = print "/* TODO: complicated Abstract declarators */"
 
 

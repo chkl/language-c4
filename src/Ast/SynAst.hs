@@ -1,6 +1,6 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE FlexibleInstances  #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeFamilies       #-}
 
 module Ast.SynAst
   ( module Ast.SynAst
@@ -84,7 +84,7 @@ instance HasSourcePos (Declaration SynPhase) where
   sourcePos (Declaration p _ _) = p
 
 instance HasSourcePos (Declarator SynPhase) where
-  sourcePos (IndirectDeclarator p _ _ ) = p
+  sourcePos (IndirectDeclarator p _ )   = p
   sourcePos (DeclaratorId p _)          = p
   sourcePos (FunctionDeclarator p _ _ ) = p
 

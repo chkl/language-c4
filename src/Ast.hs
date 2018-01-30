@@ -72,13 +72,12 @@ data Type x = Void
 data StructDeclaration x = StructDeclaration (AnnStructDeclaration x) (Type x) [Declarator x ]
 
 
--- | first parameter is the number of stars
-data Declarator x = IndirectDeclarator (AnnIndirectDeclarator x) Pointers (Declarator x)
+data Declarator x = IndirectDeclarator (AnnIndirectDeclarator x) (Declarator x)
                   | DeclaratorId (AnnDeclaratorId x) Ident
                   | FunctionDeclarator (AnnFunctionDeclarator x) (Declarator x) [Parameter x]
 
 -- TODO: Find a way to unify declarator and abstract declarator
-data AbstractDeclarator x = IndirectAbstractDeclarator Pointers (AbstractDeclarator x)
+data AbstractDeclarator x = IndirectAbstractDeclarator (AbstractDeclarator x)
                         | AbstractFunctionDeclarator (AbstractDeclarator x) [Parameter x]
                         | ArrayStar (AbstractDeclarator x)
 
@@ -189,9 +188,9 @@ pattern DeclaratorIdUD :: Ident -> Declarator UD
 pattern DeclaratorIdUD i <- DeclaratorId _ i
   where DeclaratorIdUD i = DeclaratorId () i
 
-pattern IndirectDeclaratorUD ::  Pointers -> Declarator UD -> Declarator UD
-pattern IndirectDeclaratorUD n d <- IndirectDeclarator _ n d
-  where IndirectDeclaratorUD n d = IndirectDeclarator () n d
+pattern IndirectDeclaratorUD ::  Declarator UD -> Declarator UD
+pattern IndirectDeclaratorUD d <- IndirectDeclarator _ d
+  where IndirectDeclaratorUD d = IndirectDeclarator () d
 
 pattern PointerAccessUD :: Expr UD -> Expr UD -> Expr UD
 pattern PointerAccessUD e f <- PointerAccess _ e f
@@ -326,7 +325,7 @@ instance Undecorate Expr where
   undecorate (StringLiteral _ b )    = StringLiteral () b
 
 instance Undecorate Declarator where
-  undecorate (IndirectDeclarator _ n d) = IndirectDeclarator () n (undecorate d)
+  undecorate (IndirectDeclarator _ d) = IndirectDeclarator () (undecorate d)
   undecorate (DeclaratorId _ i)         = DeclaratorId () i
   undecorate (FunctionDeclarator _ d p) = FunctionDeclarator () (undecorate d) (map undecorate p)
 
@@ -339,7 +338,7 @@ instance Undecorate Parameter where
   undecorate (AbstractParameter _ t d) = AbstractParameter () (undecorate t) (fmap undecorate d)
 
 instance Undecorate AbstractDeclarator where
-  undecorate (IndirectAbstractDeclarator n d) = IndirectAbstractDeclarator n (undecorate d)
+  undecorate (IndirectAbstractDeclarator d)   = IndirectAbstractDeclarator (undecorate d)
   undecorate (AbstractFunctionDeclarator d p) = AbstractFunctionDeclarator (undecorate d) (map undecorate p)
   undecorate (ArrayStar d)                    = ArrayStar (undecorate d)
 

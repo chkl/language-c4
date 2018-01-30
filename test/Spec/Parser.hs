@@ -10,7 +10,6 @@ import           Test.Hspec
 
 import           Ast.SynAst
 import           Parser
-import           Types
 
 import           Spec.Helper
 
@@ -41,8 +40,8 @@ testTypeSpecifier = describe "typeSpecifier parser" $ do
 
     it "parses declarators" $ do
       undecorate <$> testParser declarator "x" `shouldBe` Right  (DeclaratorIdUD "x" )
-      undecorate <$> testParser declarator "*x" `shouldBe` Right  (IndirectDeclaratorUD 1 $ DeclaratorIdUD "x" )
-      undecorate <$> testParser declarator "**x" `shouldBe` Right  (IndirectDeclaratorUD 2 $ DeclaratorIdUD "x" )
+      undecorate <$> testParser declarator "*x" `shouldBe` Right  (IndirectDeclaratorUD $ DeclaratorIdUD "x" )
+      undecorate <$> testParser declarator "**x" `shouldBe` Right  (IndirectDeclaratorUD $ IndirectDeclaratorUD $ DeclaratorIdUD "x" )
       testParser declarator "f()" `shouldSatisfy` isRight
       testParser declarator "f(int x)" `shouldSatisfy` isRight
       testParser declarator "f(int x, int y)" `shouldSatisfy` isRight
@@ -51,7 +50,7 @@ testTypeSpecifier = describe "typeSpecifier parser" $ do
       undecorate <$> testParser structDeclaration "int;" `shouldBe` Right  (StructDeclarationUD Int [])
       undecorate <$> testParser structDeclaration "int x;" `shouldBe` Right  (StructDeclarationUD Int [ DeclaratorIdUD "x"])
       undecorate <$> testParser structDeclaration "int x,y;" `shouldBe` Right  (StructDeclarationUD Int [ DeclaratorIdUD "x", DeclaratorIdUD "y"])
-      undecorate <$> testParser structDeclaration "int x,*y;" `shouldBe` Right  (StructDeclarationUD Int [ DeclaratorIdUD "x" , IndirectDeclaratorUD 1 (DeclaratorIdUD "y" )])
+      undecorate <$> testParser structDeclaration "int x,*y;" `shouldBe` Right  (StructDeclarationUD Int [ DeclaratorIdUD "x" , IndirectDeclaratorUD (DeclaratorIdUD "y" )])
       testParser structDeclaration "int f(int y);" `shouldSatisfy` isRight
       testParser structDeclaration "int f(int y);" `shouldSatisfy` isRight
 
