@@ -52,12 +52,12 @@ parse pr filename = do
             Left err -> do
               Prelude.putStrLn "errors:"
               mapM_ Prelude.print err
-              exitFailure
+--              exitFailure
             Right (TranslationUnit s _) -> do
 --              Prelude.print ast'
               putStrLn "top scope:"
               Prelude.print s
-              exitSuccess
+          exitSuccess
 
 
 showHelp :: IO ()
