@@ -25,6 +25,7 @@ module Language.C4.Lexer
   , sc
   ) where
 
+
 import           Control.Monad              (void)
 import           Control.Monad.Trans.Class
 import           Data.ByteString.Lazy       (ByteString)
@@ -40,6 +41,7 @@ import qualified Text.Megaparsec.Byte.Lexer as MBL
 
 import           Language.C4.CLangDef
 import           Language.C4.Types
+
 
 
 
@@ -216,3 +218,21 @@ tokenize fn s = do
     Left err -> return $ throwC4 err
     Right () -> return $ return ()
 
+{-# INLINABLE tokenize  #-}
+{-# INLINABLE identifier #-}
+{-# INLINABLE charConstant #-}
+{-# INLINABLE integerConstant #-}
+{-# INLINABLE stringLexeme #-}
+{-# INLINABLE keyword #-}
+{-# INLINABLE anyKeyword #-}
+{-# INLINABLE stringLiteral #-}
+{-# INLINABLE anyPunctuator #-}
+{-# INLINABLE punctuator #-}
+{-# INLINABLE parens #-}
+{-# INLINABLE braces #-}
+{-# INLINABLE brackets #-}
+{-# INLINABLE commaSep #-}
+{-# INLINABLE commaSep1 #-}
+{-# INLINABLE semicolSep #-}
+{-# INLINABLE comma #-}
+{-# INLINABLE sc #-}
