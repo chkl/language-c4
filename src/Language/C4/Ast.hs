@@ -7,7 +7,7 @@
 
 module Language.C4.Ast where
 
-import           Data.ByteString.Lazy (ByteString)
+import           Data.ByteString   (ByteString)
 
 import           Language.C4.Types
 

@@ -11,17 +11,17 @@ module SpecQC ( prop_genCFile
               , genCFile
               ) where
 
-import qualified Data.ByteString            as SBS
+import           Data.ByteString            (ByteString)
+import qualified Data.ByteString            as BS
 import           Data.ByteString.Conversion (ToByteString, toByteString)
-import           Data.ByteString.Lazy       (ByteString)
-import qualified Data.ByteString.Lazy       as BS
+import           Data.ByteString.Lazy       (toStrict)
 import           Data.Monoid                ((<>))
 import           Data.Word                  (Word8)
 import           Test.QuickCheck
 
+import           Language.C4.CLangDef
 import           Language.C4.Lexer
 import           Language.C4.Types
-import           Language.C4.CLangDef
 
 type ExampleGen a            = Gen (ByteString, a)
 
@@ -60,7 +60,7 @@ makeName = do
 genDecConst :: ExampleGen CToken
 genDecConst = do
   i <- (arbitrary :: Gen Integer) `suchThat` (>= 0)
-  let s = toByteString i
+  let s = toStrict $ toByteString i
   return (s, DecConstant s)
 
 newtype DecConstG = DecConstG (ByteString, CToken)
@@ -90,7 +90,7 @@ genCharConstant :: ExampleGen CToken
 genCharConstant = do
   s <- oneof [ toByteString <$> (arbitrary :: Gen CChar)
              , toByteString <$> (arbitrary :: Gen SimpleEscapeSequence) ]
-  return ("'" <> s <> "'", CharConstant s)
+  return ("'" <> toStrict s <> "'", CharConstant (toStrict s))
 
 newtype CharConstG = CharConstG (ByteString, CToken)
   deriving Show
@@ -133,7 +133,7 @@ genWhitespace =  do
   return $ BS.concat ws
 
 notInfixOf :: ByteString -> [Word8]-> Bool
-notInfixOf xs cs = not $ SBS.isInfixOf (BS.toStrict xs) (SBS.pack cs)
+notInfixOf xs cs = not $ BS.isInfixOf xs (BS.pack cs)
 
 genCommentBlock :: Gen ByteString
 genCommentBlock = do

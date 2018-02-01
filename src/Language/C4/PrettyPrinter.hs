@@ -4,17 +4,18 @@
 
 module Language.C4.PrettyPrinter where
 
-import           Prelude                      hiding (print, unlines)
+import           Prelude                 hiding (print, unlines)
 
 import           Control.Monad.State
 
-import qualified Data.ByteString.Lazy         as LB
-import           Data.ByteString.Lazy.Builder
-import qualified Data.ByteString.Lazy.Char8   as C8
-import           Data.Monoid                  ((<>))
-import           Data.String                  hiding (unlines)
-import           System.IO                    (Handle)
-import           Text.Megaparsec.Error        hiding (ParseError)
+import qualified Data.ByteString         as BS
+import           Data.ByteString.Builder
+import qualified Data.ByteString.Char8   as C8
+import           Data.ByteString.Lazy    (toStrict)
+import           Data.Monoid             ((<>))
+import           Data.String             hiding (unlines)
+import           System.IO               (Handle)
+import           Text.Megaparsec.Error   hiding (ParseError)
 
 import           Language.C4.Ast
 import           Language.C4.Types
@@ -26,8 +27,8 @@ class PrettyPrint a where
   prettyPrint :: a -> Printer ()
 
 
-  toPrettyString :: a -> LB.ByteString
-  toPrettyString x = toLazyByteString (prettyBuilder x)
+  toPrettyString :: a -> BS.ByteString
+  toPrettyString x = toStrict $ toLazyByteString (prettyBuilder x)
 
   hPutPrettyPrint :: a -> Handle -> IO ()
   hPutPrettyPrint a h = hPutBuilder h (prettyBuilder a)
@@ -120,12 +121,12 @@ unlines = intercalate newline
 
 
 -- TODO: rewrite this
-print :: LB.ByteString -> Printer ()
+print :: BS.ByteString -> Printer ()
 print bs = state f
   where f env = ((), env')
           where
             env' = env { builder = builder', startLine = False}
-            builder' = builder env <> ind <> lazyByteString bs
+            builder' = builder env <> ind <> byteString bs
             ind = if startLine env
                   then tabs (level env)
                   else mempty
@@ -133,7 +134,7 @@ print bs = state f
 tabs :: Int -> Builder
 tabs n = mconcat $ replicate n "\t"
 
-printLn :: LB.ByteString -> Printer ()
+printLn :: BS.ByteString -> Printer ()
 printLn s = print s >> newline
 
 ----------------------------------------------------------------------------------

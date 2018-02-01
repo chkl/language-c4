@@ -19,14 +19,14 @@ module Language.C4.Parser
   ) where
 
 
-import           Data.ByteString.Lazy (ByteString)
-import           Data.Foldable        (asum)
-import           Data.List            (groupBy, sortBy)
-import           Data.Ord             (comparing)
-import           Text.Megaparsec      hiding (ParseError, SourcePos, parse)
+import           Data.ByteString        (ByteString)
+import           Data.Foldable          (asum)
+import           Data.List              (groupBy, sortBy)
+import           Data.Ord               (comparing)
+import           Text.Megaparsec        hiding (ParseError, SourcePos, parse)
 
 import           Language.C4.Ast.SynAst
-import qualified Language.C4.Lexer                as L
+import qualified Language.C4.Lexer      as L
 import           Language.C4.Types
 
 

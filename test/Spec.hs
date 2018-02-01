@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies      #-}
 
-import qualified Data.ByteString.Lazy as BS
+import qualified Data.ByteString as BS
 import           System.Environment
 import           System.Exit          (exitSuccess)
 import           Test.Hspec

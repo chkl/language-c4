@@ -2,11 +2,11 @@
 
 module Language.C4.CLangDef where
 
-import           Data.ByteString.Lazy (ByteString)
-import qualified Data.ByteString.Lazy as BS
-import           Data.List            (sortBy)
-import           Data.Ord             (comparing)
-import           Data.Word            (Word8)
+import           Data.ByteString (ByteString)
+import qualified Data.ByteString as BS
+import           Data.List       (sortBy)
+import           Data.Ord        (comparing)
+import           Data.Word       (Word8)
 
 
 -- | don't use this on dynamic data, it's only a partial function

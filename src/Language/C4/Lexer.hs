@@ -28,9 +28,9 @@ module Language.C4.Lexer
 
 import           Control.Monad              (void)
 import           Control.Monad.Trans.Class
-import           Data.ByteString.Lazy       (ByteString)
-import qualified Data.ByteString.Lazy       as BS
-import qualified Data.ByteString.Lazy.Char8 as C8
+import           Data.ByteString            (ByteString)
+import qualified Data.ByteString            as BS
+import qualified Data.ByteString.Char8      as C8
 import           Data.Foldable              (asum)
 import           Data.Monoid                ((<>))
 import           System.IO

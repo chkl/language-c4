@@ -4,8 +4,8 @@
 module Spec.Parser (
   unitTestsParser
                    ) where
-import           Data.ByteString.Lazy (ByteString)
-import           Data.Monoid          ((<>))
+import           Data.ByteString        (ByteString)
+import           Data.Monoid            ((<>))
 import           Test.Hspec
 
 import           Language.C4.Ast.SynAst

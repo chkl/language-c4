@@ -11,9 +11,9 @@ module Language.C4.Types
 
 import           Control.Monad.Error.Class
 import           Control.Monad.Trans.Except
-import qualified Data.ByteString.Lazy.Char8 as C8
+import qualified Data.ByteString.Char8      as C8
 
-import           Data.ByteString.Lazy       (ByteString)
+import           Data.ByteString            (ByteString)
 import           Data.List                  (intercalate)
 import           Data.List.NonEmpty         (head)
 import           Data.Word                  (Word8)

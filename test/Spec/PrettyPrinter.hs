@@ -3,20 +3,20 @@
 
 module Spec.PrettyPrinter where
 
-import           Prelude                 hiding (print)
+import           Prelude                   hiding (print)
 
-import           Control.Monad           (forM_)
-import qualified Data.ByteString         as SB
+import           Control.Monad             (forM_)
+import           Data.ByteString           (ByteString)
 import           Data.ByteString.Builder
-import           Data.ByteString.Lazy    (ByteString, fromStrict)
+import           Data.ByteString.Lazy      (toStrict)
 import           Data.FileEmbed
-import           Data.List               (isSuffixOf)
-import           Data.Monoid             ((<>))
-import           GHC.Exts                (sortWith)
+import           Data.List                 (isSuffixOf)
+import           Data.Monoid               ((<>))
+import           GHC.Exts                  (sortWith)
 import           Test.Hspec
 
 import           Language.C4.Ast.SynAst
-import qualified Language.C4.Parser                  as P
+import qualified Language.C4.Parser        as P
 import           Language.C4.PrettyPrinter
 import           Language.C4.Types
 
@@ -24,7 +24,7 @@ import           Spec.Helper
 
 runPrinter' :: Printer a -> ByteString
 runPrinter' p = let (_,env) = runPrinter p defaultPrinterEnv
-                in toLazyByteString (builder env)
+                in (toStrict $ toLazyByteString $ builder env)
 
 
 testPrettyPrinter :: SpecWith ()
@@ -79,12 +79,12 @@ testAB= do
   describe "A/B tests" $
     forM_ files $ \((fnA, a), (fnB, b)) -> do
       it ("prints " <> fnA <> " to " <> fnB) $ do
-        let res = P.parse fnA (fromStrict a)
+        let res = P.parse fnA a
         case runC4 res of
           Left err  -> expectationFailure (show err)
-          Right ast -> toPrettyString ast `shouldBe` fromStrict b
+          Right ast -> toPrettyString ast `shouldBe` b
 
-pairFiles :: [(FilePath, SB.ByteString)] -> [((FilePath, SB.ByteString), (FilePath, SB.ByteString))]
+pairFiles :: [(FilePath, ByteString)] -> [((FilePath, ByteString), (FilePath, ByteString))]
 pairFiles files =  let
   inFiles  = sortWith fst $ filter (\fn -> "in.c"  `isSuffixOf` fst fn) files
   outFiles = sortWith fst $ filter (\fn -> "out.c" `isSuffixOf` fst fn) files

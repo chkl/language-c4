@@ -2,7 +2,7 @@
 
 module Main where
 
-import qualified Data.ByteString.Lazy as BS
+import qualified Data.ByteString as BS
 import           Data.Monoid          ((<>))
 import           System.Environment
 import           System.Exit          (exitFailure)
