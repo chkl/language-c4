@@ -1,28 +1,29 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Lexer ( ErrorMsg(..)
-             , Parser
-             , ParseError
-             , runLexer
-             , runLexer_
-             , identifier
-             , charConstant
-             , integerConstant
-             , stringLexeme
-             , keyword
-             , anyKeyword
-             , stringLiteral
-             , anyPunctuator
-             , punctuator
-             , parens
-             , braces
-             , brackets
-             , commaSep
-             , commaSep1
-             , semicolSep
-             , comma
-             , sc
-             ) where
+module Language.C4.Lexer
+  ( ErrorMsg(..)
+  , Parser
+  , ParseError
+  , runLexer
+  , tokenize
+  , identifier
+  , charConstant
+  , integerConstant
+  , stringLexeme
+  , keyword
+  , anyKeyword
+  , stringLiteral
+  , anyPunctuator
+  , punctuator
+  , parens
+  , braces
+  , brackets
+  , commaSep
+  , commaSep1
+  , semicolSep
+  , comma
+  , sc
+  ) where
 
 import           Control.Monad              (void)
 import           Control.Monad.Trans.Class
@@ -30,7 +31,6 @@ import           Data.ByteString.Lazy       (ByteString)
 import qualified Data.ByteString.Lazy       as BS
 import qualified Data.ByteString.Lazy.Char8 as C8
 import           Data.Foldable              (asum)
-import           Data.List                  (intercalate)
 import           Data.Monoid                ((<>))
 import           System.IO
 import           Text.Megaparsec            hiding (ParseError)
@@ -38,9 +38,8 @@ import           Text.Megaparsec.Byte
 import qualified Text.Megaparsec.Byte.Lexer as MBL
 
 
-
-import           CLangDef
-import           Types
+import           Language.C4.CLangDef
+import           Language.C4.Types
 
 
 
@@ -203,17 +202,17 @@ runLexer = runParser lexer
 
 -- | this tokenizer just outputs directly to stdout and discards any tokens.
 -- | (this one has basically no use other than benchmarking)
-runLexer_ :: String -> ByteString -> IO (Either ParseError ())
-runLexer_ = runParserT $  do
-  setTabWidth pos1
-  lift $ hSetBuffering stdout (BlockBuffering Nothing) -- much faster this way
-  sc
-  _ <- many cToken_
-  eof
-  lift $ hFlush stdout
+tokenize :: FilePath -> ByteString -> IO (C4 ())
+tokenize fn s = do
+  res <- runParserT (do
+    setTabWidth pos1
+    lift $ hSetBuffering stdout (BlockBuffering Nothing) -- much faster this way
+    sc
+    _ <- many cToken_
+    eof
+    lift $ hFlush stdout
+    ) fn s
+  case res of
+    Left err -> return $ throwC4 err
+    Right () -> return $ return ()
 
-
-prettyPrintPos :: SourcePos -> ByteString
-prettyPrintPos s = C8.pack $ intercalate ":" [sourceName s
-                                             , show $ unPos $ sourceLine s
-                                             , show $ unPos $ sourceColumn s]

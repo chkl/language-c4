@@ -3,23 +3,38 @@
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE TypeFamilies      #-}
 
-module Parser where
+module Language.C4.Parser
+  ( parse
+  , translationUnit
+  , declaration
+  , functionDefinition
+  , statement
+  , declarator
+  , typeSpecifier
+  , structDeclaration
+  , postfixUnaryExpr
+  , expression
+  , unaryExpr
+  , binaryExpr
+  ) where
 
 
 import           Data.ByteString.Lazy (ByteString)
 import           Data.Foldable        (asum)
 import           Data.List            (groupBy, sortBy)
 import           Data.Ord             (comparing)
-import           Text.Megaparsec      hiding (ParseError, SourcePos)
+import           Text.Megaparsec      hiding (ParseError, SourcePos, parse)
 
-import           Ast.SynAst
-import qualified Lexer                as L
-import           Types
+import           Language.C4.Ast.SynAst
+import qualified Language.C4.Lexer                as L
+import           Language.C4.Types
 
 
+parse :: FilePath -> ByteString -> C4 (TranslationUnit SynPhase)
+parse fn s = case Text.Megaparsec.runParser translationUnit fn s of
+                   Left err  -> throwC4 err
+                   Right ast -> return ast
 
-runParser :: String -> ByteString -> Either ParseError (TranslationUnit SynPhase)
-runParser = Text.Megaparsec.runParser translationUnit
 
 --------------------------------------------------------------------------------
 -- Root Parsers

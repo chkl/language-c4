@@ -8,26 +8,39 @@
 {-# LANGUAGE TypeFamilies      #-}
 {-# LANGUAGE TypeOperators     #-}
 
-module Analysis
+module Language.C4.Analysis
  ( SemanticError(..)
  , semanticAnalysis
- )
-where
+ , analyse
+ ) where
 
-import           Control.Monad        (forM, when)
+
+import           Control.Monad              (forM, when)
 import           Control.Monad.State
 import           Control.Monad.Writer
-import qualified Data.Map.Strict      as Map
-import           Text.Megaparsec.Pos  (SourcePos, sourceColumn, sourceLine,
-                                       unPos)
+import qualified Data.Map.Strict            as Map
+import           Text.Megaparsec.Pos        (SourcePos, sourceColumn,
+                                             sourceLine, unPos)
 
-import           Ast.SemAst
-import           Ast.SynAst
-import           Types
+import           Language.C4.Ast.SemAst
+import           Language.C4.Ast.SynAst
+import           Language.C4.Types
 -- The functionality of the module can be summarized as converting from a
 -- semantic AST to a semantic one. In particular this means that e.g.
 -- 'TranslationUnit SynPhase' gets transformed into a 'TranslationUnit
 -- SemPhase'.
+
+-- | this is the more general version returning a whole list of errors
+semanticAnalysis :: TranslationUnit SynPhase -> Either [SemanticError] (TranslationUnit SemPhase)
+semanticAnalysis u = case runState (runWriterT (translationUnit u)) emptyScope of
+        ((x,[]),_)  -> Right x
+        ((_,err),_) -> Left err
+
+-- | this is the simple "C4" version
+analyse :: TranslationUnit SynPhase -> C4 (TranslationUnit SemPhase)
+analyse u = case semanticAnalysis u of
+  Left errs  -> throwC4 (head errs)
+  Right ast' -> return ast'
 
 -- | Any analysis that runs inside the @Analysis monad can write @SemanticErrors
 -- and has a "scope" which acts as state.
@@ -61,20 +74,26 @@ declare pos n t = do
     (Just _) -> tell [AlreadyDeclaredName pos n]
 
 
-data SemanticError = UndeclaredName !SourcePos !Ident
-                   | AlreadyDeclaredName !SourcePos !Ident
-                   | TypeMismatch {_pos :: !SourcePos, _leftType :: !CType, _rightType :: !CType }
-                   | NoPointer SourcePos
+data SemanticError = UndeclaredName
+                     { semanticErrorPosition :: !SourcePos
+                     , identifier            :: !Ident }
+                   | AlreadyDeclaredName
+                     { semanticErrorPosition :: !SourcePos
+                     ,  identifier           :: !Ident }
+                   | TypeMismatch
+                     { semanticErrorPosition :: !SourcePos
+                     , leftType              :: !CType
+                     , rightType             :: !CType }
+                   | NoPointer
+                     { semanticErrorPosition :: SourcePos
+                     }
 
-instance Show SemanticError where
-  show (UndeclaredName p i)      = nicePos p <> " : " <> "undeclared name " <> show i
-  show (AlreadyDeclaredName p i) = nicePos p <> " : " <> "name already declared " <> show i
-  show (TypeMismatch p l r)      = nicePos p <> " : " <> "type mismatch: expected type: " <> show l
-                                   <> "; actual type: " <> show r
-  show (NoPointer p)             = nicePos p <> " : " <> "expects a pointer"
-
-nicePos :: SourcePos -> String
-nicePos p = show (unPos (sourceLine p)) <> ":" <> show (unPos (sourceColumn p))
+instance C4Error SemanticError where
+  getErrorPosition                            = semanticErrorPosition
+  getErrorComponent (UndeclaredName _ i)      = "undeclared name " <> show i
+  getErrorComponent (AlreadyDeclaredName _ i) = "name already declared " <> show i
+  getErrorComponent (TypeMismatch _ l r)      = "type mismatch: expected type: " <> show l <> "; actual type: " <> show r
+  getErrorComponent (NoPointer _)             = "expects a pointer"
 
 -- | runs an analysis in a copy of the current scope without modifying the
 -- original scope, but retains the errors.
@@ -98,11 +117,6 @@ matchTypes p t1 t2 = do
 
 matchTypes_ :: SourcePos -> CType -> CType -> Analysis ()
 matchTypes_ p t s = void (matchTypes p t s)
-
-semanticAnalysis :: TranslationUnit SynPhase -> Either [SemanticError] (TranslationUnit SemPhase)
-semanticAnalysis u = case runState (runWriterT (translationUnit u)) emptyScope of
-        ((x,[]),_)  -> Right x
-        ((_,err),_) -> Left err
 
 --------------------------------------------------------------------------------
 -- Analyses

@@ -5,10 +5,11 @@
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TypeFamilies          #-}
 
-module Ast where
+module Language.C4.Ast where
 
 import           Data.ByteString.Lazy (ByteString)
-import           Types
+
+import           Language.C4.Types
 
 --------------------------------------------------------------------------------
 type family AnnTranslationUnit x

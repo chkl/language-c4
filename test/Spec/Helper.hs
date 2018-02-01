@@ -21,16 +21,16 @@ module Spec.Helper
   , roundtrip
   ) where
 
-import           Ast.SynAst
-import qualified Data.ByteString.Lazy  as BS
-import           Data.Functor.Identity
-import           Data.Word             (Word8)
-import           Lexer                 hiding (runLexer_)
-import           PrettyPrinter
+import qualified Data.ByteString.Lazy      as BS
+import           Data.Word                 (Word8)
 import           Test.Hspec
-import qualified Text.Megaparsec       as MP
+import qualified Text.Megaparsec           as MP
 import           Text.Megaparsec.Pos
-import           Types
+
+import           Language.C4.Ast.SynAst
+import           Language.C4.Lexer         hiding (runLexer_)
+import           Language.C4.PrettyPrinter
+import           Language.C4.Types
 
 
 --------------------------------------------------------------------------------

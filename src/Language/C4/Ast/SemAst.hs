@@ -1,15 +1,16 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies      #-}
 
-module Ast.SemAst
-  ( module Ast.SemAst
-  , module Ast
+module Language.C4.Ast.SemAst
+  ( module Language.C4.Ast.SemAst
+  , module Language.C4.Ast
   ) where
 
-import           Ast
 import           Data.List       (intercalate)
 import qualified Data.Map.Strict as Map
-import           Types
+
+import           Language.C4.Ast
+import           Language.C4.Types
 
 --------------------------------------------------------------------------------
 -- Define Types for our Type-Annotated AST

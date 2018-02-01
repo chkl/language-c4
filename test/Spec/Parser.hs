@@ -8,8 +8,8 @@ import           Data.ByteString.Lazy (ByteString)
 import           Data.Monoid          ((<>))
 import           Test.Hspec
 
-import           Ast.SynAst
-import           Parser
+import           Language.C4.Ast.SynAst
+import           Language.C4.Parser
 
 import           Spec.Helper
 
@@ -27,9 +27,9 @@ unitTestsParser = do
 testTypeSpecifier :: SpecWith ()
 testTypeSpecifier = describe "typeSpecifier parser" $ do
     it "parse primitive types correctly" $ do
-      undecorate <$> (testParser typeSpecifier "void") `shouldBe` Right Void
-      undecorate <$> (testParser typeSpecifier "char") `shouldBe` Right Char
-      undecorate <$> (testParser typeSpecifier "int") `shouldBe` Right Int
+      undecorate <$> testParser typeSpecifier "void" `shouldBe` Right Void
+      undecorate <$> testParser typeSpecifier "char" `shouldBe` Right Char
+      undecorate <$> testParser typeSpecifier "int" `shouldBe` Right Int
 
     it "parse simple struct definition" $ do
       testParser typeSpecifier "struct A" `shouldBe` Right (StructIdentifier "A")
@@ -101,7 +101,7 @@ testExpressions = describe "expression parser" $ do
       undecorate <$> testParser binaryExpr "x = y" `shouldBe` (Right $ ExprIdentUD "x" `assign` ExprIdentUD "y")
 
   it "parses ternary expressions" $ do
-      undecorate <$> testParser expression "5 + 4 < 3 ? 0 : 1" `shouldBe` (Right (TernaryUD (BExprUD LessThan (BExprUD Plus (ConstantUD "5") (ConstantUD "4")) (ConstantUD "3")) (ConstantUD "0") (ConstantUD "1")))
+      undecorate <$> testParser expression "5 + 4 < 3 ? 0 : 1" `shouldBe` Right (TernaryUD (BExprUD LessThan (BExprUD Plus (ConstantUD "5") (ConstantUD "4")) (ConstantUD "3")) (ConstantUD "0") (ConstantUD "1"))
   it "parses unary expressions" $ do
     testParser expression "x[5]" `shouldSatisfy` isRight
 --    testParser expression "x[]" `shouldSatisfy` isRight -- TODO: Should we allow this?

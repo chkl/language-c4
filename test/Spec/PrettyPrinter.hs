@@ -15,11 +15,12 @@ import           Data.Monoid             ((<>))
 import           GHC.Exts                (sortWith)
 import           Test.Hspec
 
-import           Ast.SynAst
-import qualified Parser                  as P
-import           PrettyPrinter
-import           Spec.Helper
+import           Language.C4.Ast.SynAst
+import qualified Language.C4.Parser                  as P
+import           Language.C4.PrettyPrinter
+import           Language.C4.Types
 
+import           Spec.Helper
 
 runPrinter' :: Printer a -> ByteString
 runPrinter' p = let (_,env) = runPrinter p defaultPrinterEnv
@@ -78,8 +79,8 @@ testAB= do
   describe "A/B tests" $
     forM_ files $ \((fnA, a), (fnB, b)) -> do
       it ("prints " <> fnA <> " to " <> fnB) $ do
-        let res = P.runParser fnA (fromStrict a)
-        case res of
+        let res = P.parse fnA (fromStrict a)
+        case runC4 res of
           Left err  -> expectationFailure (show err)
           Right ast -> toPrettyString ast `shouldBe` fromStrict b
 

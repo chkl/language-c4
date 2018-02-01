@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
 
-module PrettyPrinter where
+module Language.C4.PrettyPrinter where
 
 import           Prelude                      hiding (print, unlines)
 
@@ -16,8 +16,8 @@ import           Data.String                  hiding (unlines)
 import           System.IO                    (Handle)
 import           Text.Megaparsec.Error        hiding (ParseError)
 
-import           Ast
-import           Types
+import           Language.C4.Ast
+import           Language.C4.Types
 
 type Level = Int
 

@@ -10,11 +10,12 @@ import           Test.Hspec
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import           Test.QuickCheck
 
-import           CLangDef
-import           SpecQC
-import           Types
+
+import           Language.C4.CLangDef
+import           Language.C4.Types
 
 import           Spec.Helper
+import           SpecQC
 
 lexerQC :: SpecWith ()
 lexerQC = describe "QuickCheck properties" $

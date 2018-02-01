@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
-module CLangDef where
+
+module Language.C4.CLangDef where
 
 import           Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as BS

@@ -2,13 +2,14 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies       #-}
 
-module Ast.SynAst
-  ( module Ast.SynAst
-  , module Ast -- ^ re-export the main AST module
+module Language.C4.Ast.SynAst
+  ( module Language.C4.Ast.SynAst
+  , module Language.C4.Ast -- re-export the main AST module
   ) where
 
-import           Ast
 import           Text.Megaparsec.Pos (SourcePos)
+
+import           Language.C4.Ast
 
 data SynPhase
 

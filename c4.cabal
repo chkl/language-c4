@@ -13,16 +13,16 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Lib
-                     , Lexer
-                     , Parser
-                     , CLangDef
-                     , PrettyPrinter
-                     , Types
-                     , Analysis
-                     , Ast
-                     , Ast.SynAst
-                     , Ast.SemAst
+  exposed-modules:     Language.C4
+                     , Language.C4.Lexer
+                     , Language.C4.Parser
+                     , Language.C4.CLangDef
+                     , Language.C4.PrettyPrinter
+                     , Language.C4.Types
+                     , Language.C4.Analysis
+                     , Language.C4.Ast
+                     , Language.C4.Ast.SynAst
+                     , Language.C4.Ast.SemAst
   build-depends:       base >= 4.7 && < 5
                      , mtl
                      , transformers
@@ -45,6 +45,7 @@ executable c4
                      , megaparsec >= 6.2.0
                      , bytestring
                      , pretty-simple
+                     , transformers
   default-language:    Haskell2010
 
 test-suite c4-test

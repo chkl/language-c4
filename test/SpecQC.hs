@@ -11,7 +11,6 @@ module SpecQC ( prop_genCFile
               , genCFile
               ) where
 
-import           CLangDef
 import qualified Data.ByteString            as SBS
 import           Data.ByteString.Conversion (ToByteString, toByteString)
 import           Data.ByteString.Lazy       (ByteString)
@@ -20,8 +19,9 @@ import           Data.Monoid                ((<>))
 import           Data.Word                  (Word8)
 import           Test.QuickCheck
 
-import           Lexer
-import           Types
+import           Language.C4.Lexer
+import           Language.C4.Types
+import           Language.C4.CLangDef
 
 type ExampleGen a            = Gen (ByteString, a)
 
