@@ -120,21 +120,20 @@ binaryExpr =  binaryExpr' operators
 
 
 data BOperator m = BOperator { associativity :: Associativity
-                             , operatorP     :: BOp
                              , opParser      :: Parser m (Expr SynPhase -> Expr SynPhase -> Expr SynPhase)
                              , precedence    :: Int
                              }
 operators :: [[BOperator m]]
 operators = groupBy eqPrec $  sortBy (flip $ comparing precedence)
-            [ BOperator LeftAssoc Plus  (mk Plus "+") 4
-            , BOperator LeftAssoc Minus (mk Minus "-") 4
-            , BOperator LeftAssoc Mult  (mk Mult "*") 2
-            , BOperator LeftAssoc Minus (mk LessThan "<") 6
-            , BOperator LeftAssoc EqualsEquals (mk EqualsEquals "==") 7
-            , BOperator LeftAssoc NotEqual (mk NotEqual "!=") 7
-            , BOperator LeftAssoc LAnd (mk LAnd "&&") 11
-            , BOperator LeftAssoc LOr (mk LOr "||") 12
-            , BOperator LeftAssoc AssignOp (mk AssignOp "=") 14
+            [ BOperator LeftAssoc (mk Plus "+") 4
+            , BOperator LeftAssoc (mk Minus "-") 4
+            , BOperator LeftAssoc (mk Mult "*") 2
+            , BOperator LeftAssoc (mk LessThan "<") 6
+            , BOperator LeftAssoc (mk EqualsEquals "==") 7
+            , BOperator LeftAssoc (mk NotEqual "!=") 7
+            , BOperator LeftAssoc (mk LAnd "&&") 11
+            , BOperator LeftAssoc (mk LOr "||") 12
+            , BOperator LeftAssoc (mk AssignOp "=") 14
             ]
   where eqPrec o1 o2 = precedence o1 == precedence o2
         mk op pun = do

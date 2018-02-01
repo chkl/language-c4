@@ -7,7 +7,6 @@ import           Data.Monoid          ((<>))
 import           System.Environment
 import           System.Exit          (exitFailure)
 import           System.IO            (hPutStr, stderr, stdout)
-import           Text.Megaparsec.Pos
 
 import           Language.C4
 
