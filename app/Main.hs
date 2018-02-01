@@ -17,7 +17,7 @@ main = do
   case x of
         ["--parse", fn]     -> cmdParse fn
         ["--print-ast", fn] -> cmdPrint fn
-        ["--tokenize", fn]  -> cmdPrint fn
+        ["--tokenize", fn]  -> cmdTokenize fn
         _                   -> showHelp
 
 cmdPrint :: FilePath -> IO ()
