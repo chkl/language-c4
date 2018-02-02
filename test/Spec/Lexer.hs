@@ -12,7 +12,7 @@ import           Test.QuickCheck
 
 
 import           Language.C4.CLangDef
-import           Language.C4.Types
+import           Language.C4.Lexer
 
 import           Spec.Helper
 import           SpecQC

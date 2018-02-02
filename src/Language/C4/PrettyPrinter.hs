@@ -14,7 +14,7 @@ import qualified Data.ByteString.Char8   as C8
 import           Data.ByteString.Lazy    (toStrict)
 import           Data.Monoid             ((<>))
 import           Data.String             hiding (unlines)
-import           System.IO               (Handle)
+import           System.IO               (Handle, stdout)
 import           Text.Megaparsec.Error   hiding (ParseError)
 
 import           Language.C4.Ast
@@ -32,6 +32,9 @@ class PrettyPrint a where
 
   hPutPrettyPrint :: a -> Handle -> IO ()
   hPutPrettyPrint a h = hPutBuilder h (prettyBuilder a)
+
+  putPrettyPrint :: a ->  IO ()
+  putPrettyPrint a = hPutPrettyPrint a stdout
 
   prettyBuilder   :: a -> Builder
   prettyBuilder x = builder $ snd $ runPrinter (prettyPrint x) defaultPrinterEnv

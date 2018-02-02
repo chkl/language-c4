@@ -30,7 +30,7 @@ import qualified Language.C4.Lexer      as L
 import           Language.C4.Types
 
 
-parse :: FilePath -> ByteString -> C4 (TranslationUnit SynPhase)
+parse :: (Monad m) => FilePath -> ByteString -> C4T m (TranslationUnit SynPhase)
 parse fn s = case Text.Megaparsec.runParser translationUnit fn s of
                    Left err  -> throwC4 err
                    Right ast -> return ast
@@ -118,6 +118,7 @@ binaryExpr =  binaryExpr' operators
         eqPrecedence :: [BOperator m] -> Parser m (Expr SynPhase -> Expr SynPhase -> Expr SynPhase)
         eqPrecedence ops' = asum $ map opParser ops'
 
+data Associativity = LeftAssoc | RightAssoc
 
 data BOperator m = BOperator { associativity :: Associativity
                              , opParser      :: Parser m (Expr SynPhase -> Expr SynPhase -> Expr SynPhase)

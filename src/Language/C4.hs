@@ -13,9 +13,15 @@ module Language.C4
   , parse
   , module Language.C4.PrettyPrinter
   , module Language.C4.Types
+  , TranslationUnit
+  , SemPhase
+  , SynPhase
   ) where
 
 import           Language.C4.Analysis      (analyse)
+import           Language.C4.Ast
+import           Language.C4.Ast.SemAst    (SemPhase)
+import           Language.C4.Ast.SynAst    (SynPhase)
 import           Language.C4.Lexer         (tokenize)
 import           Language.C4.Parser        (parse)
 import           Language.C4.PrettyPrinter

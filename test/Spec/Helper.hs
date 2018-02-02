@@ -30,7 +30,6 @@ import           Text.Megaparsec.Pos
 import           Language.C4.Ast.SynAst
 import           Language.C4.Lexer
 import           Language.C4.PrettyPrinter
-import           Language.C4.Types
 
 
 --------------------------------------------------------------------------------

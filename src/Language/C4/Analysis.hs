@@ -1,64 +1,38 @@
-{-# LANGUAGE ConstraintKinds   #-}
-{-# LANGUAGE DataKinds         #-}
-{-# LANGUAGE EmptyCase         #-}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GADTs             #-}
-{-# LANGUAGE PatternSynonyms   #-}
-{-# LANGUAGE TypeFamilies      #-}
-{-# LANGUAGE TypeOperators     #-}
-
 module Language.C4.Analysis
  ( SemanticError(..)
- , semanticAnalysis
  , analyse
  ) where
 
 
-import           Control.Monad              (forM, when)
+import           Control.Monad          (forM, when)
 import           Control.Monad.State
 import           Control.Monad.Writer
-import qualified Data.Map.Strict            as Map
-import           Text.Megaparsec.Pos        (SourcePos, sourceColumn,
-                                             sourceLine, unPos)
+import qualified Data.Map.Strict        as Map
 
 import           Language.C4.Ast.SemAst
 import           Language.C4.Ast.SynAst
 import           Language.C4.Types
+
 -- The functionality of the module can be summarized as converting from a
 -- semantic AST to a semantic one. In particular this means that e.g.
 -- 'TranslationUnit SynPhase' gets transformed into a 'TranslationUnit
 -- SemPhase'.
 
--- | this is the more general version returning a whole list of errors
-semanticAnalysis :: TranslationUnit SynPhase -> Either [SemanticError] (TranslationUnit SemPhase)
-semanticAnalysis u = case runState (runWriterT (translationUnit u)) emptyScope of
-        ((x,[]),_)  -> Right x
-        ((_,err),_) -> Left err
+type Analysis m = StateT Scope (C4T m)
 
--- | this is the simple "C4" version
-analyse :: TranslationUnit SynPhase -> C4 (TranslationUnit SemPhase)
-analyse u = case semanticAnalysis u of
-  Left errs  -> throwC4 (head errs)
-  Right ast' -> return ast'
 
--- | Any analysis that runs inside the @Analysis monad can write @SemanticErrors
--- and has a "scope" which acts as state.
-type Analysis = WriterT [SemanticError] (State Scope)
-
-runAnalyzer :: Analysis a -> Scope ->(a, [SemanticError], Scope)
-runAnalyzer a s = let ((b,w),s') = runState (runWriterT a) s
-                  in (b,w,s')
+analyse :: (Monad m) => TranslationUnit SynPhase -> C4T m (TranslationUnit SemPhase)
+analyse u = evalStateT (translationUnit u) emptyScope
 
 -- | Adds name to the scope without checking for existing declarations.
 -- This is useful shadowing declarations (e.g. function parameters or loop
 -- variables). For actual declarations use @declare which will emit an error for
 -- declaring a already declared variable.
-addName :: Ident -> CType -> Analysis ()
+addName :: (Monad m) => Ident -> CType -> Analysis m ()
 addName n t = modify $ \(Scope m) -> (Scope (Map.insert n t m))
 
 -- | Looks up the type for a given name in the current scope
-lookupType :: Ident -> Analysis (Maybe CType)
+lookupType :: (Monad m) => Ident -> Analysis m (Maybe CType)
 lookupType n = do
   (Scope m) <- get
   return $ Map.lookup n m
@@ -66,12 +40,12 @@ lookupType n = do
 -- | adds a declaration to the current scope but writes an error in case the
 -- name is already declared.
 
-declare :: SourcePos -> Ident -> CType -> Analysis ()
+declare :: (Monad m) => SourcePos -> Ident -> CType -> Analysis m ()
 declare pos n t = do
   x <- lookupType n
   case x of
     Nothing  -> addName n t
-    (Just _) -> tell [AlreadyDeclaredName pos n]
+    (Just _) -> throwC4 $ AlreadyDeclaredName pos n
 
 
 data SemanticError = UndeclaredName
@@ -97,25 +71,25 @@ instance C4Error SemanticError where
 
 -- | runs an analysis in a copy of the current scope without modifying the
 -- original scope, but retains the errors.
-enterScope :: Analysis a -> Analysis a
+enterScope :: (Monad m) => Analysis m a -> Analysis m a
 enterScope a = do
     s <- get
-    let (a',errs,_) = runAnalyzer a s
-    tell errs
-    return a'
+    x <- a
+    put s
+    return x
 
 -- | Should: Matches two types and returns the more general type.
 --   Currently: "Matching"  means equality
-matchTypes :: SourcePos -> CType -> CType -> Analysis CType
+matchTypes :: (Monad m) => SourcePos -> CType -> CType -> Analysis m CType
 matchTypes _ Bottom _ = return Bottom
 matchTypes _ _ Bottom = return Bottom
 matchTypes p (Tuple [t1]) t2 = matchTypes p t1 t2
 matchTypes p t1 (Tuple [t2]) = matchTypes p t1 t2
 matchTypes p t1 t2 = do
-  when (t1 /= t2) $ tell [TypeMismatch p t1 t2]
+  when (t1 /= t2) $ throwC4 (TypeMismatch p t1 t2)
   return t1
 
-matchTypes_ :: SourcePos -> CType -> CType -> Analysis ()
+matchTypes_ :: (Monad m) => SourcePos -> CType -> CType -> Analysis m ()
 matchTypes_ p t s = void (matchTypes p t s)
 
 --------------------------------------------------------------------------------
@@ -123,13 +97,13 @@ matchTypes_ p t s = void (matchTypes p t s)
 --------------------------------------------------------------------------------
 
 
-translationUnit :: TranslationUnit SynPhase -> Analysis (TranslationUnit SemPhase)
+translationUnit :: (Monad m) => TranslationUnit SynPhase -> Analysis m (TranslationUnit SemPhase)
 translationUnit (TranslationUnit _ eds) = do
   eds' <- forM eds (either' declaration functionDefinition)
   s <- get
   return $ TranslationUnit s eds'
 
-functionDefinition :: FunctionDefinition SynPhase -> Analysis (FunctionDefinition SemPhase)
+functionDefinition :: (Monad m) => FunctionDefinition SynPhase -> Analysis m (FunctionDefinition SemPhase)
 functionDefinition (FunctionDefinition pos t d stmt)  = do
     d' <- declarator (fromType t) d
     tx <- typeA t
@@ -138,7 +112,7 @@ functionDefinition (FunctionDefinition pos t d stmt)  = do
       statement stmt
     return $ FunctionDefinition pos tx d' stmt'
 
-typeA :: Type SynPhase -> Analysis (Type SemPhase)
+typeA :: (Monad m) => Type SynPhase -> Analysis m (Type SemPhase)
 typeA Void = return Void
 typeA Int  = return Int
 typeA Char = return Char
@@ -148,13 +122,13 @@ typeA (StructInline i l) = do
   return (StructInline i l')
 
 
-structDeclaration :: StructDeclaration SynPhase -> Analysis (StructDeclaration SemPhase)
+structDeclaration :: (Monad m) => StructDeclaration SynPhase -> Analysis m (StructDeclaration SemPhase)
 structDeclaration (StructDeclaration p t l) = do
   t' <- typeA t
   l' <- mapM (declarator (fromType t')) l
   return (StructDeclaration p t' l')
 
-declarator :: CType -> Declarator SynPhase -> Analysis (Declarator SemPhase)
+declarator :: (Monad m) => CType -> Declarator SynPhase -> Analysis m (Declarator SemPhase)
 declarator t (DeclaratorId p n) = return (DeclaratorId (DeclaratorSemAnn p t n) n)
 
 declarator t (IndirectDeclarator p d) = do
@@ -169,7 +143,7 @@ declarator t (FunctionDeclarator p d params) = do
   return $ FunctionDeclarator (DeclaratorSemAnn p (Function t paramsType) (getName d')) d' params'
 
 
-parameter :: Parameter SynPhase -> Analysis (Parameter SemPhase)
+parameter :: (Monad m) => Parameter SynPhase -> Analysis m (Parameter SemPhase)
 parameter (Parameter p t d) = do
   t' <- typeA t
   d' <- declarator (fromType t) d
@@ -177,12 +151,12 @@ parameter (Parameter p t d) = do
 parameter (AbstractParameter p t d) = do
   t' <- typeA t
   d' <- maybe' (abstractDeclarator (fromType t)) d
-  let typ = case (d') of
-              Nothing    -> (fromType t)
-              (Just d'') -> (getType d'')
+  let typ = case d' of
+              Nothing    -> fromType t
+              (Just d'') -> getType d''
   return $ AbstractParameter (p, typ) t' d'
 
-declaration :: Declaration SynPhase -> Analysis (Declaration SemPhase)
+declaration :: (Monad m) => Declaration SynPhase -> Analysis m (Declaration SemPhase)
 declaration (Declaration pos t is) = do
   is' <- forM is $ \i -> do
      i'@(InitializedDec d _) <- initDeclarator (fromType t) i
@@ -197,7 +171,7 @@ declaration (Declaration pos t is) = do
 --  declare n t'
 
 
-initDeclarator :: CType -> InitDeclarator SynPhase -> Analysis (InitDeclarator SemPhase)
+initDeclarator :: (Monad m) => CType -> InitDeclarator SynPhase -> Analysis m (InitDeclarator SemPhase)
 initDeclarator t (InitializedDec d mi) = do
   d' <- declarator t d
   mi' <- case mi of
@@ -205,7 +179,7 @@ initDeclarator t (InitializedDec d mi) = do
     (Just i) -> Just <$> initializer i
   return $ InitializedDec d' mi'
 
-initializer :: Initializer SynPhase -> Analysis (Initializer SemPhase)
+initializer :: (Monad m) => Initializer SynPhase -> Analysis m (Initializer SemPhase)
 initializer (InitializerAssignment e) = do
   e' <- expression e
   return $ InitializerAssignment e'
@@ -213,11 +187,11 @@ initializer (InitializerList es) = do
   es' <- mapM initializer es
   return $ InitializerList es'
 
-abstractDeclarator :: CType -> AbstractDeclarator SynPhase -> Analysis (AbstractDeclarator SemPhase)
+abstractDeclarator :: CType -> AbstractDeclarator SynPhase -> Analysis m (AbstractDeclarator SemPhase)
 abstractDeclarator = undefined -- TODO: Basically as declarator but abstract
 
 
-statement :: Stmt SynPhase -> Analysis (Stmt SemPhase)
+statement :: (Monad m) => Stmt SynPhase -> Analysis m (Stmt SemPhase)
 statement (LabeledStmt p lbl stmt)      = do
   stmt' <- statement stmt
   return $ LabeledStmt p lbl stmt'
@@ -256,7 +230,7 @@ statement (ExpressionStmt p (Just e)) = do
   return $ ExpressionStmt p (Just e')
 
 
-expression :: Expr SynPhase -> Analysis (Expr SemPhase)
+expression :: (Monad m) => Expr SynPhase -> Analysis m (Expr SemPhase)
 expression (Constant p x) = do
   return (Constant (p, CInt) x)
 
@@ -269,11 +243,8 @@ expression (Assign p l r) = do
 expression (ExprIdent p n) = do
   mt <- lookupType n
   case mt of
-    Nothing ->do
-      tell [UndeclaredName p n]
-      return $ ExprIdent (p, Bottom) n
-    (Just t) -> do
-      return $ ExprIdent (p, t) n
+    Nothing  -> throwC4 $ UndeclaredName p n
+    (Just t) -> return $ ExprIdent (p, t) n
 
 expression (Ternary p e1 e2 e3) = do
   e1' <- expression e1
@@ -309,9 +280,9 @@ expression (UExpr p op e) = do
            Not -> matchTypes p t' CInt -- Bool
            Deref -> case t' of
              (Pointer t0) -> return t0
-             _            -> do  {tell [NoPointer p]; return Bottom}
+             _            -> throwC4 $ NoPointer p
            SizeOf -> return CInt -- TODO is that correct?
-           Address -> return (Pointer t')
+           Address -> return $ Pointer t'
   return $ UExpr (p, t'') op e'
 
 expression (SizeOfType p t)       = do
@@ -320,46 +291,40 @@ expression (SizeOfType p t)       = do
 expression (Func p l r)           = do
   l' <- expression l
   r' <- expression r
-  case (getType l') of
+  case getType l' of
     Function t tp -> do
-      matchTypes p (Tuple tp) (getType r')
-      return (Func (p, t) l' r')
+      _ <- matchTypes p (Tuple tp) (getType r')
+      return $ Func (p, t) l' r'
     _ -> do
-      tell [TypeMismatch p (Function Bottom [getType r']) (getType l')]
-      return (Func (p, Bottom) l' r')
+      throwC4 $ TypeMismatch p (Function Bottom [getType r']) (getType l')
 
 expression (PointerAccess p l r ) = do
   l' <- expression l
   r' <- expression r
-  return (PointerAccess (p, Bottom) l' r')
+  return $ PointerAccess (p, Bottom) l' r'
 
 expression (ArrayAccess p l r)         = do
   l' <- expression l
   r' <- expression r
-  case (getType l') of
+  case getType l' of
     Pointer t -> do
-      matchTypes_ p (CInt) (getType r')
+      matchTypes_ p CInt (getType r')
       return (ArrayAccess (p, t) l' r')
     _ -> do
-      tell [TypeMismatch p (Pointer Bottom) (getType l')]
-      return (ArrayAccess (p, Bottom) l' r')
+      throwC4 $ TypeMismatch p (Pointer Bottom) (getType l')
 
 expression (FieldAccess p l r)   = do
   l' <- expression l
   r' <- expression r
-  return (FieldAccess (p, Bottom) l' r')
+  return (FieldAccess (p, Bottom) l' r') -- TODO: type check field access
 
-expression (StringLiteral p b)   = return (StringLiteral (p, (Pointer CChar)) b)
+expression (StringLiteral p b)   = return $ StringLiteral (p, Pointer CChar) b
 
 --------------------------------------------------------------------------------
 -- little helpers
 --------------------------------------------------------------------------------
 
-it :: Int -> (a -> a) -> a -> a
-it 0 = id
-it n =  \f -> it (n-1) f . f
-
-maybe' :: (a -> Analysis b) -> Maybe a -> Analysis (Maybe b)
+maybe' :: (Monad m) => (a -> Analysis m b) -> Maybe a -> Analysis m (Maybe b)
 maybe' _ Nothing  = return Nothing
 maybe' f (Just x) = Just <$> f x
 

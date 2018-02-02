@@ -4,6 +4,7 @@ module Language.C4.Lexer
   ( ErrorMsg(..)
   , Parser
   , ParseError
+  , CToken(..)
   , runLexer
   , tokenize
   , identifier
@@ -43,6 +44,13 @@ import           Language.C4.CLangDef
 import           Language.C4.Types
 
 
+data CToken = Keyword ByteString
+            | Identifier ByteString
+            | DecConstant ByteString
+            | CharConstant ByteString
+            | StringLit ByteString
+            | Punctuator ByteString
+           deriving (Show, Eq)
 
 
 -- | "space consumer"
