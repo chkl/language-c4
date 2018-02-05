@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Language.C4.Analysis
  ( SemanticError(..)
  , analyse
@@ -18,23 +20,28 @@ import           Language.C4.Types
 -- 'TranslationUnit SynPhase' gets transformed into a 'TranslationUnit
 -- SemPhase'.
 
-type Analysis m = StateT Scope (C4T m)
 
+data AnalysisState = AnalysisState
+  { scope               :: Scope
+  , expectedReturnValue :: Maybe CType
+  } deriving (Show)
+
+type Analysis m = StateT AnalysisState (C4T m)
 
 analyse :: (Monad m) => TranslationUnit SynPhase -> C4T m (TranslationUnit SemPhase)
-analyse u = evalStateT (translationUnit u) emptyScope
+analyse u = evalStateT (translationUnit u) (AnalysisState Map.empty Nothing)
 
 -- | Adds name to the scope without checking for existing declarations.
 -- This is useful shadowing declarations (e.g. function parameters or loop
 -- variables). For actual declarations use @declare which will emit an error for
 -- declaring a already declared variable.
 addName :: (Monad m) => Ident -> CType -> Analysis m ()
-addName n t = modify $ \(Scope m) -> (Scope (Map.insert n t m))
+addName n t = modify $ \s -> s {scope = Map.insert n t (scope s)}
 
 -- | Looks up the type for a given name in the current scope
 lookupType :: (Monad m) => Ident -> Analysis m (Maybe CType)
 lookupType n = do
-  (Scope m) <- get
+  m <- gets scope
   return $ Map.lookup n m
 
 -- | adds a declaration to the current scope but writes an error in case the
@@ -61,6 +68,9 @@ data SemanticError = UndeclaredName
                    | NoPointer
                      { semanticErrorPosition :: SourcePos
                      }
+                   | UnexpectedReturn
+                     { semanticErrorPosition :: !SourcePos
+                     }
 
 instance C4Error SemanticError where
   getErrorPosition                            = semanticErrorPosition
@@ -68,6 +78,7 @@ instance C4Error SemanticError where
   getErrorComponent (AlreadyDeclaredName _ i) = "name already declared " <> show i
   getErrorComponent (TypeMismatch _ l r)      = "type mismatch: expected type: " <> show l <> "; actual type: " <> show r
   getErrorComponent (NoPointer _)             = "expects a pointer"
+  getErrorComponent (UnexpectedReturn _)      = "unexpected return"
 
 -- | runs an analysis in a copy of the current scope without modifying the
 -- original scope, but retains the errors.
@@ -78,9 +89,11 @@ enterScope a = do
     put s
     return x
 
--- | Should: Matches two types and returns the more general type.
---   Currently: "Matching"  means equality
-matchTypes :: (Monad m) => SourcePos -> CType -> CType -> Analysis m CType
+-- | Matches two types and returns the unified (more general) type. Currently: "Matching"  means equality
+matchTypes :: (Monad m) => SourcePos -- ^ the position displayed in case of a type mismatch
+  -> CType -- ^ the expected type
+  -> CType -- ^ the actual type
+  -> Analysis m CType -- ^ a unified type
 matchTypes _ Bottom _ = return Bottom
 matchTypes _ _ Bottom = return Bottom
 matchTypes p (Tuple [t1]) t2 = matchTypes p t1 t2
@@ -100,7 +113,7 @@ matchTypes_ p t s = void (matchTypes p t s)
 translationUnit :: (Monad m) => TranslationUnit SynPhase -> Analysis m (TranslationUnit SemPhase)
 translationUnit (TranslationUnit _ eds) = do
   eds' <- forM eds (either' declaration functionDefinition)
-  s <- get
+  s <- gets scope
   return $ TranslationUnit s eds'
 
 functionDefinition :: (Monad m) => FunctionDefinition SynPhase -> Analysis m (FunctionDefinition SemPhase)
@@ -109,6 +122,7 @@ functionDefinition (FunctionDefinition pos t d stmt)  = do
     tx <- typeA t
     declare pos (getName d') (getType d')
     stmt' <- enterScope $ do
+      modify $ \s -> s { expectedReturnValue = Just (fromType t) }
       statement stmt
     return $ FunctionDefinition pos tx d' stmt'
 
@@ -211,6 +225,10 @@ statement (WhileStmt p c s) = do
 
 statement (Return p e) = do
   e' <- maybe' expression e
+  let t' = maybe CVoid getType e' -- an empty return statement defaults to return 0
+  gets expectedReturnValue >>= \case
+    Nothing -> throwC4 $ UnexpectedReturn p
+    Just t -> matchTypes_ p t t'
   return (Return p e')
 
 statement (IfStmt pos e s1 s2)     = do

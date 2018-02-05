@@ -15,6 +15,7 @@ import           Language.C4.Types
 --------------------------------------------------------------------------------
 -- Define Types for our Type-Annotated AST
 --------------------------------------------------------------------------------
+type Scope = Map.Map Ident CType
 
 data SemPhase
 
@@ -131,12 +132,6 @@ data CType = CInt
            deriving (Eq)
 
 
-newtype Scope = Scope (Map.Map Ident CType)
-
-instance Show Scope where
-  show (Scope m) = unlines $ map f (Map.toList m)
-    where f (k,v) = show k ++ " :: " ++ show v
-
 instance Show CType where
   show CInt = "Int"
   show CVoid = "Void"
@@ -147,9 +142,6 @@ instance Show CType where
     where pl          = intercalate ", " $ map show p
   show (Tuple p)      = "(" ++ pl ++ ")"
     where pl          = intercalate ", " $ map show p
-
-emptyScope :: Scope
-emptyScope = Scope Map.empty
 
 fromType :: Type x -> CType
 fromType Void = CVoid
