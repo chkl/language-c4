@@ -1,17 +1,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies      #-}
 
-import qualified Data.ByteString as BS
+import qualified Data.ByteString    as BS
 import           System.Environment
-import           System.Exit          (exitSuccess)
+import           System.Exit        (exitSuccess)
 import           Test.Hspec
 import           Test.QuickCheck
 
 import           SpecQC
 
-import           Spec.Lexer           as SL
-import           Spec.Parser          as SP
-import           Spec.PrettyPrinter   as PP
+import           Spec.Analysis      as SA
+import           Spec.Lexer         as SL
+import           Spec.Parser        as SP
+import           Spec.PrettyPrinter as PP
 
 main :: IO ()
 main = do
@@ -37,3 +38,5 @@ runTests = hspec $ do
     unitTestsParser
   describe "Pretty-Printer" $ do
     testPrettyPrinter
+  describe "Semantic Analysis" $ do
+    testSemanticSamples

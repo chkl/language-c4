@@ -163,6 +163,8 @@ testTranslationUnit = describe "translation unit parser" $ do
   it "rejects some invalid code" $ do
     testParser translationUnit "int (int x) {;}" `shouldSatisfy` isLeft
     testParser translationUnit "int () {;}" `shouldSatisfy` isLeft
+
+
 --------------------------------------------------------------------------------
 simpleMainCode :: ByteString
 simpleMainCode = "int main() { return 1;}"
