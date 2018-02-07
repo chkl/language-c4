@@ -16,7 +16,7 @@ import           Language.C4.Ast.SynAst
 import           Language.C4.Types
 
 -- The functionality of the module can be summarized as converting from a
--- semantic AST to a semantic one. In particular this means that e.g.
+-- syntactic AST to a semantic one. In particular this means that e.g.
 -- 'TranslationUnit SynPhase' gets transformed into a 'TranslationUnit
 -- SemPhase'.
 
@@ -71,6 +71,10 @@ data SemanticError = UndeclaredName
                    | UnexpectedReturn
                      { semanticErrorPosition :: !SourcePos
                      }
+                   | AssignRValue 
+                     { semanticErrorPosition :: !SourcePos
+                     , leftType              :: !CType
+                     }
 
 instance C4Error SemanticError where
   getErrorPosition                            = semanticErrorPosition
@@ -79,6 +83,7 @@ instance C4Error SemanticError where
   getErrorComponent (TypeMismatch _ l r)      = "type mismatch: expected type: " <> show l <> "; actual type: " <> show r
   getErrorComponent (NoPointer _)             = "expects a pointer"
   getErrorComponent (UnexpectedReturn _)      = "unexpected return"
+  getErrorComponent (AssignRValue _ _)        = "assignment to rvalue"
 
 -- | runs an analysis in a copy of the current scope without modifying the
 -- original scope, but retains the errors.
@@ -250,19 +255,21 @@ statement (ExpressionStmt p (Just e)) = do
 
 expression :: (Monad m) => Expr SynPhase -> Analysis m (Expr SemPhase)
 expression (Constant p x) = do
-  return (Constant (p, CInt) x)
+  return (Constant (p, CInt, RValue) x)
 
 expression (Assign p l r) = do
   l' <- expression l
   r' <- expression r
   t <- matchTypes p (getType l') (getType r')
-  return (Assign (p, t) l' r')
-
+  case (getLValuedness l') of
+    LValue -> return (Assign (p, t, RValue) l' r')
+    RValue -> throwC4 $ AssignRValue p (getType l')
+    
 expression (ExprIdent p n) = do
   mt <- lookupType n
   case mt of
     Nothing  -> throwC4 $ UndeclaredName p n
-    (Just t) -> return $ ExprIdent (p, t) n
+    (Just t) -> return $ ExprIdent (p, t, LValue) n --TODO: check LValue
 
 expression (Ternary p e1 e2 e3) = do
   e1' <- expression e1
@@ -270,7 +277,7 @@ expression (Ternary p e1 e2 e3) = do
   e3' <- expression e3
   t <- matchTypes p (getType e1') CInt -- TODO: No bool type?
   _ <- matchTypes p (getType e2') (getType e3')
-  return (Ternary (p, t) e1' e2' e3')
+  return (Ternary (p, t, RValue) e1' e2' e3')
 
 expression (List es) = do
   children <- forM es expression
@@ -283,12 +290,12 @@ expression (BExpr p bop e1 e2) = do
       then do
         _ <- matchTypes p (getType e1') CInt
         _ <- matchTypes p (getType e2') CInt
-        return $ BExpr (p, CInt) bop e1' e2'
+        return $ BExpr (p, CInt, RValue) bop e1' e2'
       else if bop `elem` [NotEqual, EqualsEquals]
            then do
               _ <- matchTypes p (getType e1') (getType e2')
-              return $ BExpr (p, CInt) bop e1' e2' -- should be Bool
-      else return $ BExpr (p, Bottom) bop e1' e2' -- should not happen
+              return $ BExpr (p, CInt, RValue) bop e1' e2' -- should be Bool
+      else return $ BExpr (p, Bottom, RValue) bop e1' e2' -- should not happen
 
 expression (UExpr p op e) = do
   e' <- expression e
@@ -301,42 +308,43 @@ expression (UExpr p op e) = do
              _            -> throwC4 $ NoPointer p
            SizeOf -> return CInt -- TODO is that correct?
            Address -> return $ Pointer t'
-  return $ UExpr (p, t'') op e'
+  return $ UExpr (p, t'', RValue) op e'
 
 expression (SizeOfType p t)       = do
   t' <- typeA t
-  return (SizeOfType (p, fromType t) t')
+  return (SizeOfType (p, fromType t, RValue) t')
+  
 expression (Func p l r)           = do
   l' <- expression l
   r' <- expression r
   case getType l' of
     Function t tp -> do
       _ <- matchTypes p (Tuple tp) (getType r')
-      return $ Func (p, t) l' r'
+      return $ Func (p, t, RValue) l' r'
     _ -> do
       throwC4 $ TypeMismatch p (Function Bottom [getType r']) (getType l')
 
 expression (PointerAccess p l r ) = do
   l' <- expression l
   r' <- expression r
-  return $ PointerAccess (p, Bottom) l' r'
-
+  return $ PointerAccess (p, Bottom, (getLValuedness l')) l' r'
+  
 expression (ArrayAccess p l r)         = do
   l' <- expression l
   r' <- expression r
   case getType l' of
     Pointer t -> do
       matchTypes_ p CInt (getType r')
-      return (ArrayAccess (p, t) l' r')
+      return (ArrayAccess (p, t, (getLValuedness l')) l' r')
     _ -> do
       throwC4 $ TypeMismatch p (Pointer Bottom) (getType l')
 
 expression (FieldAccess p l r)   = do
   l' <- expression l
   r' <- expression r
-  return (FieldAccess (p, Bottom) l' r') -- TODO: type check field access
+  return (FieldAccess (p, Bottom, LValue) l' r') -- TODO: type check field access
 
-expression (StringLiteral p b)   = return $ StringLiteral (p, Pointer CChar) b
+expression (StringLiteral p b)   = return $ StringLiteral (p, Pointer CChar, RValue) b
 
 --------------------------------------------------------------------------------
 -- little helpers

@@ -23,18 +23,18 @@ type instance AnnTranslationUnit  SemPhase   =  Scope
 type instance AnnFunctionDefinition SemPhase =  SourcePos
 
 -- expressions
-type instance AnnTernary SemPhase            = (SourcePos, CType)
-type instance AnnAssign SemPhase             = (SourcePos, CType)
-type instance AnnArrayAccess SemPhase        = (SourcePos, CType)
-type instance AnnBExpr SemPhase              = (SourcePos, CType)
-type instance AnnUExpr SemPhase              = (SourcePos, CType)
-type instance AnnFunc SemPhase               = (SourcePos, CType)
-type instance AnnSizeOfType SemPhase         = (SourcePos, CType)
-type instance AnnExprIdent SemPhase          = (SourcePos, CType)
-type instance AnnConstant SemPhase           = (SourcePos, CType)
-type instance AnnFieldAccess SemPhase        = (SourcePos, CType)
-type instance AnnPointerAccess SemPhase      = (SourcePos, CType)
-type instance AnnStringLiteral SemPhase      = (SourcePos, CType)
+type instance AnnTernary SemPhase            = (SourcePos, CType, LValuedness)
+type instance AnnAssign SemPhase             = (SourcePos, CType, LValuedness)
+type instance AnnArrayAccess SemPhase        = (SourcePos, CType, LValuedness)
+type instance AnnBExpr SemPhase              = (SourcePos, CType, LValuedness)
+type instance AnnUExpr SemPhase              = (SourcePos, CType, LValuedness)
+type instance AnnFunc SemPhase               = (SourcePos, CType, LValuedness)
+type instance AnnSizeOfType SemPhase         = (SourcePos, CType, LValuedness)
+type instance AnnExprIdent SemPhase          = (SourcePos, CType, LValuedness)
+type instance AnnConstant SemPhase           = (SourcePos, CType, LValuedness)
+type instance AnnFieldAccess SemPhase        = (SourcePos, CType, LValuedness)
+type instance AnnPointerAccess SemPhase      = (SourcePos, CType, LValuedness)
+type instance AnnStringLiteral SemPhase      = (SourcePos, CType, LValuedness)
 
 -- declarations
 type instance AnnDeclaration SemPhase        = SourcePos
@@ -66,6 +66,8 @@ data DeclaratorSemAnn = DeclaratorSemAnn
   , _name     :: Ident
   }
 
+data LValuedness = LValue | RValue
+
 -- this is getting insanely tedious!
 class HasType x where
   getType :: x -> CType
@@ -73,22 +75,25 @@ class HasType x where
 class HasName x where
   getName :: x -> Ident
 
+class HasLValuedness x where
+  getLValuedness :: x -> LValuedness
+
 
 -- how to get the type of an expression?
 instance HasType (Expr SemPhase) where
-  getType (BExpr (_,t) _ _ _)       = t
-  getType (Assign (_,t)  _ _)       = t
+  getType (BExpr (_,t,_) _ _ _)       = t
+  getType (Assign (_,t,_)  _ _)       = t
   getType (List es)                 = Tuple $ map getType es
-  getType (Ternary (_,t) _ _ _)     = t
-  getType (UExpr (_,t) _ _)         = t
-  getType (Func (_,t) _ _ )         = t
-  getType (Constant (_,t) _ )       = t
-  getType (ArrayAccess (_,t) _ _ )  = t
-  getType (SizeOfType (_,t) _ )     = t
-  getType (ExprIdent (_,t) _ )      = t
-  getType (PointerAccess (_,t) _ _) = t
-  getType (FieldAccess (_,t) _ _)   = t
-  getType (StringLiteral (_,t) _)   = t
+  getType (Ternary (_,t,_) _ _ _)     = t
+  getType (UExpr (_,t,_) _ _)         = t
+  getType (Func (_,t,_) _ _ )         = t
+  getType (Constant (_,t,_) _ )       = t
+  getType (ArrayAccess (_,t,_) _ _ )  = t
+  getType (SizeOfType (_,t,_) _ )     = t
+  getType (ExprIdent (_,t,_) _ )      = t
+  getType (PointerAccess (_,t,_) _ _) = t
+  getType (FieldAccess (_,t,_) _ _)   = t
+  getType (StringLiteral (_,t,_) _)   = t
 
 
 instance HasType (Parameter SemPhase) where
@@ -104,7 +109,21 @@ instance HasType (AbstractDeclarator SemPhase) where -- TODO
 instance HasName (Declarator SemPhase) where
   getName = _name . getDeclaratorSemAnn
 
-
+instance HasLValuedness (Expr SemPhase) where -- TODO
+  getLValuedness (BExpr (_,_,l) _ _ _)       = l
+  getLValuedness (Assign (_,_,l)  _ _)       = l
+  getLValuedness (List es)                 = undefined
+  getLValuedness (Ternary (_,_,l) _ _ _)     = l
+  getLValuedness (UExpr (_,_,l) _ _)         = l
+  getLValuedness (Func (_,_,l) _ _ )         = l
+  getLValuedness (Constant (_,_,l) _ )       = l
+  getLValuedness (ArrayAccess (_,_,l) _ _ )  = l
+  getLValuedness (SizeOfType (_,_,l) _ )     = l
+  getLValuedness (ExprIdent (_,_,l) _ )      = l
+  getLValuedness (PointerAccess (_,_,l) _ _) = l
+  getLValuedness (FieldAccess (_,_,l) _ _)   = l
+  getLValuedness (StringLiteral (_,_,l) _)   = l
+  
 class GetDeclaratorSemAnn x where
   getDeclaratorSemAnn :: x -> DeclaratorSemAnn
 
@@ -118,7 +137,7 @@ instance GetDeclaratorSemAnn (Declarator SemPhase) where
   getDeclaratorSemAnn (FunctionDeclarator a _ _) = a
 
 
---------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
 --  some data types needed for semantic ASTs
 --------------------------------------------------------------------------------
 -- some data types
