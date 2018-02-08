@@ -2,11 +2,12 @@
 
 module Main where
 
-import qualified Data.ByteString as BS
-import           Data.Monoid          ((<>))
+import qualified Data.ByteString    as BS
+import           Data.Monoid        ((<>))
+import qualified Data.Text.Lazy.IO  as T
 import           System.Environment
-import           System.Exit          (exitFailure)
-import           System.IO            (hPutStr, stderr, stdout)
+import           System.Exit        (exitFailure)
+import           System.IO          (hPutStr, stderr, stdout)
 
 import           Language.C4
 
@@ -18,6 +19,8 @@ main = do
         ["--parse", fn]     -> cmdParse fn
         ["--print-ast", fn] -> cmdPrint fn
         ["--tokenize", fn]  -> cmdTokenize fn
+        ["--compile", fn]   -> cmdCompile fn
+        [fn]                -> cmdCompile fn
         _                   -> showHelp
 
 cmdPrint :: FilePath -> IO ()
@@ -38,6 +41,12 @@ cmdTokenize fn = do
   s <- BS.readFile fn
   cmd <- tokenize fn s
   runC4IO cmd
+
+cmdCompile :: FilePath -> IO ()
+cmdCompile fn = do
+  s <- BS.readFile fn
+  m <- runC4IO $ parse fn s >>= analyse >>= compile
+  T.putStrLn $ ppllvm m
 
 showHelp :: IO ()
 showHelp = putStrLn "Available options: --tokenize --parse --print-ast  and --help"

@@ -126,7 +126,7 @@ data Expr x = List [Expr x] -- ^ should never be empty
           | SizeOfType (AnnSizeOfType x) (Type x)
           | ArrayAccess (AnnArrayAccess x) (Expr x) (Expr x)
           | Func (AnnFunc x) (Expr x) (Expr x)
-          | ExprIdent (AnnExprIdent x) ByteString
+          | ExprIdent (AnnExprIdent x) Ident
           | Constant (AnnConstant x) ByteString
           | FieldAccess (AnnFieldAccess x) (Expr x) (Expr x)
           | PointerAccess (AnnPointerAccess x) (Expr x) (Expr x)

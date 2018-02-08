@@ -47,8 +47,10 @@ executable c4
                      , c4
                      , megaparsec >= 6.2.0
                      , bytestring
+                     , text
                      , pretty-simple
                      , transformers
+                     , llvm-hs-pretty
   default-language:    Haskell2010
 
 test-suite c4-test

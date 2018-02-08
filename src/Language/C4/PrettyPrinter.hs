@@ -12,6 +12,7 @@ import qualified Data.ByteString         as BS
 import           Data.ByteString.Builder
 import qualified Data.ByteString.Char8   as C8
 import           Data.ByteString.Lazy    (toStrict)
+import           Data.ByteString.Short   (fromShort)
 import           Data.Monoid             ((<>))
 import           Data.String             hiding (unlines)
 import           System.IO               (Handle, stdout)
@@ -191,16 +192,16 @@ instance PrettyPrint (Type x) where
   prettyPrint Int = "int"
   prettyPrint Char = "char"
   prettyPrint Void = "void"
-  prettyPrint (StructIdentifier i)  = "struct " <> print i
+  prettyPrint (StructIdentifier i)  = "struct " <> print (fromShort i)
   prettyPrint (StructInline mi decls)  = do
     print "struct"
-    maybe "" (\x -> space >> print x) mi
+    maybe "" (\x -> space >> print x) (fromShort <$> mi)
     newline
     bracesNN $ unlines $ map prettyPrint decls
 
 instance PrettyPrint (Declarator x) where
   prettyPrint (IndirectDeclarator _ dir) = parens $ (print "*") >> prettyPrint dir
-  prettyPrint (DeclaratorId _ i) =  print i
+  prettyPrint (DeclaratorId _ i) =  print (fromShort i)
   prettyPrint (FunctionDeclarator _ d ps) =  parens $ prettyPrint d >> parens (commaSep $ map prettyPrint ps)
 
 
@@ -241,7 +242,7 @@ smartBraces stmt =
         withBraces = space >> prettyPrint stmt
 
 instance PrettyPrint (Stmt x) where
-  prettyPrint (LabeledStmt _ lbl stmt)    = noNest (print lbl >> print ":") >> newline >>  prettyPrint stmt
+  prettyPrint (LabeledStmt _ lbl stmt)    = noNest (print (fromShort lbl) >> print ":") >> newline >>  prettyPrint stmt
   prettyPrint (CompoundStmt _ stmts)      = braces $ mapM_ prettyPrint stmts
   prettyPrint (ExpressionStmt _ Nothing)  = eos
   prettyPrint (ExpressionStmt _ (Just e)) = prettyPrint e >> eos
@@ -270,7 +271,7 @@ instance PrettyPrint (Stmt x) where
     smartBraces stmt
     newline
 
-  prettyPrint (Goto _ i) = print "goto " <> print i <> ";"
+  prettyPrint (Goto _ i) = print "goto " <> print (fromShort i) <> ";"
   prettyPrint (Return _ me) = do
     print "return"
     whenM me $ \e -> do
@@ -305,7 +306,7 @@ instance PrettyPrint (Initializer x) where
 instance PrettyPrint (Expr x) where
   prettyPrint (BExpr _ op e1 e2)    = parens $ mconcat [prettyPrint e1, prettyPrint op, prettyPrint e2]
   prettyPrint (UExpr _ op e)        = parens $ prettyPrint op >> prettyPrint e
-  prettyPrint (ExprIdent _ i)       = print i
+  prettyPrint (ExprIdent _ i)       = print (fromShort i)
   prettyPrint (Ternary _ e1 e2 e3)  = parens $ prettyPrint e1 <> " ? " <> prettyPrint e2 <> " : " <> prettyPrint e3
   prettyPrint (SizeOfType _ t)      = parens $ print "sizeof" >> parens (prettyPrint t)
   prettyPrint (Assign _ l r)        = prettyPrint l >> print " = " >> prettyPrint r

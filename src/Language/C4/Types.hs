@@ -14,8 +14,10 @@ import           Control.Monad.Error.Class
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Except
 import qualified Data.ByteString.Char8      as C8
+import Data.ByteString.Short (ShortByteString)
 import           Data.Functor.Identity
 
+import Control.Monad.Fix
 import           Data.ByteString            (ByteString)
 import           Data.List                  (intercalate)
 import           Data.List.NonEmpty         (head)
@@ -28,7 +30,7 @@ import           Text.Megaparsec.Pos        (SourcePos)
 -- | This will be the main monad in which the big pieces run. (It allows to throw compiler errors via @throwC4)
 -- If necessary it will also allow to read configuration and runtime parameters.
 newtype C4T m a = C4T {unC4 :: ExceptT (SourcePos, String) m a }
-  deriving (Functor, Applicative, Monad, MonadTrans, MonadError (SourcePos, String))
+  deriving (Functor, Applicative, Monad, MonadFix, MonadTrans, MonadError (SourcePos, String))
 
 runC4T :: C4T m a -> m (Either (SourcePos, String) a)
 runC4T = runExceptT . unC4
@@ -64,7 +66,7 @@ instance C4Error Language.C4.Types.ParseError where
 
 type Parser m a = ParsecT ErrorMsg ByteString m a
 
-type Ident = ByteString
+type Ident = ShortByteString
 
 prettyPrintPos :: SourcePos -> ByteString
 prettyPrintPos s = C8.pack $ intercalate ":" [sourceName s
