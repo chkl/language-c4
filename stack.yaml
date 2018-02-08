@@ -1,10 +1,11 @@
-#resolver: lts-9.10
-resolver: lts-10.4
+resolver: lts-9.10
+#resolver: lts-10.4
 packages:
 - .
 extra-deps:
-- llvm-hs-pure-5.0.0
-- llvm-hs-5.0.0
+- llvm-hs-pure-5.1.2
+- llvm-hs-5.1.2
+- llvm-hs-pretty-0.2.0.0
 - megaparsec-6.2.0
 - QuickCheck-2.10.1
 flags:

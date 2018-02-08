@@ -20,6 +20,7 @@ library
                      , Language.C4.PrettyPrinter
                      , Language.C4.Types
                      , Language.C4.Analysis
+                     , Language.C4.Codegen
                      , Language.C4.Ast
                      , Language.C4.Ast.SynAst
                      , Language.C4.Ast.SemAst
@@ -28,8 +29,10 @@ library
                      , transformers
                      , bytestring >= 0.10
                      , bytestring-conversion >= 0.3.1
-                     , llvm-hs >= 5.0
-                     , llvm-hs-pure >= 5.0
+                     , text >= 1.2
+                     , llvm-hs >= 5.1.2
+                     , llvm-hs-pure >= 5.1.2
+                     , llvm-hs-pretty
                      , megaparsec >= 6.2.0
                      , QuickCheck >= 2.10.1
                      , containers >= 0.5
