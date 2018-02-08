@@ -4,6 +4,7 @@
 {-# LANGUAGE RecursiveDo           #-}
 {-# LANGUAGE TypeFamilies          #-}
 
+
 module Language.C4.Codegen
   ( compile
   , ppllvm
@@ -12,11 +13,13 @@ module Language.C4.Codegen
 -- import qualified LLVM.AST.Attribute         as A
 -- import qualified LLVM.AST.CallingConvention as CC
 -- import qualified LLVM.AST.Linkage           as L
+import           Prelude                    hiding (and, or, EQ)
 import           Data.ByteString
 import           Data.Text.Lazy.IO          as T
 import           Language.C4.Ast.SemAst     as SemAst
 import           LLVM.AST                   hiding (function)
 import           LLVM.AST.Type
+import           LLVM.AST.IntegerPredicate  as Pred
 import           LLVM.IRBuilder.Constant
 import           LLVM.IRBuilder.Instruction
 import           LLVM.IRBuilder.Module
@@ -88,10 +91,41 @@ statement (WhileStmt _ c s) = mdo
 
 expression :: Expr SemPhase -> _
 --expression (ExprIdent _ i) = Name i
-expression (BExpr _ Plus e1 e2) = do
+expression (BExpr _ op e1 e2) = do
   l <- expression e1
   r <- expression e2
-  add l r
+  case op of
+    Plus -> add l r
+    Minus -> sub l r
+    Mult -> mul l r
+    LessThan -> icmp Pred.SLT l r
+    EqualsEquals -> icmp Pred.EQ l r
+    NotEqual -> icmp Pred.NE l r
+    LAnd -> and l r 
+    LOr -> or l r
+expression (List _) = do undefined
+expression (Ternary _ _ _ _) = do undefined
+expression (Assign _ _ _) = do undefined
+expression (SizeOfType _ _) = do undefined
+expression (ArrayAccess _ _ _) = do undefined
+expression (UExpr _ op e) = do
+  e' <- expression e
+  case op of
+    SizeOf -> int32 4
+    Address -> undefined
+    Deref -> undefined
+    Neg -> do
+      x <- int32 0
+      sub x e'
+    Not -> undefined
+expression (Func _ _ _) = do undefined
+expression (ExprIdent _ _) = do undefined
+expression (FieldAccess _ _ _) = do undefined
+expression (PointerAccess _ _ _) = do undefined
+expression (StringLiteral _ _) = do undefined
+
+    
+  
 expression (Constant _ b) = int32 42  -- TODO
 
 
