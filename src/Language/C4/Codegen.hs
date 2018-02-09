@@ -1,20 +1,22 @@
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE PartialTypeSignatures #-}
-{-# LANGUAGE RecursiveDo           #-}
-{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE PartialTypeSignatures      #-}
+{-# LANGUAGE RecursiveDo                #-}
+{-# LANGUAGE TypeFamilies               #-}
 
 module Language.C4.Codegen
   ( compile
   , ppllvm
   ) where
 
--- import qualified LLVM.AST.Attribute         as A
--- import qualified LLVM.AST.CallingConvention as CC
--- import qualified LLVM.AST.Linkage           as L
-import           Data.ByteString
-import           Data.Text.Lazy.IO          as T
-import           Language.C4.Ast.SemAst     as SemAst
+import           Control.Monad.Error.Class
+import           Control.Monad.State
+import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Except
+import qualified Data.Map                   as Map
+
+
 import           LLVM.AST                   hiding (function)
 import           LLVM.AST.Type
 import           LLVM.IRBuilder.Constant
@@ -23,11 +25,25 @@ import           LLVM.IRBuilder.Module
 import           LLVM.IRBuilder.Monad
 import           LLVM.Pretty                (ppllvm)
 
-import           Language.C4.Ast.SemAst
+import           Language.C4.Ast.SemAst     as SemAst
 import           Language.C4.Types
 
 -- | We use the builder monads provided by llvm-hs in combination to our C4 Monad so we can still throw errors and have access to a future log / configuration.
-type Codegen a = ModuleBuilderT C4 a
+
+data CGState = CGState { _labels :: Map.Map Ident BasicBlock }
+
+
+emptyCGState :: CGState
+emptyCGState = CGState Map.empty
+
+newtype CGModule a = CGModule { unCGModule :: ModuleBuilderT (StateT CGState C4) a }
+  deriving (Functor, Applicative, Monad, MonadFix, MonadError (SourcePos, String), MonadModuleBuilder)
+
+
+runCGModule :: CGModule a -> C4 Module
+runCGModule m = fst <$> runStateT (buildModuleT "blah" $ unCGModule m) emptyCGState
+
+type CGBlock  = IRBuilderT CGModule
 
 data CodegenError = FeatureNotImplemented { codegenErrorPosition :: ! SourcePos, featureName :: String }
 
@@ -36,25 +52,27 @@ instance C4Error CodegenError where
   getErrorComponent err = "feature not implemented: " ++ featureName err
 
 compile :: TranslationUnit SemPhase -> C4 LLVM.AST.Module
-compile (TranslationUnit _ es) = buildModuleT "THE_MODULE" $
-  mapM_ (either declaration functionDefinition) es
+compile (TranslationUnit _ es) = runCGModule $
+  mapM_ (either externalDeclaration functionDefinition) es
 
 
 
---declaration :: Declaration SemPhase -> Codegen Operand
-declaration (Declaration p t ids) = throwC4 (FeatureNotImplemented p "declarations")
+externalDeclaration :: Declaration SemPhase -> CGModule ()
+externalDeclaration (Declaration p t ids) = throwC4 (FeatureNotImplemented p "declarations")
 
-functionDefinition :: FunctionDefinition SemPhase -> Codegen Operand
+functionDefinition :: FunctionDefinition SemPhase -> CGModule ()
 functionDefinition (FunctionDefinition p t d stmt) =
   let funName = Name (getName d)
       (SemAst.Function b a)= getType d
       paramTypes = [(i32, "a"), (i32, "b")]
-  in
-    function funName paramTypes (toLLVMType b) $ \params -> do
---      entry <- block `named` "entry"
-      statement stmt
+  in do
+      _ <- function funName paramTypes (toLLVMType b) $ \params -> statement stmt
+      return ()
 
-statement :: Stmt SemPhase -> _
+declaration :: Declaration SemPhase -> CGBlock ()
+declaration = undefined
+
+statement :: Stmt SemPhase -> CGBlock ()
 statement (Return _ Nothing) = retVoid
 statement (Return _ (Just e)) = do
   e' <- expression e
@@ -94,9 +112,6 @@ expression (BExpr _ Plus e1 e2) = do
   add l r
 expression (Constant _ b) = int32 42  -- TODO
 
-
-translateUnit :: TranslationUnit SemPhase -> ModuleBuilder ()
-translateUnit = undefined
 
 --------------------------------------------------------------------------------
 --  some constants we might need
