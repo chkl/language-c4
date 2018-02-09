@@ -29,14 +29,14 @@ import           Language.C4.Types
 
 -- | We use the builder monads provided by llvm-hs in combination to our C4 Monad so we can still throw errors and have access to a future log / configuration.
 
-data CGState = CGState { _labels :: Map.Map Ident BasicBlock }
+newtype CGState = CGState { _labels :: Map.Map Ident Name}
 
 
 emptyCGState :: CGState
 emptyCGState = CGState Map.empty
 
 newtype CGModule a = CGModule { unCGModule :: ModuleBuilderT (StateT CGState C4) a }
-  deriving (Functor, Applicative, Monad, MonadFix, MonadError (SourcePos, String), MonadModuleBuilder)
+  deriving (Functor, Applicative, Monad, MonadFix, MonadError (SourcePos, String), MonadModuleBuilder, MonadState CGState)
 
 
 runCGModule :: CGModule a -> C4 Module
@@ -44,11 +44,15 @@ runCGModule m = fst <$> runStateT (buildModuleT "blah" $ unCGModule m) emptyCGSt
 
 type CGBlock  = IRBuilderT CGModule
 
-data CodegenError = FeatureNotImplemented { codegenErrorPosition :: ! SourcePos, featureName :: String }
+data CodegenError = FeatureNotImplemented { codegenErrorPosition :: ! SourcePos
+                                          , featureName          :: String }
+                  | UnknownLabel { codegenErrorPosition :: !SourcePos
+                                 , labelName            :: String }
 
 instance C4Error CodegenError where
   getErrorPosition = codegenErrorPosition
-  getErrorComponent err = "feature not implemented: " ++ featureName err
+  getErrorComponent (FeatureNotImplemented _ fn ) = "feature not implemented: " ++ fn
+  getErrorComponent (UnknownLabel _ l) = "label unknown : " ++ l ++ " (this should have been detected during semantic analysis (TODO!))"
 
 compile :: TranslationUnit SemPhase -> C4 LLVM.AST.Module
 compile (TranslationUnit _ es) = runCGModule $
@@ -102,8 +106,31 @@ statement (WhileStmt _ c s) = mdo
   tl <- block `named` "end"
   return ()
 
+statement (LabeledStmt _ l s) = mdo
+  b <- block `named` l
+  addLabel l b
+  statement s
 
-expression :: Expr SemPhase -> _
+statement (Goto p l) = mdo
+  n <- lookupLabel p l
+  br n
+
+addLabel :: Ident -> Name -> CGBlock ()
+addLabel l b = do
+  s <- get
+  let s' = s {_labels = Map.insert l b (_labels s)} -- TODO: Use lenses?
+  put s'
+
+
+lookupLabel :: SourcePos -> Ident -> CGBlock Name
+lookupLabel p l = do
+  st <- get
+  case Map.lookup l (_labels st) of
+    Nothing -> throwC4 $ UnknownLabel p (show l)
+    Just n  -> return n
+
+
+expression :: Expr SemPhase -> CGBlock Operand
 --expression (ExprIdent _ i) = Name i
 expression (BExpr _ op e1 e2) = do
   l <- expression e1
