@@ -144,11 +144,12 @@ expression (BExpr _ op e1 e2) = do
     NotEqual     -> icmp Pred.NE l r
     LAnd         -> and l r
     LOr          -> or l r
-expression (List _) = do undefined
-expression (Ternary _ _ _ _) = do undefined
-expression (Assign _ _ _) = do undefined
-expression (SizeOfType _ _) = do undefined
-expression (ArrayAccess _ _ _) = do undefined
+    AssignOp     -> undefined
+expression (List l) = do undefined
+expression (Ternary _ i t e) = do undefined
+expression (Assign _ l r) = do undefined
+expression (SizeOfType _ t) = do undefined
+expression (ArrayAccess _ a i) = do undefined
 expression (UExpr _ op e) = do
   e' <- expression e
   case op of
