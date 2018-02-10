@@ -160,14 +160,11 @@ expression (UExpr _ op e) = do
       x <- int32 0
       sub x e'
     Not -> undefined
-expression (Func _ _ _) = do undefined
-expression (ExprIdent _ _) = do undefined
-expression (FieldAccess _ _ _) = do undefined
-expression (PointerAccess _ _ _) = do undefined
-expression (StringLiteral _ _) = do undefined
-
-
-
+expression (Func _ f p) = do undefined
+expression (ExprIdent _ i) = do undefined
+expression (FieldAccess _ f i) = do undefined
+expression (PointerAccess _ p i) = do undefined
+expression (StringLiteral _ s) = do undefined
 expression (Constant _ b) = int32 42  -- TODO
 
 
