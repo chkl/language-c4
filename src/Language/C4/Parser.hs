@@ -151,8 +151,8 @@ expression = listElim <$> (List <$> L.commaSep1 assignmentExpr)
         listElim exprs      = exprs
 
 assignmentExpr :: Parser m (Expr SynPhase)
-assignmentExpr = conditionalExpression <|>
-  Assign <$> getPosition <*> unaryExpr <* L.punctuator "=" <*> assignmentExpr
+assignmentExpr = conditionalExpression -- <|>
+--  Assign <$> getPosition <*> unaryExpr <* L.punctuator "=" <*> assignmentExpr
 
 -- | writing this monadically is better than using alternatives as this avoid
 -- very long backtracking for ternary operators.
@@ -260,7 +260,7 @@ initDeclarator = do
 
 initializer :: Parser m (Initializer SynPhase)
 initializer = InitializerList <$> initList <|>
-              InitializerAssignment <$> assignmentExpr
+              (InitializerAssignment <$> assignmentExpr)
   where
     initList = L.braces (L.commaSep initializer <* optional L.comma)
 
