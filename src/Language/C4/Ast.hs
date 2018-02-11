@@ -97,7 +97,7 @@ data Parameter x =  Parameter (AnnParameter x) (Type x) (Declarator x)
 
 data Stmt x = LabeledStmt (AnnLabeledStmt x) Ident (Stmt x)
           | CompoundStmt (AnnCompoundStmt x) [Either (Declaration x) (Stmt x)]
-          | ExpressionStmt (AnnExpressionStmt x) (Maybe (Expr x))
+          | ExpressionStmt (AnnExpressionStmt x) (Expr x)
           | IfStmt (AnnIfStmt x) (Expr x) (Stmt x) (Maybe (Stmt x))
           | WhileStmt (AnnWhileStmt x) (Expr x) (Stmt x)
           | Goto (AnnGoto x) Ident
@@ -241,7 +241,7 @@ pattern GotoUD :: Ident -> Stmt UD
 pattern GotoUD i <- Goto _ i
   where GotoUD i = Goto () i
 
-pattern ExpressionStmtUD :: Maybe (Expr UD) -> Stmt UD
+pattern ExpressionStmtUD :: Expr UD -> Stmt UD
 pattern ExpressionStmtUD e <- ExpressionStmt _ e
   where ExpressionStmtUD e = ExpressionStmt () e
 
@@ -302,7 +302,7 @@ instance Undecorate Stmt where
   undecorate (LabeledStmt _ l s)   = LabeledStmt () l (undecorate s)
   undecorate (CompoundStmt _ es)   = CompoundStmt () (map f es)
     where f                        = either (Left . undecorate) (Right . undecorate)
-  undecorate (ExpressionStmt _ me) = ExpressionStmt () (fmap undecorate me)
+  undecorate (ExpressionStmt _ me) = ExpressionStmt () (undecorate me)
   undecorate (IfStmt _ e s ms)     = IfStmt () (undecorate e) (undecorate s) (fmap undecorate ms)
   undecorate (WhileStmt _ e s)     = WhileStmt () (undecorate e) (undecorate s)
   undecorate (Goto _ l)            = Goto () l

@@ -243,8 +243,7 @@ smartBraces stmt =
 instance PrettyPrint (Stmt x) where
   prettyPrint (LabeledStmt _ lbl stmt)    = noNest (print lbl >> print ":") >> newline >>  prettyPrint stmt
   prettyPrint (CompoundStmt _ stmts)      = braces $ mapM_ prettyPrint stmts
-  prettyPrint (ExpressionStmt _ Nothing)  = eos
-  prettyPrint (ExpressionStmt _ (Just e)) = prettyPrint e >> eos
+  prettyPrint (ExpressionStmt _ e) = prettyPrint e >> eos
   prettyPrint (IfStmt _ e stmt Nothing)   = do
     print "if"
     space

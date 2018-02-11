@@ -90,8 +90,8 @@ postfixUnaryExpr = chainl1unary primaryExpr postElem
               (L.punctuator "["  >> flip (ArrayAccess p) <$> expression <* L.punctuator "]")
           <|> (L.punctuator "."  >> flip (FieldAccess p) <$> identifier)
           <|> (L.punctuator "->" >> flip (PointerAccess p) <$> identifier)
-          <|> (L.punctuator "("  >> flip (Func p) <$> expression  <* L.punctuator ")")
-          <|> (L.punctuator "("  >> L.punctuator ")" >> return (flip (Func p) (List [])))
+          <|> (L.punctuator "("  >> flip (Func p) <$> expressionList  <* L.punctuator ")")
+          -- <|> (L.punctuator "("  >> L.punctuator ")" >> return (flip (Func p) (List [])))
 
 
 uOp :: Parser m UOp
@@ -146,13 +146,15 @@ operators = groupBy eqPrec $  sortBy (flip $ comparing precedence)
 -- Expr Parsers
 ------------------------------------------------------------------------------
 expression :: Parser m (Expr SynPhase)
-expression = listElim <$> (List <$> L.commaSep1 assignmentExpr)
+expression = assignmentExpr
+
+expressionList = listElim . List <$> L.commaSep expression
   where listElim (List [x]) = x
         listElim exprs      = exprs
 
 assignmentExpr :: Parser m (Expr SynPhase)
-assignmentExpr = conditionalExpression <|>
-  Assign <$> getPosition <*> unaryExpr <* L.punctuator "=" <*> assignmentExpr
+assignmentExpr = conditionalExpression -- <|>
+--  Assign <$> getPosition <*> unaryExpr <* L.punctuator "=" <*> assignmentExpr
 
 -- | writing this monadically is better than using alternatives as this avoid
 -- very long backtracking for ternary operators.
@@ -183,7 +185,7 @@ statement =  getPosition >>= \p -> (L.keyword "break" >> return (Break p) <* sem
                                <|> (L.keyword "while" >> (WhileStmt p <$> L.parens expression <*> statement))
                                <|> (L.keyword "if" >> (IfStmt p <$> L.parens expression <*> statement <*> optional elseParser))
                                <|> compoundStatement
-                               <|> try (ExpressionStmt <$> getPosition <*> optional expression <* sem)
+                               <|> try (ExpressionStmt <$> getPosition <*> expressionList <* sem)
                                <|> (LabeledStmt p <$> L.identifier <* L.punctuator ":" <*> statement)
   where
     sem = L.punctuator ";"
@@ -260,7 +262,7 @@ initDeclarator = do
 
 initializer :: Parser m (Initializer SynPhase)
 initializer = InitializerList <$> initList <|>
-              InitializerAssignment <$> assignmentExpr
+              (InitializerAssignment <$> assignmentExpr)
   where
     initList = L.braces (L.commaSep initializer <* optional L.comma)
 

@@ -60,6 +60,11 @@ testTypeSpecifier = describe "typeSpecifier parser" $ do
     it "parses struct declarations with initializers" $
       testParser declaration "struct Point {int x; int y;} p1, p2;" `shouldSatisfy` isRight
 
+    it "parses declarations with initializers" $ do
+      testParser declaration "int x = 5;" `shouldSatisfy` isRight
+      testParser declaration "int x = f();" `shouldSatisfy` isRight
+      testParser declaration "int x = 3 + 5;" `shouldSatisfy` isRight
+
 
 testExpressions :: SpecWith ()
 testExpressions = describe "expression parser" $ do
@@ -72,8 +77,9 @@ testExpressions = describe "expression parser" $ do
       undecorate <$> testParser postfixUnaryExpr "x.y->z.foo" `shouldBe` Right (FieldAccessUD (PointerAccessUD
                                                  (FieldAccessUD (ExprIdentUD "x") (ExprIdentUD "y"))
                                                               (ExprIdentUD "z")) (ExprIdentUD "foo"))
-  it "should parse functions and arrays" $ do
+  it "should parse function calls and array accesses" $ do
       undecorate <$> testParser postfixUnaryExpr "func(x, y)" `shouldBe` Right (FuncUD (ExprIdentUD "func") (List [ExprIdentUD "x",ExprIdentUD "y"]))
+      undecorate <$> testParser postfixUnaryExpr "func()" `shouldBe` Right (FuncUD (ExprIdentUD "func") (List []))
       undecorate <$> testParser postfixUnaryExpr "myArray[5]" `shouldBe` Right (ArrayUD (ExprIdentUD "myArray") (ConstantUD "5"))
   it "should parse unary operators" $ do
       undecorate <$> testParser unaryExpr "&foo" `shouldBe` Right (UExprUD Address (ExprIdentUD "foo"))
@@ -154,7 +160,7 @@ testStatements = describe "statement parser" $ do
       undecorate <$> testParser statement "return;" `shouldBe` Right (ReturnUD Nothing)
       undecorate <$> testParser statement "return 1;" `shouldBe` Right (ReturnUD (Just $ ConstantUD "1"))
   it "parses a labelled statement" $ do
-    undecorate <$> testParser statement "start: x = 0;" `shouldBe` Right (LabeledStmtUD "start" (ExpressionStmtUD $ Just $ ExprIdentUD "x" `assign` ConstantUD "0"))
+    undecorate <$> testParser statement "start: x = 0;" `shouldBe` Right (LabeledStmtUD "start" (ExpressionStmtUD (ExprIdentUD "x" `assign` ConstantUD "0")))
 
 testTranslationUnit :: SpecWith ()
 testTranslationUnit = describe "translation unit parser" $ do

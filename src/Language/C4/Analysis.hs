@@ -245,12 +245,10 @@ statement (IfStmt pos e s1 s2)     = do
       s2'' <- statement s2'
       return $ IfStmt pos e' s1' (Just s2'')
 statement (Break p)                    = return $ Break p
-statement (ExpressionStmt p Nothing)  = do
-  return $ ExpressionStmt p Nothing
 
-statement (ExpressionStmt p (Just e)) = do
+statement (ExpressionStmt p e) = do
   e' <- expression e
-  return $ ExpressionStmt p (Just e')
+  return $ ExpressionStmt p e'
 
 
 expression :: (Monad m) => Expr SynPhase -> Analysis m (Expr SemPhase)
