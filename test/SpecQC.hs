@@ -170,9 +170,8 @@ genCToken = do
 genCFile :: ExampleGen [CToken]
 genCFile = do
   stPairs <- resize 5 $ listOf1 genCToken
-  let f (accS, accT) (s, t) = (accS `BS.append` s, accT ++ [t])
-  let cFile = foldl f ("", []) stPairs
-  return cFile
+  let (strs, toks) = unzip stPairs
+  return (mconcat strs, toks)
 
 newtype CFileG = CFileG (ShortByteString, [CToken])
   deriving Show

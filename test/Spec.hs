@@ -1,18 +1,19 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies      #-}
 
-import qualified Data.ByteString    as BS
+import qualified Data.ByteString       as BS
+import           Data.ByteString.Short
 import           System.Environment
-import           System.Exit        (exitSuccess)
+import           System.Exit           (exitSuccess)
 import           Test.Hspec
 import           Test.QuickCheck
 
 import           SpecQC
 
-import           Spec.Analysis      as SA
-import           Spec.Lexer         as SL
-import           Spec.Parser        as SP
-import           Spec.PrettyPrinter as PP
+import           Spec.Analysis         as SA
+import           Spec.Lexer            as SL
+import           Spec.Parser           as SP
+import           Spec.PrettyPrinter    as PP
 
 main :: IO ()
 main = do
@@ -26,7 +27,7 @@ main = do
 generateSampleFile :: IO ()
 generateSampleFile = do
   samples <- sample' genCFile
-  BS.putStr (fst $ head samples)
+  BS.putStr (fromShort.fst $ head samples)
 
 -- | run both, quickcheck and unit test based tests
 runTests :: IO ()

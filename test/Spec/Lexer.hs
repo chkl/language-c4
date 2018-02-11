@@ -9,7 +9,7 @@ import           Control.Monad         (forM_)
 import           Test.Hspec
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import           Test.QuickCheck
-
+import           Data.ByteString.Short
 
 import           Language.C4.CLangDef
 import           Language.C4.Lexer
@@ -92,7 +92,7 @@ unitTestsLexer =
 
     it "parse keywords correctly" $
       forM_ allCKeywords $ \k ->
-        runLexer_ k `shouldBe` Right [ Keyword k]
+        runLexer_ (fromShort k)  `shouldBe` Right [ Keyword k]
 
     it "lexer/char_constant_empty" $
       runLexer' "''" `shouldSatisfy` isLeft
