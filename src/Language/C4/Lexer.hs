@@ -47,7 +47,7 @@ import           Language.C4.Types
 
 data CToken = Keyword ShortByteString
             | Identifier ShortByteString
-            | DecConstant ByteString
+            | DecConstant Integer
             | CharConstant ByteString
             | StringLit ByteString
             | Punctuator ByteString
@@ -107,8 +107,8 @@ semicolSep p = p `sepBy` symbol ";"
 integer :: Parser m Integer
 integer = lexeme MBL.decimal
 
-integerConstant :: Parser m ByteString
-integerConstant = lexeme $ (C8.pack . show) <$> integer -- TODO: improve this
+integerConstant :: Parser m Integer 
+integerConstant = lexeme $ integer -- TODO: improve this
 
 
 charConstant :: Parser m ByteString
@@ -192,7 +192,7 @@ cToken_ =  do
       lift $ C8.putStr (prettyPrintPos p)
       lift $ C8.putStr ": "
       _ <-  (charConstant     >>= \s -> lift $ C8.putStrLn $ "constant '" <> s <> "'") <|>
-            (integerConstant  >>= \s -> lift $ C8.putStrLn $ "constant " <> s)  <|>
+            (integerConstant  >>= \s -> lift $ C8.putStrLn $ "constant " <> undefined )     <|>
             (anyKeyword       >>= \s -> lift $ C8.putStrLn $ "keyword " <> (fromShort s))  <|>
             (identifier       >>= \s -> lift $ C8.putStrLn $ "identifier " <> (fromShort s))  <|>
             (stringLiteral    >>= \s -> lift $ C8.putStrLn $ "string-literal \"" <> s <> "\"")  <|>

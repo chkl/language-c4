@@ -310,7 +310,8 @@ instance PrettyPrint (Expr x) where
   prettyPrint (SizeOfType _ t)      = parens $ print "sizeof" >> parens (prettyPrint t)
   prettyPrint (Assign _ l r)        = prettyPrint l >> print " = " >> prettyPrint r
   prettyPrint (Func _ f a)          = parens $ prettyPrint f >> parens (prettyPrint a)
-  prettyPrint (Constant _ c)        = print c
+  prettyPrint (IntConstant _ c)     = print undefined
+  prettyPrint (CharConstant _ c)    = print c
   prettyPrint (ArrayAccess _ a b )  = prettyPrint a >> brackets (prettyPrint b)
   prettyPrint (FieldAccess _ a b)   = parens $ prettyPrint a >> period >> prettyPrint b
   prettyPrint (PointerAccess _ a b) = parens $ prettyPrint a >> print "->" >> prettyPrint b

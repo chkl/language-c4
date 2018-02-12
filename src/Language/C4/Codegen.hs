@@ -83,8 +83,7 @@ statement (Return _ (Just e)) = do
 statement (CompoundStmt _ stmtsOrDecls) = mapM_ f stmtsOrDecls
   where f = either declaration statement
 
-statement (ExpressionStmt _ Nothing) = return ()
-statement (ExpressionStmt _ (Just e)) = do
+statement (ExpressionStmt _ e) = do
   _ <- expression e
   return ()
 

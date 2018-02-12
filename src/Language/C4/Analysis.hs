@@ -271,8 +271,11 @@ statement (ExpressionStmt p e) = do
 
 
 expression :: (Monad m) => Expr SynPhase -> Analysis m (Expr SemPhase)
-expression (Constant p x) = do
-  return (Constant (p, CInt, RValue) x)
+expression (IntConstant p x) = do
+  return (IntConstant (p, CInt, RValue) x)
+  
+expression (CharConstant p x) = do
+  return (CharConstant (p, CInt, RValue) x)
 
 expression (Assign p l r) = do
   l' <- expression l
