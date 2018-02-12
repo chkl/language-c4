@@ -46,7 +46,7 @@ type instance AnnDeclaratorId SemPhase       = DeclaratorSemAnn
 type instance AnnFunctionDeclarator SemPhase = DeclaratorSemAnn
 
 -- parameters
-type instance AnnParameter SemPhase         = (SourcePos, CType)
+type instance AnnParameter SemPhase         = (SourcePos, CType, Ident)
 type instance AnnAbstractParameter SemPhase = (SourcePos, CType)
 
 -- statements
@@ -97,7 +97,7 @@ instance HasType (Expr SemPhase) where
 
 
 instance HasType (Parameter SemPhase) where
-  getType (Parameter (_,t) _ _ )         = t
+  getType (Parameter (_,t,_) _ _ )         = t
   getType (AbstractParameter (_,t) _ _ ) = t
 
 instance HasType (Declarator SemPhase) where
@@ -105,6 +105,7 @@ instance HasType (Declarator SemPhase) where
 
 instance HasType (AbstractDeclarator SemPhase) where -- TODO
 
+instance HasName (Parameter SemPhase) where -- TODO
 
 instance HasName (Declarator SemPhase) where
   getName = _name . getDeclaratorSemAnn
