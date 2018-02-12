@@ -165,7 +165,8 @@ expression (ExprIdent _ i) = do undefined
 expression (FieldAccess _ f i) = do undefined
 expression (PointerAccess _ p i) = do undefined
 expression (StringLiteral _ s) = do undefined
-expression (Constant _ b) = int32 42  -- TODO
+expression (CharConstant _ c) = int32 42  -- TODO
+expression (IntConstant _ i) = int32 i  -- TODO
 
 
 --------------------------------------------------------------------------------

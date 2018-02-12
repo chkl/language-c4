@@ -57,11 +57,13 @@ functionDefinition = FunctionDefinition <$> getPosition <*> typeSpecifier <*> de
 primaryExpr :: Parser m (Expr SynPhase)
 primaryExpr =     L.parens expression
               <|> stringLit
-              <|> constant
+              <|> intconstant
+              <|> charconstant
               <|> identifier
   where
     stringLit = StringLiteral <$> getPosition <*> L.stringLiteral
-    constant = Constant <$> getPosition <*> (L.integerConstant <|> L.charConstant)
+    intconstant = IntConstant <$> getPosition <*> L.integerConstant
+    charconstant = CharConstant <$> getPosition <*> L.charConstant
 
 --------------------------------------------------------------------------------
 -- UnaryExpr Parsers

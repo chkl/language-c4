@@ -111,7 +111,8 @@ instance HasSourcePos (Expr SynPhase) where
   sourcePos (ArrayAccess p _ _)   = p
   sourcePos (Func p _ _)          = p
   sourcePos (ExprIdent p _)       = p
-  sourcePos (Constant p _)        = p
+  sourcePos (CharConstant p _)    = p
+  sourcePos (IntConstant p _)     = p
   sourcePos (FieldAccess p _ _)   = p
   sourcePos (PointerAccess p _ _) = p
   sourcePos (StringLiteral p _)   = p

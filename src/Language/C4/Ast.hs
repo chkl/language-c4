@@ -127,7 +127,8 @@ data Expr x = List [Expr x] -- ^ should never be empty
           | ArrayAccess (AnnArrayAccess x) (Expr x) (Expr x)
           | Func (AnnFunc x) (Expr x) (Expr x)
           | ExprIdent (AnnExprIdent x) Ident
-          | Constant (AnnConstant x) ByteString
+          | CharConstant (AnnConstant x) ByteString
+          | IntConstant (AnnConstant x) Integer
           | FieldAccess (AnnFieldAccess x) (Expr x) (Expr x)
           | PointerAccess (AnnPointerAccess x) (Expr x) (Expr x)
           | StringLiteral (AnnStringLiteral x) ByteString
@@ -209,10 +210,14 @@ pattern ArrayUD :: Expr UD -> Expr UD -> Expr UD
 pattern ArrayUD e f <- ArrayAccess _ e f
   where ArrayUD e f = ArrayAccess () e f
 
-pattern ConstantUD :: ByteString -> Expr UD
-pattern ConstantUD i <- Constant _ i
-  where ConstantUD i = Constant () i
+pattern CharConstantUD :: ByteString -> Expr UD
+pattern CharConstantUD i <- CharConstant _ i
+  where CharConstantUD i = CharConstant () i
 
+pattern IntConstantUD :: Integer -> Expr UD
+pattern IntConstantUD i <- IntConstant _ i
+  where IntConstantUD i = IntConstant () i
+  
 pattern UExprUD :: UOp -> Expr UD -> Expr UD
 pattern UExprUD op e <- UExpr _ op e
   where UExprUD op e = UExpr () op e
@@ -320,7 +325,8 @@ instance Undecorate Expr where
   undecorate (ArrayAccess _ e1 e2)   = ArrayAccess () (undecorate e1)  (undecorate e2)
   undecorate (Func _ e1 e2)          = Func () (undecorate e1) (undecorate e2)
   undecorate (ExprIdent _ b)         = ExprIdent () b
-  undecorate (Constant _ b)          = Constant  () b
+  undecorate (CharConstant _ b)      = CharConstant  () b
+  undecorate (IntConstant _ b)       = IntConstant  () b
   undecorate (FieldAccess _ e1 e2)   = FieldAccess () (undecorate e1) (undecorate e2)
   undecorate (PointerAccess _ e1 e2) = PointerAccess () (undecorate e1) (undecorate e2)
   undecorate (StringLiteral _ b )    = StringLiteral () b
