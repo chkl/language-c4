@@ -1,4 +1,5 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase       #-}
 
 module Language.C4.Analysis
  ( SemanticError(..)
@@ -71,10 +72,15 @@ data SemanticError = UndeclaredName
                    | UnexpectedReturn
                      { semanticErrorPosition :: !SourcePos
                      }
-                   | AssignRValue 
+                   | AssignRValue
                      { semanticErrorPosition :: !SourcePos
                      , leftType              :: !CType
                      }
+                   | MiscSemanticError
+                     { semanticErrorPosition :: !SourcePos
+                     , message               :: !String
+                     }
+
 
 instance C4Error SemanticError where
   getErrorPosition                            = semanticErrorPosition
@@ -84,6 +90,7 @@ instance C4Error SemanticError where
   getErrorComponent (NoPointer _)             = "expects a pointer"
   getErrorComponent (UnexpectedReturn _)      = "unexpected return"
   getErrorComponent (AssignRValue _ _)        = "assignment to rvalue"
+  getErrorComponent (MiscSemanticError _ m)   = m
 
 -- | runs an analysis in a copy of the current scope without modifying the
 -- original scope, but retains the errors.
@@ -99,11 +106,13 @@ matchTypes :: (Monad m) => SourcePos -- ^ the position displayed in case of a ty
   -> CType -- ^ the expected type
   -> CType -- ^ the actual type
   -> Analysis m CType -- ^ a unified type
-matchTypes _ Bottom _ = return Bottom
-matchTypes _ _ Bottom = return Bottom
-matchTypes p (Tuple [t1]) t2 = matchTypes p t1 t2
-matchTypes p t1 (Tuple [t2]) = matchTypes p t1 t2
-matchTypes p t1 t2 = do
+matchTypes _ Bottom _           = return Bottom
+matchTypes _ _ Bottom           = return Bottom
+matchTypes p t@(Pointer _) CInt = return t -- ^ pointer arithmetic
+matchTypes p CInt t@(Pointer _) = return t -- ^
+matchTypes p (Tuple [t1]) t2    = matchTypes p t1 t2
+matchTypes p t1 (Tuple [t2])    = matchTypes p t1 t2
+matchTypes p t1 t2              = do
   when (t1 /= t2) $ throwC4 (TypeMismatch p t1 t2)
   return t1
 
@@ -121,15 +130,25 @@ translationUnit (TranslationUnit _ eds) = do
   s <- gets scope
   return $ TranslationUnit s eds'
 
+findParams :: Monad m =>  Declarator SemPhase -> Analysis m [Parameter SemPhase]
+findParams (IndirectDeclarator _ d)  = findParams d
+findParams (DeclaratorId x _ ) = throwC4 $ MiscSemanticError (_position x) "expected function declarator"
+findParams (FunctionDeclarator _ _ ps) = return ps
+
 functionDefinition :: (Monad m) => FunctionDefinition SynPhase -> Analysis m (FunctionDefinition SemPhase)
 functionDefinition (FunctionDefinition pos t d stmt)  = do
     d' <- declarator (fromType t) d
     tx <- typeA t
     declare pos (getName d') (getType d')
+    params <- findParams d'
     stmt' <- enterScope $ do
-      modify $ \s -> s { expectedReturnValue = Just (fromType t) }
+      expectReturnType (fromType t)
+      forM_ params $ \(Parameter (p,t,n) _ _) -> declare p n t
       statement stmt
     return $ FunctionDefinition pos tx d' stmt'
+
+expectReturnType :: Monad m => CType -> Analysis m ()
+expectReturnType t = modify $ \s -> s { expectedReturnValue = Just t }
 
 typeA :: (Monad m) => Type SynPhase -> Analysis m (Type SemPhase)
 typeA Void = return Void
@@ -166,7 +185,7 @@ parameter :: (Monad m) => Parameter SynPhase -> Analysis m (Parameter SemPhase)
 parameter (Parameter p t d) = do
   t' <- typeA t
   d' <- declarator (fromType t) d
-  return $ Parameter (p, getType d') t' d'
+  return $ Parameter (p, getType d', getName d') t' d'
 parameter (AbstractParameter p t d) = do
   t' <- typeA t
   d' <- maybe' (abstractDeclarator (fromType t)) d
@@ -262,7 +281,7 @@ expression (Assign p l r) = do
   case (getLValuedness l') of
     LValue -> return (Assign (p, t, RValue) l' r')
     RValue -> throwC4 $ AssignRValue p (getType l')
-    
+
 expression (ExprIdent p n) = do
   mt <- lookupType n
   case mt of
@@ -311,7 +330,7 @@ expression (UExpr p op e) = do
 expression (SizeOfType p t)       = do
   t' <- typeA t
   return (SizeOfType (p, fromType t, RValue) t')
-  
+
 expression (Func p l r)           = do
   l' <- expression l
   r' <- expression r
@@ -326,7 +345,7 @@ expression (PointerAccess p l r ) = do
   l' <- expression l
   r' <- expression r
   return $ PointerAccess (p, Bottom, (getLValuedness l')) l' r'
-  
+
 expression (ArrayAccess p l r)         = do
   l' <- expression l
   r' <- expression r
