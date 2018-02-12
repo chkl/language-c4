@@ -71,7 +71,7 @@ data SemanticError = UndeclaredName
                    | UnexpectedReturn
                      { semanticErrorPosition :: !SourcePos
                      }
-                   | AssignRValue 
+                   | AssignRValue
                      { semanticErrorPosition :: !SourcePos
                      , leftType              :: !CType
                      }
@@ -99,11 +99,13 @@ matchTypes :: (Monad m) => SourcePos -- ^ the position displayed in case of a ty
   -> CType -- ^ the expected type
   -> CType -- ^ the actual type
   -> Analysis m CType -- ^ a unified type
-matchTypes _ Bottom _ = return Bottom
-matchTypes _ _ Bottom = return Bottom
-matchTypes p (Tuple [t1]) t2 = matchTypes p t1 t2
-matchTypes p t1 (Tuple [t2]) = matchTypes p t1 t2
-matchTypes p t1 t2 = do
+matchTypes _ Bottom _           = return Bottom
+matchTypes _ _ Bottom           = return Bottom
+matchTypes p t@(Pointer _) CInt = return t -- ^ pointer arithmetic
+matchTypes p CInt t@(Pointer _) = return t -- ^ 
+matchTypes p (Tuple [t1]) t2    = matchTypes p t1 t2
+matchTypes p t1 (Tuple [t2])    = matchTypes p t1 t2
+matchTypes p t1 t2              = do
   when (t1 /= t2) $ throwC4 (TypeMismatch p t1 t2)
   return t1
 
@@ -262,7 +264,7 @@ expression (Assign p l r) = do
   case (getLValuedness l') of
     LValue -> return (Assign (p, t, RValue) l' r')
     RValue -> throwC4 $ AssignRValue p (getType l')
-    
+
 expression (ExprIdent p n) = do
   mt <- lookupType n
   case mt of
@@ -311,7 +313,7 @@ expression (UExpr p op e) = do
 expression (SizeOfType p t)       = do
   t' <- typeA t
   return (SizeOfType (p, fromType t, RValue) t')
-  
+
 expression (Func p l r)           = do
   l' <- expression l
   r' <- expression r
@@ -326,7 +328,7 @@ expression (PointerAccess p l r ) = do
   l' <- expression l
   r' <- expression r
   return $ PointerAccess (p, Bottom, (getLValuedness l')) l' r'
-  
+
 expression (ArrayAccess p l r)         = do
   l' <- expression l
   r' <- expression r
