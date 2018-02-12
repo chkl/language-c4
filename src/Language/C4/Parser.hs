@@ -145,29 +145,20 @@ operators = groupBy eqPrec $  sortBy (flip $ comparing precedence)
 --------------------------------------------------------------------------------
 -- Expr Parsers
 ------------------------------------------------------------------------------
-expression :: Parser m (Expr SynPhase)
-expression = assignmentExpr
 
 expressionList = listElim . List <$> L.commaSep expression
   where listElim (List [x]) = x
         listElim exprs      = exprs
 
-assignmentExpr :: Parser m (Expr SynPhase)
-assignmentExpr = conditionalExpression -- <|>
---  Assign <$> getPosition <*> unaryExpr <* L.punctuator "=" <*> assignmentExpr
-
--- | writing this monadically is better than using alternatives as this avoid
--- very long backtracking for ternary operators.
--- TODO: Maybe some kind of chainl/r would make this nicer too?
-conditionalExpression :: Parser m (Expr SynPhase)
-conditionalExpression = do
+expression :: Parser m (Expr SynPhase)
+expression = do
   p <- getPosition
   x <- binaryExpr
   y <- optional $ do
     L.punctuator "?"
     e1 <- expression
     L.punctuator ":"
-    e2 <- conditionalExpression
+    e2 <- expression
     return (e1,e2)
   case y of
     Nothing      -> return x
@@ -262,7 +253,7 @@ initDeclarator = do
 
 initializer :: Parser m (Initializer SynPhase)
 initializer = InitializerList <$> initList <|>
-              (InitializerAssignment <$> assignmentExpr)
+              (InitializerAssignment <$> expression)
   where
     initList = L.braces (L.commaSep initializer <* optional L.comma)
 
