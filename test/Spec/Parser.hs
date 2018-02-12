@@ -80,7 +80,7 @@ testExpressions = describe "expression parser" $ do
   it "should parse function calls and array accesses" $ do
       undecorate <$> testParser postfixUnaryExpr "func(x, y)" `shouldBe` Right (FuncUD (ExprIdentUD "func") (List [ExprIdentUD "x",ExprIdentUD "y"]))
       undecorate <$> testParser postfixUnaryExpr "func()" `shouldBe` Right (FuncUD (ExprIdentUD "func") (List []))
-      undecorate <$> testParser postfixUnaryExpr "myArray[5]" `shouldBe` Right (ArrayUD (ExprIdentUD "myArray") (ConstantUD "5"))
+      undecorate <$> testParser postfixUnaryExpr "myArray[5]" `shouldBe` Right (ArrayUD (ExprIdentUD "myArray") (IntConstantUD 5))
   it "should parse unary operators" $ do
       undecorate <$> testParser unaryExpr "&foo" `shouldBe` Right (UExprUD Address (ExprIdentUD "foo"))
       undecorate <$> testParser unaryExpr "&func(x, y, z)" `shouldBe`  Right (UExprUD Address (FuncUD (ExprIdentUD "func") (List [ExprIdentUD "x",ExprIdentUD "y",ExprIdentUD "z"])))
@@ -92,8 +92,8 @@ testExpressions = describe "expression parser" $ do
       undecorate <$> testParser unaryExpr "*x" `shouldBe` Right (UExprUD Deref (ExprIdentUD "x"))
       undecorate <$> testParser unaryExpr "!x" `shouldBe` Right (UExprUD Not (ExprIdentUD "x"))
   it "parses simple binary operators" $ do
-      undecorate <$> testParser expression "5 + 4" `shouldBe` (Right $ BExprUD Plus (ConstantUD "5") (ConstantUD "4"))
-      undecorate <$> testParser expression "5 + 2 * 4" `shouldBe` (Right $ BExprUD Plus (ConstantUD "5") (BExprUD Mult (ConstantUD "2") (ConstantUD "4")))
+      undecorate <$> testParser expression "5 + 4" `shouldBe` (Right $ BExprUD Plus (IntConstantUD 5) (IntConstantUD 4))
+      undecorate <$> testParser expression "5 + 2 * 4" `shouldBe` (Right $ BExprUD Plus (IntConstantUD 5) (BExprUD Mult (IntConstantUD 2) (IntConstantUD 4)))
       undecorate <$> testParser binaryExpr   "x + y + z" `shouldBe` (Right $ ExprIdentUD "x" `plus` ExprIdentUD "y" `plus` ExprIdentUD "z")
       undecorate <$> testParser binaryExpr "x + y * z" `shouldBe` (Right $ ExprIdentUD "x" `plus` (ExprIdentUD "y" `mult` ExprIdentUD "z"))
       undecorate <$> testParser binaryExpr "x + y" `shouldBe` (Right $ ExprIdentUD "x" `plus` ExprIdentUD "y")
@@ -107,7 +107,7 @@ testExpressions = describe "expression parser" $ do
       undecorate <$> testParser binaryExpr "x = y" `shouldBe` (Right $ ExprIdentUD "x" `assign` ExprIdentUD "y")
 
   it "parses ternary expressions" $ do
-      undecorate <$> testParser expression "5 + 4 < 3 ? 0 : 1" `shouldBe` Right (TernaryUD (BExprUD LessThan (BExprUD Plus (ConstantUD "5") (ConstantUD "4")) (ConstantUD "3")) (ConstantUD "0") (ConstantUD "1"))
+      undecorate <$> testParser expression "5 + 4 < 3 ? 0 : 1" `shouldBe` Right (TernaryUD (BExprUD LessThan (BExprUD Plus (IntConstantUD 5) (IntConstantUD 4)) (IntConstantUD 3)) (IntConstantUD 0) (IntConstantUD 1))
   it "parses unary expressions" $ do
     testParser expression "x[5]" `shouldSatisfy` isRight
 --    testParser expression "x[]" `shouldSatisfy` isRight -- TODO: Should we allow this?
@@ -158,9 +158,9 @@ testStatements = describe "statement parser" $ do
       undecorate <$> testParser statement "continue;" `shouldBe` Right ContinueUD
       undecorate <$> testParser statement "goto testlabel;" `shouldBe` Right (GotoUD "testlabel")
       undecorate <$> testParser statement "return;" `shouldBe` Right (ReturnUD Nothing)
-      undecorate <$> testParser statement "return 1;" `shouldBe` Right (ReturnUD (Just $ ConstantUD "1"))
+      undecorate <$> testParser statement "return 1;" `shouldBe` Right (ReturnUD (Just $ IntConstantUD 1))
   it "parses a labelled statement" $ do
-    undecorate <$> testParser statement "start: x = 0;" `shouldBe` Right (LabeledStmtUD "start" (ExpressionStmtUD (ExprIdentUD "x" `assign` ConstantUD "0")))
+    undecorate <$> testParser statement "start: x = 0;" `shouldBe` Right (LabeledStmtUD "start" (ExpressionStmtUD (ExprIdentUD "x" `assign` IntConstantUD 0)))
 
 testTranslationUnit :: SpecWith ()
 testTranslationUnit = describe "translation unit parser" $ do

@@ -126,11 +126,14 @@ unlines = intercalate newline
 
 -- TODO: rewrite this
 print :: BS.ByteString -> Printer ()
-print bs = state f
+print = print' . byteString
+
+print' :: Builder -> Printer ()
+print' bs = state f
   where f env = ((), env')
           where
             env' = env { builder = builder', startLine = False}
-            builder' = builder env <> ind <> byteString bs
+            builder' = builder env <> ind <> bs
             ind = if startLine env
                   then tabs (level env)
                   else mempty
@@ -200,7 +203,7 @@ instance PrettyPrint (Type x) where
     bracesNN $ unlines $ map prettyPrint decls
 
 instance PrettyPrint (Declarator x) where
-  prettyPrint (IndirectDeclarator _ dir) = parens $ (print "*") >> prettyPrint dir
+  prettyPrint (IndirectDeclarator _ dir) = parens $ print "*" >> prettyPrint dir
   prettyPrint (DeclaratorId _ i) =  print (fromShort i)
   prettyPrint (FunctionDeclarator _ d ps) =  parens $ prettyPrint d >> parens (commaSep $ map prettyPrint ps)
 
@@ -217,7 +220,7 @@ instance PrettyPrint (Parameter x) where
   prettyPrint (AbstractParameter _ t md) = prettyPrint t >> whenM md prettyPrint
 
 instance PrettyPrint (AbstractDeclarator x) where
-  prettyPrint (IndirectAbstractDeclarator dir) = parens $ (print "*") >> prettyPrint dir
+  prettyPrint (IndirectAbstractDeclarator dir) = parens $ print "*" >> prettyPrint dir
   prettyPrint _ = print "/* TODO: complicated Abstract declarators */"
 
 
@@ -310,7 +313,7 @@ instance PrettyPrint (Expr x) where
   prettyPrint (SizeOfType _ t)      = parens $ print "sizeof" >> parens (prettyPrint t)
   prettyPrint (Assign _ l r)        = prettyPrint l >> print " = " >> prettyPrint r
   prettyPrint (Func _ f a)          = parens $ prettyPrint f >> parens (prettyPrint a)
-  prettyPrint (IntConstant _ c)     = print undefined
+  prettyPrint (IntConstant _ c)     = print' (integerDec c)
   prettyPrint (CharConstant _ c)    = print c
   prettyPrint (ArrayAccess _ a b )  = prettyPrint a >> brackets (prettyPrint b)
   prettyPrint (FieldAccess _ a b)   = parens $ prettyPrint a >> period >> prettyPrint b

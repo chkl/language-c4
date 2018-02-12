@@ -107,7 +107,7 @@ semicolSep p = p `sepBy` symbol ";"
 integer :: Parser m Integer
 integer = lexeme MBL.decimal
 
-integerConstant :: Parser m Integer 
+integerConstant :: Parser m Integer
 integerConstant = lexeme $ integer -- TODO: improve this
 
 
@@ -191,12 +191,12 @@ cToken_ =  do
       p <- getPosition
       lift $ C8.putStr (prettyPrintPos p)
       lift $ C8.putStr ": "
-      _ <-  (charConstant     >>= \s -> lift $ C8.putStrLn $ "constant '" <> s <> "'") <|>
-            (integerConstant  >>= \s -> lift $ C8.putStrLn $ "constant " <> undefined )     <|>
-            (anyKeyword       >>= \s -> lift $ C8.putStrLn $ "keyword " <> (fromShort s))  <|>
-            (identifier       >>= \s -> lift $ C8.putStrLn $ "identifier " <> (fromShort s))  <|>
-            (stringLiteral    >>= \s -> lift $ C8.putStrLn $ "string-literal \"" <> s <> "\"")  <|>
-            (anyPunctuator       >>= \s -> lift $ C8.putStrLn $ "punctuator " <> s)
+      _ <-  (charConstant     >>= \s -> lift $ C8.putStr "constant '" >> C8.putStr s >> C8.putStrLn "'") <|>
+            (integerConstant  >>= \s -> lift $ C8.putStr "constant " >> print s)      <|>
+            (anyKeyword       >>= \s -> lift $ C8.putStr "keyword " >> C8.putStrLn (fromShort s))  <|>
+            (identifier       >>= \s -> lift $ C8.putStr "identifier " >> C8.putStrLn (fromShort s))  <|>
+            (stringLiteral    >>= \s -> lift $ C8.putStr "string-literal \"" >> C8.putStr s >> C8.putStrLn "\"")  <|>
+            (anyPunctuator       >>= \s -> lift $ C8.putStr "punctuator " >> C8.putStrLn s)
       return ()
 
 lexer :: Parser m [(CToken, SourcePos)]

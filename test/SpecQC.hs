@@ -11,12 +11,12 @@ module SpecQC ( prop_genCFile
               , genCFile
               ) where
 
-import           Data.ByteString.Short      (ShortByteString)
-import           Data.ByteString.Short      (fromShort, toShort)
 import           Data.ByteString            (ByteString)
 import qualified Data.ByteString            as BS
 import           Data.ByteString.Conversion (ToByteString, toByteString)
 import           Data.ByteString.Lazy       (toStrict)
+import           Data.ByteString.Short      (ShortByteString)
+import           Data.ByteString.Short      (fromShort, toShort)
 import           Data.Monoid                ((<>))
 import           Data.Word                  (Word8)
 import           Test.QuickCheck
@@ -57,13 +57,13 @@ makeName :: Gen ShortByteString
 makeName = do
   tl  <- listOf $ elements $ cNonDigit ++ cDigit
   hd  <- elements cNonDigit
-  return $ (toShort (BS.concat $ hd:tl))
+  return $ toShort (BS.concat $ hd:tl)
 
 genDecConst :: ExampleGen CToken
 genDecConst = do
   i <- (arbitrary :: Gen Integer) `suchThat` (>= 0)
-  let s = toStrict $ toByteString i
-  return ((toShort s), DecConstant s)
+  let s = toShort $ toStrict $ toByteString i
+  return (s, DecConstant i)
 
 newtype DecConstG = DecConstG (ShortByteString, CToken)
   deriving Show
