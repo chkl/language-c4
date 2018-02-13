@@ -5,7 +5,8 @@ module Main where
 import qualified Data.ByteString    as BS
 import           Data.Monoid        ((<>))
 import qualified Data.Text.Lazy.IO  as T
-import           System.Environment
+import           System.Environment 
+import           System.FilePath    (replaceExtension)
 import           System.Exit        (exitFailure)
 import           System.IO          (hPutStr, stderr, stdout)
 
@@ -46,7 +47,7 @@ cmdCompile :: FilePath -> IO ()
 cmdCompile fn = do
   s <- BS.readFile fn
   m <- runC4IO $ parse fn s >>= analyse >>= compile
-  T.putStrLn $ ppllvm m
+  writeFile (replaceExtension fn "ll") (show (ppllvm m))
 
 showHelp :: IO ()
 showHelp = putStrLn "Available options: --tokenize --parse --print-ast  and --help"
