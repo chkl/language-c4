@@ -47,7 +47,7 @@ cmdCompile :: FilePath -> IO ()
 cmdCompile fn = do
   s <- BS.readFile fn
   m <- runC4IO $ parse fn s >>= analyse >>= compile
-  writeFile (replaceExtension fn "ll") (show (ppllvm m))
+  T.writeFile (replaceExtension fn "ll") (ppllvm m)
 
 showHelp :: IO ()
 showHelp = putStrLn "Available options: --tokenize --parse --print-ast  and --help"
