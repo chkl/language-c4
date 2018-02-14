@@ -225,9 +225,19 @@ initializer (InitializerList es) = do
   es' <- mapM initializer es
   return $ InitializerList es'
 
-abstractDeclarator :: CType -> AbstractDeclarator SynPhase -> Analysis m (AbstractDeclarator SemPhase)
-abstractDeclarator = undefined -- TODO: Basically as declarator but abstract
+abstractDeclarator :: Monad m => CType -> AbstractDeclarator SynPhase -> Analysis m (AbstractDeclarator SemPhase)
+abstractDeclarator t (AbstractTerminal p) = return (AbstractTerminal (p,t))
 
+abstractDeclarator t (IndirectAbstractDeclarator p d) = do
+  d' <- abstractDeclarator (Pointer t) d
+  let t' = Pointer (getType d')
+  return (IndirectAbstractDeclarator (p, t')  d')
+
+abstractDeclarator t (AbstractFunctionDeclarator p d params) = do
+  d' <- abstractDeclarator t d
+  params' <- mapM parameter params
+  let t' = Tuple $ map getType params'
+  return $ AbstractFunctionDeclarator (p, t') d' params'
 
 statement :: (Monad m) => Stmt SynPhase -> Analysis m (Stmt SemPhase)
 statement (LabeledStmt p lbl stmt)      = do

@@ -28,6 +28,7 @@ type family AnnArrayAccess x
 type family AnnStringLiteral x
 type family AnnDeclaration x
 type family AnnIndirectDeclarator x
+type family AnnAbstractDeclarator x
 type family AnnStructDeclaration x
 type family AnnDeclaratorId x
 type family AnnFunctionDeclarator x
@@ -78,10 +79,10 @@ data Declarator x = IndirectDeclarator (AnnIndirectDeclarator x) (Declarator x)
                   | FunctionDeclarator (AnnFunctionDeclarator x) (Declarator x) [Parameter x]
 
 -- TODO: Find a way to unify declarator and abstract declarator
-data AbstractDeclarator x = AbstractTerminal -- ^ like DeclaratorId but without id
-                        | IndirectAbstractDeclarator (AbstractDeclarator x)
-                        | AbstractFunctionDeclarator (AbstractDeclarator x) [Parameter x]
-                        | ArrayStar (AbstractDeclarator x)
+data AbstractDeclarator x = AbstractTerminal (AnnAbstractDeclarator x) -- ^ like DeclaratorId but without id
+                        | IndirectAbstractDeclarator (AnnAbstractDeclarator x) (AbstractDeclarator x)
+                        | AbstractFunctionDeclarator (AnnAbstractDeclarator x) (AbstractDeclarator x) [Parameter x]
+                        | ArrayStar (AnnAbstractDeclarator x) (AbstractDeclarator x)
 
 -- | In contrast to the spec this takes only one initializer
 data InitDeclarator x = InitializedDec (Declarator x) (Maybe (Initializer x))
@@ -154,9 +155,11 @@ type instance AnnPointerAccess UD      = ()
 type instance AnnStringLiteral UD      = ()
 type instance AnnDeclaration UD        = ()
 type instance AnnIndirectDeclarator UD = ()
+type instance AnnAbstractDeclarator UD = ()
 type instance AnnStructDeclaration UD  = ()
 type instance AnnDeclaratorId UD       = ()
 type instance AnnFunctionDeclarator UD = ()
+type instance AnnAbstractDeclarator UD = ()
 type instance AnnCompoundStmt UD       = ()
 type instance AnnIfStmt UD             = ()
 type instance AnnWhileStmt UD          = ()
@@ -340,9 +343,10 @@ instance Undecorate Parameter where
   undecorate (AbstractParameter _ t d) = AbstractParameter () (undecorate t) (fmap undecorate d)
 
 instance Undecorate AbstractDeclarator where
-  undecorate (IndirectAbstractDeclarator d)   = IndirectAbstractDeclarator (undecorate d)
-  undecorate (AbstractFunctionDeclarator d p) = AbstractFunctionDeclarator (undecorate d) (map undecorate p)
-  undecorate (ArrayStar d)                    = ArrayStar (undecorate d)
+  undecorate (AbstractTerminal _)               = AbstractTerminal ()
+  undecorate (IndirectAbstractDeclarator _ d)   = IndirectAbstractDeclarator () (undecorate d)
+  undecorate (AbstractFunctionDeclarator _ d p) = AbstractFunctionDeclarator () (undecorate d) (map undecorate p)
+  undecorate (ArrayStar _ d)                    = ArrayStar () (undecorate d)
 
 instance Undecorate Type where
   undecorate Void                 = Void
