@@ -23,14 +23,14 @@ main = do
 cmdPrint :: FilePath -> IO ()
 cmdPrint fn = do
   s <- BS.readFile fn
-  ast <- runC4IO $ parse fn s >>= analyse
+  ast <- runC4IO $ parse fn s -- >>= analyse -- ENABLE THIS
   hPutPrettyPrint ast stdout
 
 
 cmdParse :: FilePath -> IO ()
 cmdParse fn = do
   s <- BS.readFile fn
-  _ <- runC4IO $ parse fn s >>= analyse
+  _ <- runC4IO $ parse fn s -- >>= analyse -- ENABLE THIS
   return ()
 
 cmdTokenize :: FilePath -> IO ()
