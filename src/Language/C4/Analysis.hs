@@ -36,30 +36,46 @@ analyse u = evalStateT (translationUnit u) (AnalysisState Map.empty Nothing)
 -- This is useful shadowing declarations (e.g. function parameters or loop
 -- variables). For actual declarations use @declare which will emit an error for
 -- declaring a already declared variable.
-addName :: (Monad m) => Ident -> CType -> Analysis m ()
-addName n t = modify $ \s -> s {scope = Map.insert n t (scope s)}
+addName :: (Monad m) => Ident -> CType -> DStatus -> Analysis m ()
+addName n t d = modify $ \s -> s {scope = Map.insert n (t,d) (scope s)}
 
 -- | Looks up the type for a given name in the current scope
-lookupType :: (Monad m) => Ident -> Analysis m (Maybe CType)
-lookupType n = do
+--lookupType :: (Monad m) => Ident -> Analysis m (Maybe CType)
+--lookupType n = fst <$> lookupName n
+
+lookupName :: (Monad m) => Ident -> Analysis m (Maybe (CType, DStatus))
+lookupName n = do
   m <- gets scope
   return $ Map.lookup n m
 
--- | adds a declaration to the current scope but writes an error in case the
--- name is already declared.
 
+lookupType :: (Monad m) => Ident -> Analysis m (Maybe CType)
+lookupType n = (fmap .fmap) fst  (lookupName n)
+
+-- | Adds a declaration to the current scope but writes an error in case the
+-- name is already declared with a different type. Note that it is legal to
+-- declare a name multiple times as long as they have the same declared type.
 declare :: (Monad m) => SourcePos -> Ident -> CType -> Analysis m ()
 declare pos n t = do
-  x <- lookupType n
-  case x of
-    Nothing  -> addName n t
-    (Just _) -> throwC4 $ AlreadyDeclaredName pos n
+  lookupName n >>= \case
+    Nothing  -> addName n t Declared
+    (Just (t',_)) -> matchTypes_ pos t t'
+
+-- | 'define' is similar to 'declare'. The difference is that a name can only be defined once. This function also checks that if the name has been defined, that the types correspond.
+define :: (Monad m) => SourcePos -> Ident -> CType -> Analysis m ()
+define pos n t = do
+  lookupName n >>= \case
+    Nothing -> addName n t Defined
+    (Just (_, Defined)) -> throwC4 $ AlreadyDefinedName pos n
+    (Just (t', Declared)) -> do
+      matchTypes_ pos t t'
+      addName n t' Defined
 
 
 data SemanticError = UndeclaredName
                      { semanticErrorPosition :: !SourcePos
                      , identifier            :: !Ident }
-                   | AlreadyDeclaredName
+                   | AlreadyDefinedName
                      { semanticErrorPosition :: !SourcePos
                      ,  identifier           :: !Ident }
                    | TypeMismatch
@@ -85,7 +101,7 @@ data SemanticError = UndeclaredName
 instance C4Error SemanticError where
   getErrorPosition                            = semanticErrorPosition
   getErrorComponent (UndeclaredName _ i)      = "undeclared name " <> show i
-  getErrorComponent (AlreadyDeclaredName _ i) = "name already declared " <> show i
+  getErrorComponent (AlreadyDefinedName _ i) = "name already defined " <> show i
   getErrorComponent (TypeMismatch _ l r)      = "type mismatch: expected type: " <> show l <> "; actual type: " <> show r
   getErrorComponent (NoPointer _)             = "expects a pointer"
   getErrorComponent (UnexpectedReturn _)      = "unexpected return"
@@ -139,11 +155,11 @@ functionDefinition :: (Monad m) => FunctionDefinition SynPhase -> Analysis m (Fu
 functionDefinition (FunctionDefinition pos t d stmt)  = do
     d' <- declarator (fromType t) d
     tx <- typeA t
-    declare pos (getName d') (getType d')
+    define pos (getName d') (getType d')
     params <- findParams d'
     stmt' <- enterScope $ do
       expectReturnType (fromType t)
-      forM_ params $ \(Parameter (p,t,n) _ _) -> declare p n t
+      forM_ params $ \(Parameter (_, pt, n) _ _) -> addName n pt Declared
       statement stmt
     return $ FunctionDefinition pos tx d' stmt'
 

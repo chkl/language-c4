@@ -15,7 +15,8 @@ import           Language.C4.Types
 --------------------------------------------------------------------------------
 -- Define Types for our Type-Annotated AST
 --------------------------------------------------------------------------------
-type Scope = Map.Map Ident CType
+data DStatus = Declared | Defined deriving (Show, Eq)
+type Scope = Map.Map Ident (CType, DStatus)
 
 data SemPhase
 
