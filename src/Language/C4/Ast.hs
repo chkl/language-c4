@@ -78,7 +78,8 @@ data Declarator x = IndirectDeclarator (AnnIndirectDeclarator x) (Declarator x)
                   | FunctionDeclarator (AnnFunctionDeclarator x) (Declarator x) [Parameter x]
 
 -- TODO: Find a way to unify declarator and abstract declarator
-data AbstractDeclarator x = IndirectAbstractDeclarator (AbstractDeclarator x)
+data AbstractDeclarator x = AbstractTerminal -- ^ like DeclaratorId but without id
+                        | IndirectAbstractDeclarator (AbstractDeclarator x)
                         | AbstractFunctionDeclarator (AbstractDeclarator x) [Parameter x]
                         | ArrayStar (AbstractDeclarator x)
 

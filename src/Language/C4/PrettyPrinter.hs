@@ -217,6 +217,7 @@ instance PrettyPrint (Parameter x) where
 
 instance PrettyPrint (AbstractDeclarator x) where
   prettyPrint (IndirectAbstractDeclarator dir) = parens $ (print "*") >> prettyPrint dir
+  prettyPrint AbstractTerminal = return () -- don't do anything
   prettyPrint _ = print "/* TODO: complicated Abstract declarators */"
 
 

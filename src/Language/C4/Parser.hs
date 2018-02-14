@@ -237,7 +237,7 @@ abstractDeclarator =  do
 directAbstractDeclarator :: Parser m (AbstractDeclarator SynPhase)
 directAbstractDeclarator = chainl1unary core ops
   where
-    core = L.parens abstractDeclarator
+    core = L.parens abstractDeclarator <|> return AbstractTerminal
     ops = flip AbstractFunctionDeclarator <$> parameterList <|>
           L.brackets (L.punctuator "*" >> return ArrayStar)
 

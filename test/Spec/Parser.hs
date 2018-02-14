@@ -137,6 +137,10 @@ testAbstractDeclarations = it "parses declarations with abstract parameters" $ d
   testParser declaration "int f;" `shouldSatisfy` isRight
   testParser declaration "int f();" `shouldSatisfy` isRight
   testParser declaration "int f(int x);" `shouldSatisfy` isRight
+  testParser declaration "int f(int,int);" `shouldSatisfy` isRight
+  testParser declaration "int f(int,int,int);" `shouldSatisfy` isRight
+  testParser declaration "int f(int*);" `shouldSatisfy` isRight
+  testParser declaration "(int*,int*);" `shouldSatisfy` isRight
 --  testParser declaration "int f(int[*]);" `shouldSatisfy` isRight
 --  testParser declaration "int f(int[static x=3]);" `shouldSatisfy` isRight
 --  testParser declaration "int f(int[*]);" `shouldSatisfy` isRight
