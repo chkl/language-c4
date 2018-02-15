@@ -32,6 +32,7 @@ import           Control.Monad.Trans.Class
 import           Data.ByteString            (ByteString)
 import qualified Data.ByteString            as BS
 import qualified Data.ByteString.Char8      as C8
+import           Data.ByteString.Short      as SBS
 import           Data.Foldable              (asum)
 import           Data.Monoid                ((<>))
 import           System.IO
@@ -44,9 +45,9 @@ import           Language.C4.CLangDef
 import           Language.C4.Types
 
 
-data CToken = Keyword ByteString
-            | Identifier ByteString
-            | DecConstant ByteString
+data CToken = Keyword ShortByteString
+            | Identifier ShortByteString
+            | DecConstant Integer
             | CharConstant ByteString
             | StringLit ByteString
             | Punctuator ByteString
@@ -106,8 +107,8 @@ semicolSep p = p `sepBy` symbol ";"
 integer :: Parser m Integer
 integer = lexeme MBL.decimal
 
-integerConstant :: Parser m ByteString
-integerConstant = lexeme $ (C8.pack . show) <$> integer -- TODO: improve this
+integerConstant :: Parser m Integer
+integerConstant = lexeme $ integer -- TODO: improve this
 
 
 charConstant :: Parser m ByteString
@@ -143,20 +144,20 @@ sChar = allowedCharacter <|>
   where
     allowedCharacter = BS.singleton <$> noneOf [w '\\', w '"', w '\n']
 
-identifierOrKeyword :: Parser m ByteString
+identifierOrKeyword :: Parser m ShortByteString
 identifierOrKeyword =  do
   x <- letterChar <|> char (w '_')
   y <- many (alphaNumChar <|> char (w '_'))
-  return $  BS.pack (x : y)
+  return $  SBS.pack (x : y)
 
-identifier :: Parser m ByteString
+identifier :: Parser m ShortByteString
 identifier = lexeme $ try $ do
   name <- identifierOrKeyword
   if name `elem` allCKeywords
   then fail "not an identifier"
   else return name
 
-anyKeyword :: Parser m ByteString
+anyKeyword :: Parser m ShortByteString
 anyKeyword = lexeme $ try $ do
   name <- identifierOrKeyword
   if name `elem` allCKeywords
@@ -188,15 +189,15 @@ cToken = DecConstant <$> integerConstant <|>
 cToken_ :: Parser IO ()
 cToken_ =  do
       p <- getPosition
-      msg <- (charConstant     >>= \s -> return $ "constant '" <> s <> "'") <|>
-             (integerConstant  >>= \s -> return $ "constant " <> s)  <|>
-             (anyKeyword       >>= \s -> return $ "keyword " <> s)  <|>
-             (identifier       >>= \s -> return $ "identifier " <> s)  <|>
-             (stringLiteral    >>= \s -> return $ "string-literal \"" <> s <> "\"")  <|>
-             (anyPunctuator       >>= \s -> return $ "punctuator " <> s)
       lift $ C8.putStr (prettyPrintPos p)
       lift $ C8.putStr ": "
-      lift $ C8.putStrLn msg
+      _ <-  (charConstant     >>= \s -> lift $ C8.putStr "constant '" >> C8.putStr s >> C8.putStrLn "'") <|>
+            (integerConstant  >>= \s -> lift $ C8.putStr "constant " >> print s)      <|>
+            (anyKeyword       >>= \s -> lift $ C8.putStr "keyword " >> C8.putStrLn (fromShort s))  <|>
+            (identifier       >>= \s -> lift $ C8.putStr "identifier " >> C8.putStrLn (fromShort s))  <|>
+            (stringLiteral    >>= \s -> lift $ C8.putStr "string-literal \"" >> C8.putStr s >> C8.putStrLn "\"")  <|>
+            (anyPunctuator       >>= \s -> lift $ C8.putStr "punctuator " >> C8.putStrLn s)
+      return ()
 
 lexer :: Parser m [(CToken, SourcePos)]
 lexer = setTabWidth pos1 >>  sc *> many posCToken <* eof

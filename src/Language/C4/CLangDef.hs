@@ -2,8 +2,10 @@
 
 module Language.C4.CLangDef where
 
+import           Data.ByteString.Short (ShortByteString)
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Short as SBS
 import           Data.List       (sortBy)
 import           Data.Ord        (comparing)
 import           Data.Word       (Word8)
@@ -13,10 +15,13 @@ import           Data.Word       (Word8)
 w :: Char -> Word8
 w = fromIntegral.fromEnum
 
-sortByLengthDesc :: [ByteString] -> [ByteString]
-sortByLengthDesc = sortBy (flip $ comparing BS.length)
+sortByLengthDesc :: [ShortByteString] -> [ShortByteString]
+sortByLengthDesc = sortBy (flip $ comparing SBS.length)
 
-allCKeywords :: [ByteString]
+sortByLengthDesc' :: [ByteString] -> [ByteString]
+sortByLengthDesc' = sortBy (flip $ comparing BS.length)
+
+allCKeywords :: [ShortByteString]
 allCKeywords = sortByLengthDesc ["auto", "if", "unsigned", "break", "inline", "void", "case",
                 "int", "volatile", "char", "long", "while", "const", "register", "_Alignas",
                 "continue", "restrict", "_Alignof", "default", "return", "_Atomic", "do",
@@ -26,7 +31,7 @@ allCKeywords = sortByLengthDesc ["auto", "if", "unsigned", "break", "inline", "v
 
 
 allCPunctuators :: [ByteString]
-allCPunctuators = sortByLengthDesc $
+allCPunctuators = sortByLengthDesc' $
   map (BS.singleton . w) "{}()[].&*+-~!/%<>^|?:;=,#" ++
   ["->", "++", "--", "<<", ">>", "<=", ">=", "==", "!=", "&&", "||", "...", "*=",
   "/=", "%=", "+=", "-=", "<<=", ">>=", "&=", "^=", "|=", "##", "<:", ":>", "<%",

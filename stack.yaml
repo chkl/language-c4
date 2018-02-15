@@ -5,6 +5,7 @@ packages:
 extra-deps:
 - llvm-hs-pure-5.1.2
 - llvm-hs-5.1.2
+- llvm-hs-pretty-0.2.0.0
 - megaparsec-6.2.0
 - QuickCheck-2.10.1
 flags:

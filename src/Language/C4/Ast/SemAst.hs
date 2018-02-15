@@ -92,7 +92,8 @@ instance HasType (Expr SemPhase) where
   getType (Ternary (_,t,_) _ _ _)     = t
   getType (UExpr (_,t,_) _ _)         = t
   getType (Func (_,t,_) _ _ )         = t
-  getType (Constant (_,t,_) _ )       = t
+  getType (CharConstant (_,t,_) _ )   = t
+  getType (IntConstant (_,t,_) _ )    = t
   getType (ArrayAccess (_,t,_) _ _ )  = t
   getType (SizeOfType (_,t,_) _ )     = t
   getType (ExprIdent (_,t,_) _ )      = t
@@ -125,7 +126,8 @@ instance HasLValuedness (Expr SemPhase) where -- TODO
   getLValuedness (Ternary (_,_,l) _ _ _)     = l
   getLValuedness (UExpr (_,_,l) _ _)         = l
   getLValuedness (Func (_,_,l) _ _ )         = l
-  getLValuedness (Constant (_,_,l) _ )       = l
+  getLValuedness (CharConstant (_,_,l) _ )   = l
+  getLValuedness (IntConstant (_,_,l) _ )    = l
   getLValuedness (ArrayAccess (_,_,l) _ _ )  = l
   getLValuedness (SizeOfType (_,_,l) _ )     = l
   getLValuedness (ExprIdent (_,_,l) _ )      = l
