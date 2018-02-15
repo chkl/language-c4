@@ -6,8 +6,8 @@ module Language.C4.Ast.SemAst
   , module Language.C4.Ast
   ) where
 
-import           Data.List       (intercalate)
-import qualified Data.Map.Strict as Map
+import           Data.List         (intercalate)
+import qualified Data.Map.Strict   as Map
 
 import           Language.C4.Ast
 import           Language.C4.Types
@@ -15,7 +15,8 @@ import           Language.C4.Types
 --------------------------------------------------------------------------------
 -- Define Types for our Type-Annotated AST
 --------------------------------------------------------------------------------
-type Scope = Map.Map Ident CType
+data DStatus = Declared | Defined deriving (Show, Eq)
+type Scope = Map.Map Ident (CType, DStatus)
 
 data SemPhase
 
@@ -44,6 +45,10 @@ type instance AnnStructDeclaration SemPhase  = SourcePos
 type instance AnnIndirectDeclarator SemPhase = DeclaratorSemAnn
 type instance AnnDeclaratorId SemPhase       = DeclaratorSemAnn
 type instance AnnFunctionDeclarator SemPhase = DeclaratorSemAnn
+
+
+-- abstract declarators
+type instance AnnAbstractDeclarator SemPhase = (SourcePos, CType)
 
 -- parameters
 type instance AnnParameter SemPhase         = (SourcePos, CType, Ident)
@@ -83,7 +88,7 @@ class HasLValuedness x where
 instance HasType (Expr SemPhase) where
   getType (BExpr (_,t,_) _ _ _)       = t
   getType (Assign (_,t,_)  _ _)       = t
-  getType (List es)                 = Tuple $ map getType es
+  getType (List es)                   = Tuple $ map getType es
   getType (Ternary (_,t,_) _ _ _)     = t
   getType (UExpr (_,t,_) _ _)         = t
   getType (Func (_,t,_) _ _ )         = t
@@ -97,15 +102,18 @@ instance HasType (Expr SemPhase) where
 
 
 instance HasType (Parameter SemPhase) where
-  getType (Parameter (_,t,_) _ _ )         = t
+  getType (Parameter (_,t,_) _ _ )       = t
   getType (AbstractParameter (_,t) _ _ ) = t
 
 instance HasType (Declarator SemPhase) where
   getType = _type . getDeclaratorSemAnn
 
 instance HasType (AbstractDeclarator SemPhase) where -- TODO
+  getType (AbstractTerminal (_,t))               = t
+  getType (AbstractFunctionDeclarator (_,t) _ _) = t
+  getType (IndirectAbstractDeclarator (_,t) _)   = t
+  getType (ArrayStar (_,t) _)                    = t
 
-instance HasName (Parameter SemPhase) where -- TODO
 
 instance HasName (Declarator SemPhase) where
   getName = _name . getDeclaratorSemAnn
@@ -113,7 +121,7 @@ instance HasName (Declarator SemPhase) where
 instance HasLValuedness (Expr SemPhase) where -- TODO
   getLValuedness (BExpr (_,_,l) _ _ _)       = l
   getLValuedness (Assign (_,_,l)  _ _)       = l
-  getLValuedness (List es)                 = undefined
+  getLValuedness (List _)                    = RValue -- ^ a list of expressions can never be lvalued
   getLValuedness (Ternary (_,_,l) _ _ _)     = l
   getLValuedness (UExpr (_,_,l) _ _)         = l
   getLValuedness (Func (_,_,l) _ _ )         = l
@@ -124,7 +132,7 @@ instance HasLValuedness (Expr SemPhase) where -- TODO
   getLValuedness (PointerAccess (_,_,l) _ _) = l
   getLValuedness (FieldAccess (_,_,l) _ _)   = l
   getLValuedness (StringLiteral (_,_,l) _)   = l
-  
+
 class GetDeclaratorSemAnn x where
   getDeclaratorSemAnn :: x -> DeclaratorSemAnn
 

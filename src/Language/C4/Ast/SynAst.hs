@@ -43,6 +43,7 @@ type instance AnnReturn SynPhase             =  SourcePos
 type instance AnnLabeledStmt SynPhase        =  SourcePos
 type instance AnnParameter SynPhase          = SourcePos
 type instance AnnAbstractParameter SynPhase  = SourcePos
+type instance AnnAbstractDeclarator SynPhase = SourcePos
 
 deriving instance Show (Expr SynPhase)
 deriving instance Show (Initializer SynPhase)

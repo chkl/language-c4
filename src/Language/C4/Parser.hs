@@ -232,14 +232,14 @@ abstractDeclarator =  do
   x <- optional (L.punctuator "*")
   case x of
     Nothing -> directAbstractDeclarator
-    _       -> IndirectAbstractDeclarator <$> abstractDeclarator
+    _       -> IndirectAbstractDeclarator <$> getPosition <*> abstractDeclarator
 
 directAbstractDeclarator :: Parser m (AbstractDeclarator SynPhase)
 directAbstractDeclarator = chainl1unary core ops
   where
-    core = L.parens abstractDeclarator <|> return AbstractTerminal
-    ops = flip AbstractFunctionDeclarator <$> parameterList <|>
-          L.brackets (L.punctuator "*" >> return ArrayStar)
+    core = L.parens abstractDeclarator <|> (AbstractTerminal <$> getPosition)
+    ops = getPosition >>= \p -> flip (AbstractFunctionDeclarator p) <$> parameterList <|>
+          L.brackets (L.punctuator "*" >> (ArrayStar <$> getPosition))
 
 declaration :: Parser m (Declaration SynPhase)
 declaration = Declaration <$> getPosition <*> typeSpecifier  <*>  initDeclaratorList <* L.punctuator ";"
