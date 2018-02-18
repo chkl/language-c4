@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase       #-}
+{-# LANGUAGE MultiWayIf       #-}
 
 module Language.C4.Analysis
  ( SemanticError(..)
@@ -301,7 +302,7 @@ statement (ExpressionStmt p e) = do
 expression :: (Monad m) => Expr SynPhase -> Analysis m (Expr SemPhase)
 expression (IntConstant p x) = do
   return (IntConstant (p, CInt, RValue) x)
-  
+
 expression (CharConstant p x) = do
   return (CharConstant (p, CInt, RValue) x)
 
@@ -309,7 +310,7 @@ expression (Assign p l r) = do
   l' <- expression l
   r' <- expression r
   t <- matchTypes p (getType l') (getType r')
-  case (getLValuedness l') of
+  case getLValuedness l' of
     LValue -> return (Assign (p, t, RValue) l' r')
     RValue -> throwC4 $ AssignRValue p (getType l')
 
@@ -334,16 +335,22 @@ expression (List es) = do
 expression (BExpr p bop e1 e2) = do
     e1' <- expression e1
     e2' <- expression e2
-    if bop `elem` [Plus, Minus, Mult, LessThan, LAnd, LOr]
-      then do
+    if
+      | bop `elem` [Plus, Minus, Mult, LessThan, LAnd, LOr]  -> do
         _ <- matchTypes p (getType e1') CInt
         _ <- matchTypes p (getType e2') CInt
         return $ BExpr (p, CInt, RValue) bop e1' e2'
-      else if bop `elem` [NotEqual, EqualsEquals]
-           then do
+
+      | bop `elem` [NotEqual, EqualsEquals] -> do
               _ <- matchTypes p (getType e1') (getType e2')
               return $ BExpr (p, CInt, RValue) bop e1' e2' -- should be Bool
-      else return $ BExpr (p, Bottom, RValue) bop e1' e2' -- should not happen
+      | bop == AssignOp   -> do
+              t <- matchTypes p (getType e1') (getType e2')
+              case getLValuedness e1' of
+                LValue -> return (Assign (p, t, RValue) e1' e2')
+                RValue -> throwC4 $ AssignRValue p (getType e1')
+
+      | otherwise -> return $ BExpr (p, Bottom, RValue) bop e1' e2' -- should not happen
 
 expression (UExpr p op e) = do
   e' <- expression e
@@ -375,7 +382,7 @@ expression (Func p l r)           = do
 expression (PointerAccess p l r ) = do
   l' <- expression l
   r' <- expression r
-  return $ PointerAccess (p, Bottom, (getLValuedness l')) l' r'
+  return $ PointerAccess (p, Bottom, getLValuedness l') l' r'
 
 expression (ArrayAccess p l r)         = do
   l' <- expression l
@@ -383,7 +390,7 @@ expression (ArrayAccess p l r)         = do
   case getType l' of
     Pointer t -> do
       matchTypes_ p CInt (getType r')
-      return (ArrayAccess (p, t, (getLValuedness l')) l' r')
+      return (ArrayAccess (p, t, getLValuedness l') l' r')
     _ -> do
       throwC4 $ TypeMismatch p (Pointer Bottom) (getType l')
 
