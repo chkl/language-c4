@@ -26,12 +26,16 @@ import           Language.C4.Types
 data AnalysisState = AnalysisState
   { scope               :: Scope
   , expectedReturnValue :: Maybe CType
+  , inLoop              :: Bool
   } deriving (Show)
+
+emptyAnalysisState :: AnalysisState
+emptyAnalysisState = AnalysisState Map.empty Nothing False
 
 type Analysis m = StateT AnalysisState (C4T m)
 
 analyse :: (Monad m) => TranslationUnit SynPhase -> C4T m (TranslationUnit SemPhase)
-analyse u = evalStateT (translationUnit u) (AnalysisState Map.empty Nothing)
+analyse u = evalStateT (translationUnit u) emptyAnalysisState
 
 -- | Adds name to the scope without checking for existing declarations.
 -- This is useful shadowing declarations (e.g. function parameters or loop
@@ -97,16 +101,22 @@ data SemanticError = UndeclaredName
                      { semanticErrorPosition :: !SourcePos
                      , message               :: !String
                      }
+                   | BreakOutsideLoop
+                     { semanticErrorPosition :: !SourcePos }
+                   | ContinueOutsideLoop
+                     { semanticErrorPosition :: !SourcePos }
 
 
 instance C4Error SemanticError where
   getErrorPosition                            = semanticErrorPosition
   getErrorComponent (UndeclaredName _ i)      = "undeclared name " <> show i
-  getErrorComponent (AlreadyDefinedName _ i) = "name already defined " <> show i
+  getErrorComponent (AlreadyDefinedName _ i)  = "name already defined " <> show i
   getErrorComponent (TypeMismatch _ l r)      = "type mismatch: expected type: " <> show l <> "; actual type: " <> show r
   getErrorComponent (NoPointer _)             = "expects a pointer"
   getErrorComponent (UnexpectedReturn _)      = "unexpected return"
   getErrorComponent (AssignRValue _ _)        = "assignment to rvalue"
+  getErrorComponent (BreakOutsideLoop _)      = "break can only be used inside a loop"
+  getErrorComponent (ContinueOutsideLoop _)   = "continue can only be used inside a loop"
   getErrorComponent (MiscSemanticError _ m)   = m
 
 -- | runs an analysis in a copy of the current scope without modifying the
@@ -169,6 +179,9 @@ functionDefinition (FunctionDefinition pos t d stmt)  = do
 
 expectReturnType :: Monad m => CType -> Analysis m ()
 expectReturnType t = modify $ \s -> s { expectedReturnValue = Just t }
+
+setInLoop :: Monad m => Analysis m ()
+setInLoop = modify $ \s -> s { inLoop = True}
 
 typeA :: (Monad m) => Type SynPhase -> Analysis m (Type SemPhase)
 typeA Void = return Void
@@ -268,11 +281,12 @@ statement (CompoundStmt pos xs) = do
 
 statement (Goto p l) = return (Goto p l)
 
-statement (Continue p)  = return (Continue p)
 
 statement (WhileStmt p c s) = do
   c' <- expression c
-  s' <- statement s
+  s' <- enterScope $ do
+    setInLoop
+    statement s
   return $ WhileStmt p c' s'
 
 statement (Return p e) = do
@@ -291,7 +305,15 @@ statement (IfStmt pos e s1 s2)     = do
     (Just s2') -> do
       s2'' <- statement s2'
       return $ IfStmt pos e' s1' (Just s2'')
-statement (Break p)                    = return $ Break p
+statement (Break p)                    = do
+  x <- gets inLoop
+  unless x $ throwC4 $ BreakOutsideLoop p
+  return $ Break p
+
+statement (Continue p)  = do
+  x <- gets inLoop
+  unless x $ throwC4 $ ContinueOutsideLoop p
+  return (Continue p)
 
 statement (ExpressionStmt p e) = do
   e' <- expression e
@@ -408,6 +430,7 @@ expression (StringLiteral p b)   = return $ StringLiteral (p, Pointer CChar, RVa
 --------------------------------------------------------------------------------
 -- little helpers
 --------------------------------------------------------------------------------
+
 
 maybe' :: (Monad m) => (a -> Analysis m b) -> Maybe a -> Analysis m (Maybe b)
 maybe' _ Nothing  = return Nothing
