@@ -315,7 +315,7 @@ instance PrettyPrint (Expr x) where
   prettyPrint (Assign _ l r)        = prettyPrint l >> print " = " >> prettyPrint r
   prettyPrint (Func _ f a)          = parens $ prettyPrint f >> parens (prettyPrint a)
   prettyPrint (IntConstant _ c)     = print' (integerDec c)
-  prettyPrint (CharConstant _ c)    = print c
+  prettyPrint (CharConstant _ c)    = print "'" >> print c >> print "'"
   prettyPrint (ArrayAccess _ a b )  = prettyPrint a >> brackets (prettyPrint b)
   prettyPrint (FieldAccess _ a b)   = parens $ prettyPrint a >> period >> prettyPrint b
   prettyPrint (PointerAccess _ a b) = parens $ prettyPrint a >> print "->" >> prettyPrint b
