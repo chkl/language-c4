@@ -191,8 +191,7 @@ declarator t (DeclaratorId p n) = return (DeclaratorId (DeclaratorSemAnn p t n) 
 
 declarator t (IndirectDeclarator p d) = do
   d' <- declarator (Pointer t) d
-  let t' = Pointer (getType d')
-  return (IndirectDeclarator (DeclaratorSemAnn p t' (getName d')) d')
+  return (IndirectDeclarator (DeclaratorSemAnn p (getType d') (getName d')) d')
 
 declarator t (FunctionDeclarator p d params) = do
   d' <- declarator t d
@@ -250,8 +249,7 @@ abstractDeclarator t (AbstractTerminal p) = return (AbstractTerminal (p,t))
 
 abstractDeclarator t (IndirectAbstractDeclarator p d) = do
   d' <- abstractDeclarator (Pointer t) d
-  let t' = Pointer (getType d')
-  return (IndirectAbstractDeclarator (p, t')  d')
+  return (IndirectAbstractDeclarator (p, getType d')  d')
 
 abstractDeclarator t (AbstractFunctionDeclarator p d params) = do
   d' <- abstractDeclarator t d
