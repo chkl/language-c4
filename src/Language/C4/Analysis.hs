@@ -24,13 +24,14 @@ import           Language.C4.Types
 
 
 data AnalysisState = AnalysisState
-  { scope               :: Scope
+  { scope               :: Scope -- ^ declared and defined variables and functions
+  , labels              :: Map.Map Ident SourcePos -- ^ defined labels
   , expectedReturnValue :: Maybe CType
   , inLoop              :: Bool
   } deriving (Show)
 
 emptyAnalysisState :: AnalysisState
-emptyAnalysisState = AnalysisState Map.empty Nothing False
+emptyAnalysisState = AnalysisState Map.empty Map.empty Nothing False
 
 type Analysis m = StateT AnalysisState (C4T m)
 
@@ -77,6 +78,15 @@ define pos n t = do
       addName n t' Defined
 
 
+defineLabel :: Monad m => Ident -> SourcePos -> Analysis m ()
+defineLabel n p = do
+  hasLabel n >>= \case
+    Nothing -> modify $ \s -> s { labels = Map.insert n p (labels s) }
+    Just p' -> throwC4 $ DuplicateLabel p n p'
+
+hasLabel :: Monad m => Ident -> Analysis m (Maybe SourcePos)
+hasLabel n = Map.lookup n <$> gets labels
+
 data SemanticError = UndeclaredName
                      { semanticErrorPosition :: !SourcePos
                      , identifier            :: !Ident }
@@ -105,6 +115,15 @@ data SemanticError = UndeclaredName
                      { semanticErrorPosition :: !SourcePos }
                    | ContinueOutsideLoop
                      { semanticErrorPosition :: !SourcePos }
+                   | UndefinedLabel
+                     { semanticErrorPosition :: !SourcePos
+                     , label                 :: Ident
+                     }
+                   | DuplicateLabel
+                     { semanticErrorPosition :: !SourcePos
+                     , label                 :: !Ident
+                     , prevPosition          :: !SourcePos
+                     }
 
 
 instance C4Error SemanticError where
@@ -118,6 +137,8 @@ instance C4Error SemanticError where
   getErrorComponent (BreakOutsideLoop _)      = "break can only be used inside a loop"
   getErrorComponent (ContinueOutsideLoop _)   = "continue can only be used inside a loop"
   getErrorComponent (MiscSemanticError _ m)   = m
+  getErrorComponent (UndefinedLabel _ l)      = "undefined label " <> show l
+  getErrorComponent (DuplicateLabel _ l p')   = "duplicate label " <> show l <> ", previously defined at " <> show (prettyPrintPos p')
 
 -- | runs an analysis in a copy of the current scope without modifying the
 -- original scope, but retains the errors.
@@ -272,6 +293,7 @@ abstractDeclarator t (AbstractFunctionDeclarator p d params) = do
 
 statement :: (Monad m) => Stmt SynPhase -> Analysis m (Stmt SemPhase)
 statement (LabeledStmt p lbl stmt)      = do
+  defineLabel lbl p
   stmt' <- statement stmt
   return $ LabeledStmt p lbl stmt'
 
@@ -279,7 +301,10 @@ statement (CompoundStmt pos xs) = do
   stmts' <- enterScope $ forM xs (either (fmap Left . declaration) (fmap Right . statement))
   return $ CompoundStmt pos stmts'
 
-statement (Goto p l) = return (Goto p l)
+statement (Goto p lbl) =
+  hasLabel lbl >>= \case
+    (Just _) -> return (Goto p lbl)
+    Nothing  -> throwC4 $ UndefinedLabel p lbl
 
 
 statement (WhileStmt p c s) = do
