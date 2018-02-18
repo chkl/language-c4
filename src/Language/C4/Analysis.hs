@@ -368,7 +368,7 @@ expression (BExpr p bop e1 e2) = do
       | bop == AssignOp   -> do
               t <- matchTypes p (getType e1') (getType e2')
               case getLValuedness e1' of
-                LValue -> return (Assign (p, t, RValue) e1' e2')
+                LValue -> return (BExpr (p, t, RValue) AssignOp e1' e2')
                 RValue -> throwC4 $ AssignRValue p (getType e1')
 
       | otherwise -> return $ BExpr (p, Bottom, RValue) bop e1' e2' -- should not happen
