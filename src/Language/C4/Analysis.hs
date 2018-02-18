@@ -125,6 +125,7 @@ matchTypes :: (Monad m) => SourcePos -- ^ the position displayed in case of a ty
   -> Analysis m CType -- ^ a unified type
 matchTypes _ Bottom _           = return Bottom
 matchTypes _ _ Bottom           = return Bottom
+matchTypes p (Pointer a) (Pointer b) = matchTypes p a b
 matchTypes p t@(Pointer _) CInt = return t -- ^ pointer arithmetic
 matchTypes p CInt t@(Pointer _) = return t -- ^
 matchTypes p (Tuple [t1]) t2    = matchTypes p t1 t2
@@ -355,15 +356,20 @@ expression (BExpr p bop e1 e2) = do
 expression (UExpr p op e) = do
   e' <- expression e
   let t' = getType e'
-  t'' <- case op of
-           Neg -> matchTypes p t' CInt
-           Not -> matchTypes p t' CInt -- Bool
-           Deref -> case t' of
-             (Pointer t0) -> return t0
-             _            -> throwC4 $ NoPointer p
-           SizeOf -> return CInt -- TODO is that correct?
-           Address -> return $ Pointer t'
-  return $ UExpr (p, t'', RValue) op e'
+  if
+    | op `elem` [Neg, Not] -> do
+        t <- matchTypes p t' CInt
+        return $ UExpr (p, t, RValue) op e'
+
+    | op == Deref -> do
+        t <- case t' of
+               (Pointer t0) -> return t0
+               _            -> throwC4 $ NoPointer p
+        return $ UExpr (p, t, LValue) op e' -- ^ TODO: Deref always results in an lvalue?
+
+    | op == SizeOf -> return $ UExpr (p, CInt, RValue) op e' -- TODO is that correct?
+
+    | op == Address -> return $ UExpr (p, Pointer t', RValue) op e'
 
 expression (SizeOfType p t)       = do
   t' <- typeA t
