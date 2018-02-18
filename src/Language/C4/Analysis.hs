@@ -159,7 +159,9 @@ functionDefinition (FunctionDefinition pos t d stmt)  = do
     params <- findParams d'
     stmt' <- enterScope $ do
       expectReturnType (fromType t)
-      forM_ params $ \(Parameter (_, pt, n) _ _) -> addName n pt Declared
+      forM_ params $ \case
+        (Parameter (_, pt, n) _ _) -> addName n pt Declared
+        (AbstractParameter _ _ _ ) -> return () -- ^ we don't have to declare abstract params
       statement stmt
     return $ FunctionDefinition pos tx d' stmt'
 
