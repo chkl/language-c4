@@ -1,3 +1,3 @@
 int main() {
-	void f(int a) { }
 }
+void f(int a) { return a; }
