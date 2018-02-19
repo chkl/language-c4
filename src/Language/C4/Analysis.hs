@@ -7,7 +7,6 @@ module Language.C4.Analysis
  , analyse
  ) where
 
-
 import           Control.Monad          (forM, when)
 import           Control.Monad.State
 import           Control.Monad.Writer
@@ -26,12 +25,13 @@ import           Language.C4.Types
 data AnalysisState = AnalysisState
   { scope               :: Scope -- ^ declared and defined variables and functions
   , labels              :: Map.Map Ident SourcePos -- ^ defined labels
+  , usedLabels          :: Map.Map Ident SourcePos -- ^ used labels
   , expectedReturnValue :: Maybe CType
   , inLoop              :: Bool
   } deriving (Show)
 
 emptyAnalysisState :: AnalysisState
-emptyAnalysisState = AnalysisState Map.empty Map.empty Nothing False
+emptyAnalysisState = AnalysisState Map.empty Map.empty Map.empty Nothing False
 
 type Analysis m = StateT AnalysisState (C4T m)
 
@@ -172,11 +172,17 @@ matchTypes_ p t s = void (matchTypes p t s)
 -- Analyses
 --------------------------------------------------------------------------------
 
-
+-- analyses a translation unit. Also ensures that all used labels are defined
 translationUnit :: (Monad m) => TranslationUnit SynPhase -> Analysis m (TranslationUnit SemPhase)
 translationUnit (TranslationUnit _ eds) = do
   eds' <- forM eds (either' declaration functionDefinition)
   s <- gets scope
+  -- check labels
+  uLbls <- gets usedLabels
+  forM_ (Map.toList uLbls) $ \(u,p) -> do
+    hasLabel u >>= \case
+      Just _ -> return ()
+      Nothing -> throwC4 $ UndefinedLabel p u
   return $ TranslationUnit s eds'
 
 findParams :: Monad m =>  Declarator SemPhase -> Analysis m [Parameter SemPhase]
@@ -306,10 +312,9 @@ statement (CompoundStmt pos xs) = do
   stmts' <- enterScope $ forM xs (either (fmap Left . declaration) (fmap Right . statement))
   return $ CompoundStmt pos stmts'
 
-statement (Goto p lbl) =
-  hasLabel lbl >>= \case
-    (Just _) -> return (Goto p lbl)
-    Nothing  -> throwC4 $ UndefinedLabel p lbl
+statement (Goto p lbl) = do
+  modify $ \s -> s { usedLabels = Map.insert lbl p (usedLabels s)}
+  return $ Goto p lbl
 
 
 statement (WhileStmt p c s) = do
