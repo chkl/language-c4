@@ -161,14 +161,16 @@ data CType = CInt
            | Array CType
            | Tuple [CType]
            | Function CType [CType]
+           | Struct Ident
            | Bottom -- c.f. undefined in Haskell
            deriving (Eq)
 
 
 instance Show CType where
-  show CInt = "Int"
-  show CVoid = "Void"
-  show CChar = "Char"
+  show CInt           = "Int"
+  show CVoid          = "Void"
+  show CChar          = "Char"
+  show (Struct n)     = "struct " ++ show n
   show Bottom         = "⊥"
   show (Pointer t)    = "*" ++ show t
   show (Function t p) = "(" ++ pl ++ ") -> " ++ show t

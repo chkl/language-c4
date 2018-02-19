@@ -26,13 +26,14 @@ data AnalysisState = AnalysisState
   { scope               :: Scope -- ^ declared and defined variables and functions
   , labels              :: Map.Map Ident SourcePos -- ^ defined labels
   , usedLabels          :: Map.Map Ident SourcePos -- ^ used labels, think of this as a queue of labels to be checked
+  , structures          :: Map.Map Ident (Map.Map Ident CType)
   , expectedReturnValue :: Maybe CType
   , inLoop              :: Bool
   , inFunDef            :: Bool
   } deriving (Show)
 
 emptyAnalysisState :: AnalysisState
-emptyAnalysisState = AnalysisState Map.empty Map.empty Map.empty Nothing False False
+emptyAnalysisState = AnalysisState Map.empty Map.empty Map.empty Map.empty Nothing False False
 
 type Analysis m = StateT AnalysisState (C4T m)
 
@@ -489,6 +490,16 @@ expression (FieldAccess p l r)   = do
 
 expression (StringLiteral p b)   = return $ StringLiteral (p, Pointer CChar, RValue) b
 
+
+fromType :: Monad m=> Type x -> Analysis m CType
+fromType Void                 = return CVoid
+fromType Int                  = return CInt
+fromType Char                 = return CChar
+fromType (StructIdentifier p n) = do
+  x <- gets structures
+  Map.lookup n x >>= \case
+    Nothing -> throw $ StructNotDefined p n
+fromType _                    = return Bottom -- TODO:
 --------------------------------------------------------------------------------
 -- little helpers
 --------------------------------------------------------------------------------
