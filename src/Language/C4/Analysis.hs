@@ -498,13 +498,10 @@ typeA (StructInline p mi l) = do
   case mi of
     Nothing -> return $ StructInline (p, AnonymousStruct) mi l'
     Just i -> do
-      fields <- forM l' $ \(StructDeclaration _ _ ds) -> do
-        forM ds $ \d -> do
-          return (getName d, getType d)
-      let fields' = Map.fromList $ concat fields
+      let fields = Map.fromList [(getName d, getType d)  | (StructDeclaration _ _ ds) <- l', d <- ds]
       Map.lookup i <$> gets structures >>= \case
         Nothing -> do
-          modify $ \s -> s {structures = Map.insert i fields' (structures s) }
+          modify $ \s -> s {structures = Map.insert i fields (structures s) }
           return $ StructInline (p, Struct i) mi l'
         Just _ -> throwC4 $ DuplicateStruct p i
 
