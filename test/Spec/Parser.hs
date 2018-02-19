@@ -154,6 +154,7 @@ testDirectDeclarations = it "parses declarations with (direct) parameters" $ do
   testParser declaration "int f;" `shouldSatisfy` isRight
   testParser declaration "int f(int x);" `shouldSatisfy` isRight
   testParser declaration "int f(int x(char));" `shouldSatisfy` isRight
+  testParser declaration "int a[3];" `shouldSatisfy` isRight
 
 testStatements :: SpecWith ()
 testStatements = describe "statement parser" $ do

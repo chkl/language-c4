@@ -32,6 +32,7 @@ type instance AnnIndirectDeclarator SynPhase =  SourcePos
 type instance AnnStructDeclaration SynPhase  =  SourcePos
 type instance AnnDeclaratorId SynPhase       =  SourcePos
 type instance AnnFunctionDeclarator SynPhase =  SourcePos
+type instance AnnArrayDeclarator SynPhase    =  SourcePos
 type instance AnnCompoundStmt SynPhase       =  SourcePos
 type instance AnnIfStmt SynPhase             =  SourcePos
 type instance AnnWhileStmt SynPhase          =  SourcePos
@@ -89,6 +90,7 @@ instance HasSourcePos (Declarator SynPhase) where
   sourcePos (IndirectDeclarator p _ )   = p
   sourcePos (DeclaratorId p _)          = p
   sourcePos (FunctionDeclarator p _ _ ) = p
+  sourcePos (ArrayDeclarator p _ _ )    = p
 
 instance HasSourcePos (Stmt SynPhase) where
  sourcePos (LabeledStmt p _ _ ) = p

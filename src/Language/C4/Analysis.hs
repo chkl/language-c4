@@ -180,9 +180,10 @@ translationUnit (TranslationUnit _ eds) = do
   return $ TranslationUnit s eds'
 
 findParams :: Monad m =>  Declarator SemPhase -> Analysis m [Parameter SemPhase]
-findParams (IndirectDeclarator _ d)  = findParams d
-findParams (DeclaratorId x _ ) = throwC4 $ MiscSemanticError (_position x) "expected function declarator"
+findParams (IndirectDeclarator _ d)    = findParams d
 findParams (FunctionDeclarator _ _ ps) = return ps
+findParams (DeclaratorId x _ )         = throwC4 $ MiscSemanticError (_position x) "expected function declarator"
+findParams (ArrayDeclarator x _ _ )    = throwC4 $ MiscSemanticError (_position x) "expected function declarator"
 
 functionDefinition :: (Monad m) => FunctionDefinition SynPhase -> Analysis m (FunctionDefinition SemPhase)
 functionDefinition (FunctionDefinition pos t d stmt)  = do
@@ -233,6 +234,10 @@ declarator t (FunctionDeclarator p d params) = do
   let paramsType = map getType params'
   return $ FunctionDeclarator (DeclaratorSemAnn p (Function t paramsType) (getName d')) d' params'
 
+declarator t (ArrayDeclarator p d e) = do
+  d' <- declarator t d
+  e' <- expression e
+  return $ ArrayDeclarator (DeclaratorSemAnn p (Array (getType d')) (getName d')) d' e'
 
 parameter :: (Monad m) => Parameter SynPhase -> Analysis m (Parameter SemPhase)
 parameter (Parameter p t d) = do
@@ -440,6 +445,9 @@ expression (ArrayAccess p l r)         = do
   r' <- expression r
   case getType l' of
     Pointer t -> do
+      matchTypes_ p CInt (getType r')
+      return (ArrayAccess (p, t, getLValuedness l') l' r')
+    Array t -> do
       matchTypes_ p CInt (getType r')
       return (ArrayAccess (p, t, getLValuedness l') l' r')
     _ -> do

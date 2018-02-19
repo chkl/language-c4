@@ -32,6 +32,7 @@ type family AnnAbstractDeclarator x
 type family AnnStructDeclaration x
 type family AnnDeclaratorId x
 type family AnnFunctionDeclarator x
+type family AnnArrayDeclarator x
 type family AnnCompoundStmt x
 type family AnnIfStmt x
 type family AnnWhileStmt x
@@ -77,6 +78,7 @@ data StructDeclaration x = StructDeclaration (AnnStructDeclaration x) (Type x) [
 data Declarator x = IndirectDeclarator (AnnIndirectDeclarator x) (Declarator x)
                   | DeclaratorId (AnnDeclaratorId x) Ident
                   | FunctionDeclarator (AnnFunctionDeclarator x) (Declarator x) [Parameter x]
+                  | ArrayDeclarator (AnnArrayDeclarator x) (Declarator x) (Expr x)
 
 -- TODO: Find a way to unify declarator and abstract declarator
 data AbstractDeclarator x = AbstractTerminal (AnnAbstractDeclarator x) -- ^ like DeclaratorId but without id
@@ -160,6 +162,7 @@ type instance AnnAbstractDeclarator UD = ()
 type instance AnnStructDeclaration UD  = ()
 type instance AnnDeclaratorId UD       = ()
 type instance AnnFunctionDeclarator UD = ()
+type instance AnnArrayDeclarator UD    = ()
 type instance AnnAbstractDeclarator UD = ()
 type instance AnnCompoundStmt UD       = ()
 type instance AnnIfStmt UD             = ()
@@ -221,7 +224,7 @@ pattern CharConstantUD i <- CharConstant _ i
 pattern IntConstantUD :: Integer -> Expr UD
 pattern IntConstantUD i <- IntConstant _ i
   where IntConstantUD i = IntConstant () i
-  
+
 pattern UExprUD :: UOp -> Expr UD -> Expr UD
 pattern UExprUD op e <- UExpr _ op e
   where UExprUD op e = UExpr () op e
@@ -336,9 +339,10 @@ instance Undecorate Expr where
   undecorate (StringLiteral _ b )    = StringLiteral () b
 
 instance Undecorate Declarator where
-  undecorate (IndirectDeclarator _ d) = IndirectDeclarator () (undecorate d)
+  undecorate (IndirectDeclarator _ d)   = IndirectDeclarator () (undecorate d)
   undecorate (DeclaratorId _ i)         = DeclaratorId () i
   undecorate (FunctionDeclarator _ d p) = FunctionDeclarator () (undecorate d) (map undecorate p)
+  undecorate (ArrayDeclarator _ d s)    = ArrayDeclarator () (undecorate d) (undecorate s)
 
 instance Undecorate Initializer where
   undecorate (InitializerAssignment e) = InitializerAssignment (undecorate e)

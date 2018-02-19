@@ -227,7 +227,10 @@ directDeclarator = chainl1unary dcore dparams
   where
     dcore =   L.parens declarator
               <|> (DeclaratorId <$> getPosition <*> L.identifier)
-    dparams = getPosition >>= \p -> flip (FunctionDeclarator p) <$> parameterList
+    dparams = do
+      p <- getPosition
+      try (flip (FunctionDeclarator p) <$> parameterList) <|>
+          flip (ArrayDeclarator p) <$> L.brackets expression
 
 abstractDeclarator :: Parser m (AbstractDeclarator SynPhase)
 abstractDeclarator =  do

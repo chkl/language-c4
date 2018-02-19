@@ -206,6 +206,7 @@ instance PrettyPrint (Declarator x) where
   prettyPrint (IndirectDeclarator _ dir) = parens $ print "*" >> prettyPrint dir
   prettyPrint (DeclaratorId _ i) =  print (fromShort i)
   prettyPrint (FunctionDeclarator _ d ps) =  parens $ prettyPrint d >> parens (commaSep $ map prettyPrint ps)
+  prettyPrint (ArrayDeclarator _ d e) = parens $ prettyPrint d >> brackets (prettyPrint e)
 
 
 instance PrettyPrint (StructDeclaration x) where

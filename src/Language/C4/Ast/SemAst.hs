@@ -45,6 +45,7 @@ type instance AnnStructDeclaration SemPhase  = SourcePos
 type instance AnnIndirectDeclarator SemPhase = DeclaratorSemAnn
 type instance AnnDeclaratorId SemPhase       = DeclaratorSemAnn
 type instance AnnFunctionDeclarator SemPhase = DeclaratorSemAnn
+type instance AnnArrayDeclarator SemPhase    = DeclaratorSemAnn
 
 
 -- abstract declarators
@@ -146,6 +147,7 @@ instance GetDeclaratorSemAnn (Declarator SemPhase) where
   getDeclaratorSemAnn (IndirectDeclarator a  _)  = a
   getDeclaratorSemAnn (DeclaratorId a _)         = a
   getDeclaratorSemAnn (FunctionDeclarator a _ _) = a
+  getDeclaratorSemAnn (ArrayDeclarator a _ _)    = a
 
 
 -------------------------------------------------------------------------------
@@ -156,6 +158,7 @@ data CType = CInt
            | CVoid
            | CChar
            | Pointer CType
+           | Array CType
            | Tuple [CType]
            | Function CType [CType]
            | Bottom -- c.f. undefined in Haskell
@@ -172,6 +175,7 @@ instance Show CType where
     where pl          = intercalate ", " $ map show p
   show (Tuple p)      = "(" ++ pl ++ ")"
     where pl          = intercalate ", " $ map show p
+  show (Array t)      = show t ++ "[]"
 
 fromType :: Type x -> CType
 fromType Void = CVoid
