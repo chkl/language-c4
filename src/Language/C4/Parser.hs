@@ -197,16 +197,19 @@ compoundStatement = do
 -- Declaration Parsers
 --------------------------------------------------------------------------------
 typeSpecifier :: Parser m (Type SynPhase)
-typeSpecifier =     (L.keyword "void"    >> return Void)
-                <|> (L.keyword "char"    >> return Char)
-                <|> (L.keyword "int"     >> return Int)
-                <|> (L.keyword "struct"  >> structSpecifier)
+typeSpecifier =
+  getPosition >>= \p ->
+  (    L.keyword "void"    >> return (Void p))
+  <|> (L.keyword "char"    >> return (Char p))
+  <|> (L.keyword "int"     >> return (Int p))
+  <|> (L.keyword "struct"  >> structSpecifier)
+
 
 structSpecifier :: Parser m (Type SynPhase)
 structSpecifier = try structInline <|> structIdentifier
   where
-    structIdentifier = StructIdentifier <$> L.identifier
-    structInline = StructInline <$> optional L.identifier <*> L.braces structDeclarationList
+    structIdentifier = StructIdentifier <$> getPosition <*> L.identifier
+    structInline = StructInline <$> getPosition <*> optional L.identifier <*> L.braces structDeclarationList
     structDeclarationList = many structDeclaration
 
 structDeclaration :: Parser m (StructDeclaration SynPhase)

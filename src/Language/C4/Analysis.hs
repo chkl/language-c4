@@ -131,6 +131,10 @@ data SemanticError = UndeclaredName
                      { semanticErrorPosition :: !SourcePos
                      , ident                 :: !Ident
                      }
+                   | StructNotDefined
+                     { semanticErrorPosition :: !SourcePos
+                     , ident                 :: !Ident
+                     }
 
 
 instance C4Error SemanticError where
@@ -147,6 +151,7 @@ instance C4Error SemanticError where
   getErrorComponent (UndefinedLabel _ l)      = "undefined label " <> show l
   getErrorComponent (DuplicateLabel _ l p')   = "duplicate label " <> show l <> ", previously defined at " <> show (prettyPrintPos p')
   getErrorComponent (RedeclaredSymbol _ n)    = "re-declared symbol: " <> show n
+  getErrorComponent (StructNotDefined _ n)    = "undefined struct " <> show n
 
 -- | runs an analysis in a copy of the current scope without modifying the
 -- original scope, but retains the errors and defined and used labels.
@@ -208,13 +213,13 @@ findParams (ArrayDeclarator x _ _ )    = throwC4 $ MiscSemanticError (_position 
 
 functionDefinition :: (Monad m) => FunctionDefinition SynPhase -> Analysis m (FunctionDefinition SemPhase)
 functionDefinition (FunctionDefinition pos t d (CompoundStmt p stmts))  = do
-    d' <- declarator (fromType t) d
-    tx <- typeA t
+    t' <- typeA t
+    d' <- declarator (getType t') d
     define pos (getName d') (getType d')
     params <- findParams d'
     stmt' <- enterScope $ do
       modify $ \s -> s { inFunDef = True}
-      expectReturnType (fromType t)
+      expectReturnType (getType t')
       forM_ params ( \case
         (Parameter (pp, pt, n) _ _) -> define pp n pt
         (AbstractParameter _ _ _ ) -> return () -- we don't have to declare abstract params
@@ -224,7 +229,7 @@ functionDefinition (FunctionDefinition pos t d (CompoundStmt p stmts))  = do
 
     checkForUndefinedLabels -- check labels under 'enterScope'
     modify $ \s -> s { usedLabels = Map.empty, labels = Map.empty }
-    return $ FunctionDefinition pos tx d' stmt'
+    return $ FunctionDefinition pos t' d' stmt'
 
 functionDefinition (FunctionDefinition pos t d _)  = throwC4 $ MiscSemanticError pos "a function definition needs a compound statement"
 
@@ -234,20 +239,12 @@ expectReturnType t = modify $ \s -> s { expectedReturnValue = Just t }
 setInLoop :: Monad m => Analysis m ()
 setInLoop = modify $ \s -> s { inLoop = True}
 
-typeA :: (Monad m) => Type SynPhase -> Analysis m (Type SemPhase)
-typeA Void = return Void
-typeA Int  = return Int
-typeA Char = return Char
-typeA (StructIdentifier i) = return (StructIdentifier i)
-typeA (StructInline i l) = do
-  l' <- mapM structDeclaration l
-  return (StructInline i l')
 
 
 structDeclaration :: (Monad m) => StructDeclaration SynPhase -> Analysis m (StructDeclaration SemPhase)
 structDeclaration (StructDeclaration p t l) = do
   t' <- typeA t
-  l' <- mapM (declarator (fromType t')) l
+  l' <- mapM (declarator (getType t')) l
   return (StructDeclaration p t' l')
 
 declarator :: (Monad m) => CType -> Declarator SynPhase -> Analysis m (Declarator SemPhase)
@@ -271,31 +268,27 @@ declarator t (ArrayDeclarator p d e) = do
 parameter :: (Monad m) => Parameter SynPhase -> Analysis m (Parameter SemPhase)
 parameter (Parameter p t d) = do
   t' <- typeA t
-  d' <- declarator (fromType t) d
+  d' <- declarator (getType t') d
   return $ Parameter (p, getType d', getName d') t' d'
+
 parameter (AbstractParameter p t d) = do
   t' <- typeA t
-  d' <- maybe' (abstractDeclarator (fromType t)) d
+  d' <- maybe' (abstractDeclarator (getType t')) d
   let typ = case d' of
-              Nothing    -> fromType t
-              (Just d'') -> getType d''
+           Nothing    -> getType t'
+           (Just d'') -> getType d''
   return $ AbstractParameter (p, typ) t' d'
 
 declaration :: (Monad m) => Declaration SynPhase -> Analysis m (Declaration SemPhase)
 declaration (Declaration pos t is) = do
+  t' <- typeA t
   is' <- forM is $ \i -> do
-     i'@(InitializedDec d _) <- initDeclarator (fromType t) i
+     i'@(InitializedDec d _) <- initDeclarator (getType t') i
      gets inFunDef >>= \case
        True -> define pos (getName d) (getType d)
        False-> declare pos (getName d) (getType d)
      return i'
-  t' <- typeA t
   return $ Declaration pos t' is'
-
---declaration :: Declaration SynPhase -> Analysis (Declaration SemPhase)
---declaration (Declaration _ t is) = forM_ is $ \i -> do
---  let (n, t') = (initDeclarator (Primitive t) i)
---  declare n t'
 
 
 initDeclarator :: (Monad m) => CType -> InitDeclarator SynPhase -> Analysis m (InitDeclarator SemPhase)
@@ -453,7 +446,7 @@ expression (UExpr p op e) = do
 
 expression (SizeOfType p t)       = do
   t' <- typeA t
-  return (SizeOfType (p, fromType t, RValue) t')
+  return $ SizeOfType (p, getType t', RValue) t'
 
 expression (Func p l r)           = do
   l' <- expression l
@@ -491,15 +484,21 @@ expression (FieldAccess p l r)   = do
 expression (StringLiteral p b)   = return $ StringLiteral (p, Pointer CChar, RValue) b
 
 
-fromType :: Monad m=> Type x -> Analysis m CType
-fromType Void                 = return CVoid
-fromType Int                  = return CInt
-fromType Char                 = return CChar
-fromType (StructIdentifier p n) = do
-  x <- gets structures
-  Map.lookup n x >>= \case
-    Nothing -> throw $ StructNotDefined p n
-fromType _                    = return Bottom -- TODO:
+typeA :: (Monad m) => Type SynPhase -> Analysis m (Type SemPhase)
+typeA (Void p) = return $ Void (p, CVoid)
+typeA (Int  p) = return $ Int (p, CInt)
+typeA (Char p) = return $ Char (p, CChar)
+
+typeA (StructIdentifier p i) =
+  Map.lookup i <$> gets structures >>= \case
+    Nothing -> throwC4 $ StructNotDefined p i
+    Just _  -> return $ StructIdentifier (p, Struct i) i
+
+typeA (StructInline p i l) = do
+  l' <- mapM structDeclaration l
+  return $ StructInline (p, AnonymousStruct) i l'
+
+
 --------------------------------------------------------------------------------
 -- little helpers
 --------------------------------------------------------------------------------

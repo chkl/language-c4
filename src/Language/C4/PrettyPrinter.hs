@@ -192,11 +192,11 @@ instance PrettyPrint (FunctionDefinition x) where
     prettyPrint stmt
 
 instance PrettyPrint (Type x) where
-  prettyPrint Int = "int"
-  prettyPrint Char = "char"
-  prettyPrint Void = "void"
-  prettyPrint (StructIdentifier i)  = "struct " <> print (fromShort i)
-  prettyPrint (StructInline mi decls)  = do
+  prettyPrint (Int _) = "int"
+  prettyPrint (Char _) = "char"
+  prettyPrint (Void _) = "void"
+  prettyPrint (StructIdentifier _ i)  = "struct " <> print (fromShort i)
+  prettyPrint (StructInline _ mi decls)  = do
     print "struct"
     maybe "" (\x -> space >> print x) (fromShort <$> mi)
     newline

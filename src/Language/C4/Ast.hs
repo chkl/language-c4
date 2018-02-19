@@ -45,6 +45,8 @@ type family AnnLabeledStmt x
 type family AnnParameter x
 type family AnnAbstractParameter x
 
+type family AnnType x
+
 --------------------------------------------------------------------------------
 -- Root / Translation Units
 --------------------------------------------------------------------------------
@@ -66,11 +68,11 @@ type Pointers = Int
 
 data Declaration x = Declaration (AnnDeclaration x) (Type x) [InitDeclarator x]
 
-data Type x = Void
-          | Char
-          | Int
-          | StructIdentifier Ident
-          | StructInline (Maybe Ident) [StructDeclaration x]
+data Type x = Void (AnnType x)
+          | Char (AnnType x)
+          | Int (AnnType x)
+          | StructIdentifier (AnnType x) Ident
+          | StructInline (AnnType x) (Maybe Ident) [StructDeclaration x]
 
 data StructDeclaration x = StructDeclaration (AnnStructDeclaration x) (Type x) [Declarator x ]
 
@@ -175,6 +177,8 @@ type instance AnnReturn UD             = ()
 type instance AnnLabeledStmt UD        = ()
 type instance AnnParameter UD          = ()
 type instance AnnAbstractParameter UD  = ()
+
+type instance AnnType UD = ()
 
 -- some pattern synonyms
 pattern LabeledStmtUD :: Ident -> Stmt UD -> Stmt UD
@@ -359,11 +363,11 @@ instance Undecorate AbstractDeclarator where
   undecorate (ArrayStar _ d)                    = ArrayStar () (undecorate d)
 
 instance Undecorate Type where
-  undecorate Void                 = Void
-  undecorate Char                 = Char
-  undecorate Int                  = Int
-  undecorate (StructIdentifier b) = StructIdentifier b
-  undecorate (StructInline b d)   = StructInline b (map undecorate d)
+  undecorate (Void _)               = Void ()
+  undecorate (Char _)               = Char ()
+  undecorate (Int _)                = Int ()
+  undecorate (StructIdentifier _ b) = StructIdentifier () b
+  undecorate (StructInline _ b d)   = StructInline () b (map undecorate d)
 
 instance Undecorate StructDeclaration where
   undecorate (StructDeclaration _ t d) = StructDeclaration () (undecorate t) (map undecorate d)

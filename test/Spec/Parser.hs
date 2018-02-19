@@ -27,15 +27,15 @@ unitTestsParser = do
 testTypeSpecifier :: SpecWith ()
 testTypeSpecifier = describe "typeSpecifier parser" $ do
     it "parse primitive types correctly" $ do
-      undecorate <$> testParser typeSpecifier "void" `shouldBe` Right Void
-      undecorate <$> testParser typeSpecifier "char" `shouldBe` Right Char
-      undecorate <$> testParser typeSpecifier "int" `shouldBe` Right Int
+      undecorate <$> testParser typeSpecifier "void" `shouldBe` Right (Void ())
+      undecorate <$> testParser typeSpecifier "char" `shouldBe` Right (Char ())
+      undecorate <$> testParser typeSpecifier "int" `shouldBe` Right (Int ())
 
     it "parse simple struct definition" $ do
-      testParser typeSpecifier "struct A" `shouldBe` Right (StructIdentifier "A")
-      testParser typeSpecifier "struct A {}" `shouldBe` Right (StructInline (Just "A") [])
+      undecorate <$> testParser typeSpecifier "struct A" `shouldBe` Right (StructIdentifier () "A")
+      undecorate <$> testParser typeSpecifier "struct A {}" `shouldBe` Right (StructInline () (Just "A") [])
       undecorate <$> testParser typeSpecifier "struct A {int foo;}" `shouldBe`
-        Right (StructInline (Just "A") [StructDeclarationUD Int [DeclaratorIdUD "foo" ]])
+        Right (StructInline () (Just "A") [StructDeclarationUD (Int ()) [DeclaratorIdUD "foo" ]])
 
 
     it "parses declarators" $ do
@@ -47,10 +47,10 @@ testTypeSpecifier = describe "typeSpecifier parser" $ do
       testParser declarator "f(int x, int y)" `shouldSatisfy` isRight
 
     it "parses struct declarations" $ do
-      undecorate <$> testParser structDeclaration "int;" `shouldBe` Right  (StructDeclarationUD Int [])
-      undecorate <$> testParser structDeclaration "int x;" `shouldBe` Right  (StructDeclarationUD Int [ DeclaratorIdUD "x"])
-      undecorate <$> testParser structDeclaration "int x,y;" `shouldBe` Right  (StructDeclarationUD Int [ DeclaratorIdUD "x", DeclaratorIdUD "y"])
-      undecorate <$> testParser structDeclaration "int x,*y;" `shouldBe` Right  (StructDeclarationUD Int [ DeclaratorIdUD "x" , IndirectDeclaratorUD (DeclaratorIdUD "y" )])
+      undecorate <$> testParser structDeclaration "int;" `shouldBe` Right  (StructDeclarationUD (Int ()) [])
+      undecorate <$> testParser structDeclaration "int x;" `shouldBe` Right  (StructDeclarationUD (Int ()) [ DeclaratorIdUD "x"])
+      undecorate <$> testParser structDeclaration "int x,y;" `shouldBe` Right  (StructDeclarationUD (Int ()) [ DeclaratorIdUD "x", DeclaratorIdUD "y"])
+      undecorate <$> testParser structDeclaration "int x,*y;" `shouldBe` Right  (StructDeclarationUD (Int ()) [ DeclaratorIdUD "x" , IndirectDeclaratorUD (DeclaratorIdUD "y" )])
       testParser structDeclaration "int f(int y);" `shouldSatisfy` isRight
       testParser structDeclaration "int f(int y);" `shouldSatisfy` isRight
 
