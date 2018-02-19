@@ -28,10 +28,11 @@ data AnalysisState = AnalysisState
   , usedLabels          :: Map.Map Ident SourcePos -- ^ used labels, think of this as a queue of labels to be checked
   , expectedReturnValue :: Maybe CType
   , inLoop              :: Bool
+  , inFunDef            :: Bool
   } deriving (Show)
 
 emptyAnalysisState :: AnalysisState
-emptyAnalysisState = AnalysisState Map.empty Map.empty Map.empty Nothing False
+emptyAnalysisState = AnalysisState Map.empty Map.empty Map.empty Nothing False False
 
 type Analysis m = StateT AnalysisState (C4T m)
 
@@ -151,10 +152,12 @@ instance C4Error SemanticError where
 enterScope :: (Monad m) => Analysis m a -> Analysis m a
 enterScope a = do
     oldState <- get
+    put $ oldState { scope = Map.fromList $ map (\(n,(t,_)) -> (n,(t, Declared))) (Map.toList $ scope oldState)}
     x <- a
     modify $ \s -> s { scope               = scope oldState
                      , inLoop              = inLoop oldState
                      , expectedReturnValue = expectedReturnValue oldState
+                     , inFunDef            = inFunDef oldState
                      }
     return x
 
@@ -203,21 +206,26 @@ findParams (DeclaratorId x _ )         = throwC4 $ MiscSemanticError (_position 
 findParams (ArrayDeclarator x _ _ )    = throwC4 $ MiscSemanticError (_position x) "expected function declarator"
 
 functionDefinition :: (Monad m) => FunctionDefinition SynPhase -> Analysis m (FunctionDefinition SemPhase)
-functionDefinition (FunctionDefinition pos t d stmt)  = do
+functionDefinition (FunctionDefinition pos t d (CompoundStmt p stmts))  = do
     d' <- declarator (fromType t) d
     tx <- typeA t
     define pos (getName d') (getType d')
     params <- findParams d'
     stmt' <- enterScope $ do
+      modify $ \s -> s { inFunDef = True}
       expectReturnType (fromType t)
       forM_ params ( \case
-        (Parameter (p, pt, n) _ _) -> define p n pt
+        (Parameter (pp, pt, n) _ _) -> define pp n pt
         (AbstractParameter _ _ _ ) -> return () -- we don't have to declare abstract params
         )
-      statement stmt
+      stmts' <- forM stmts $ either (fmap Left . declaration) (fmap Right . statement)
+      return $ CompoundStmt p stmts'
+
     checkForUndefinedLabels -- check labels under 'enterScope'
     modify $ \s -> s { usedLabels = Map.empty, labels = Map.empty }
     return $ FunctionDefinition pos tx d' stmt'
+
+functionDefinition (FunctionDefinition pos t d _)  = throwC4 $ MiscSemanticError pos "a function definition needs a compound statement"
 
 expectReturnType :: Monad m => CType -> Analysis m ()
 expectReturnType t = modify $ \s -> s { expectedReturnValue = Just t }
@@ -276,7 +284,9 @@ declaration :: (Monad m) => Declaration SynPhase -> Analysis m (Declaration SemP
 declaration (Declaration pos t is) = do
   is' <- forM is $ \i -> do
      i'@(InitializedDec d _) <- initDeclarator (fromType t) i
-     declare pos (getName d) (getType d)
+     gets inFunDef >>= \case
+       True -> define pos (getName d) (getType d)
+       False-> declare pos (getName d) (getType d)
      return i'
   t' <- typeA t
   return $ Declaration pos t' is'
