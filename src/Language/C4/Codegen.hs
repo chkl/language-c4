@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE PartialTypeSignatures      #-}
 {-# LANGUAGE RecursiveDo                #-}
@@ -14,7 +15,10 @@ module Language.C4.Codegen
 import           Control.Monad.Error.Class
 import           Control.Monad.State
 import qualified Data.Map                   as Map
-import           LLVM.AST                   hiding (function)
+import           Data.Word                  (Word32)
+
+import           LLVM.AST                   hiding (alignment, function)
+import           LLVM.AST.AddrSpace
 import           LLVM.AST.IntegerPredicate  as Pred
 import           LLVM.AST.Type
 import           LLVM.IRBuilder.Constant
@@ -29,11 +33,14 @@ import           Language.C4.Types
 
 -- | We use the builder monads provided by llvm-hs in combination to our C4 Monad so we can still throw errors and have access to a future log / configuration.
 
-newtype CGState = CGState { _labels :: Map.Map Ident Name}
+data CGState = CGState
+  { _labels :: Map.Map Ident Name
+  , _scope  ::  Map.Map Ident Operand
+  }
 
 
 emptyCGState :: CGState
-emptyCGState = CGState Map.empty
+emptyCGState = CGState Map.empty Map.empty
 
 newtype CGModule a = CGModule { unCGModule :: ModuleBuilderT (StateT CGState C4) a }
   deriving (Functor, Applicative, Monad, MonadFix, MonadError (SourcePos, String), MonadModuleBuilder, MonadState CGState)
@@ -41,6 +48,13 @@ newtype CGModule a = CGModule { unCGModule :: ModuleBuilderT (StateT CGState C4)
 
 runCGModule :: CGModule a -> C4 Module
 runCGModule m = fst <$> runStateT (buildModuleT "blah" $ unCGModule m) emptyCGState
+
+
+addToScope :: Ident -> Operand -> CGBlock ()
+addToScope i n = modify $ \s -> s {_scope = Map.insert i n (_scope s)}
+
+lookupOperand :: Ident -> CGBlock (Maybe Operand)
+lookupOperand i = Map.lookup i <$> gets _scope
 
 type CGBlock  = IRBuilderT CGModule
 
@@ -69,11 +83,24 @@ functionDefinition (FunctionDefinition p t d stmt) =
       (SemAst.Function b a)= getType d
       paramTypes = [(i32, "a"), (i32, "b")]
   in do
-      _ <- function funName paramTypes (toLLVMType b) $ \params -> statement stmt
+      _ <- function funName paramTypes (fst $ toLLVMType b) $ \params -> statement stmt
       return ()
 
+-- | Only for "internal" declarations
 declaration :: Declaration SemPhase -> CGBlock ()
-declaration = undefined
+declaration (Declaration _ _ ids ) = forM_ ids $ \(InitializedDec d mi) -> do
+  let t = getType d
+      n = getName d
+      (t', alignment) = toLLVMType t
+  llvmName <- alloca t' Nothing alignment
+  addToScope n llvmName
+  return ()
+
+
+-- declaration (Declaration _ Int [InitializedDec (DeclaratorId _ n) Nothing]) = do
+--   llvmName <- alloca i32 Nothing 4
+--   addToScope n llvmName
+--   return ()
 
 statement :: Stmt SemPhase -> CGBlock ()
 statement (Return _ Nothing) = retVoid
@@ -160,7 +187,10 @@ expression (UExpr _ op e) = do
       sub x e'
     Not -> undefined
 expression (Func _ f p) = do undefined
-expression (ExprIdent _ i) = do undefined
+expression (ExprIdent _ i) = do
+  lookupOperand i >>= \case
+    Nothing -> error "sollte nicht  passieren"
+    Just n -> return n
 expression (FieldAccess _ f i) = do undefined
 expression (PointerAccess _ p i) = do undefined
 expression (StringLiteral _ s) = do undefined
@@ -170,4 +200,7 @@ expression (IntConstant _ i) = int32 i  -- TODO
 
 --------------------------------------------------------------------------------
 --  some constants we might need
-toLLVMType (CInt) = i32
+toLLVMType :: CType -> (LLVM.AST.Type, Word32)
+toLLVMType (CInt) = (i32, 4)
+toLLVMType (Pointer t) = let (t', _) = toLLVMType t
+                         in (PointerType t' (AddrSpace 0), 8)
