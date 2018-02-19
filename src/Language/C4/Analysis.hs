@@ -65,9 +65,10 @@ declare :: (Monad m) => SourcePos -> Ident -> CType -> Analysis m ()
 declare pos n t = do
   lookupName n >>= \case
     Nothing  -> addName n t Declared
+    Just (_, Defined) -> throwC4 $ RedeclaredSymbol pos n
     (Just (t',_)) -> matchTypes_ pos t t'
 
--- | 'define' is similar to 'declare'. The difference is that a name can only be defined once. This function also checks that if the name has been defined, that the types correspond.
+-- | 'define' is similar to 'declare'. The difference is that a name can only be defined once. This function also checks that if the name has been declared, that the types correspond.
 define :: (Monad m) => SourcePos -> Ident -> CType -> Analysis m ()
 define pos n t = do
   lookupName n >>= \case
@@ -124,6 +125,10 @@ data SemanticError = UndeclaredName
                      , label                 :: !Ident
                      , prevPosition          :: !SourcePos
                      }
+                   | RedeclaredSymbol
+                     { semanticErrorPosition :: !SourcePos
+                     , ident                 :: !Ident
+                     }
 
 
 instance C4Error SemanticError where
@@ -139,6 +144,7 @@ instance C4Error SemanticError where
   getErrorComponent (MiscSemanticError _ m)   = m
   getErrorComponent (UndefinedLabel _ l)      = "undefined label " <> show l
   getErrorComponent (DuplicateLabel _ l p')   = "duplicate label " <> show l <> ", previously defined at " <> show (prettyPrintPos p')
+  getErrorComponent (RedeclaredSymbol _ n)    = "re-declared symbol: " <> show n
 
 -- | runs an analysis in a copy of the current scope without modifying the
 -- original scope, but retains the errors.
@@ -200,7 +206,7 @@ functionDefinition (FunctionDefinition pos t d stmt)  = do
     stmt' <- enterScope $ do
       expectReturnType (fromType t)
       forM_ params $ \case
-        (Parameter (_, pt, n) _ _) -> addName n pt Declared
+        (Parameter (p, pt, n) _ _) -> define p n pt
         (AbstractParameter _ _ _ ) -> return () -- ^ we don't have to declare abstract params
       statement stmt
     return $ FunctionDefinition pos tx d' stmt'
