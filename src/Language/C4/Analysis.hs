@@ -17,7 +17,8 @@ import           Language.C4.Ast.SynAst
 import           Language.C4.Types
 
 -- The functionality of the module can be summarized as converting from a
--- syntactic AST to a semantic one. In particular this means that e.g.
+
+  -- syntactic AST to a semantic one. In particular this means that e.g.
 -- 'TranslationUnit SynPhase' gets transformed into a 'TranslationUnit
 -- SemPhase'.
 
@@ -131,10 +132,10 @@ data SemanticError = UndeclaredName
                      { semanticErrorPosition :: !SourcePos
                      , ident                 :: !Ident
                      }
-                   | StructNotDefined
-                     { semanticErrorPosition :: !SourcePos
-                     , ident                 :: !Ident
-                     }
+                   | DuplicateStruct
+                   { semanticErrorPosition :: !SourcePos
+                   , ident                 :: !Ident
+                   }
 
 
 instance C4Error SemanticError where
@@ -150,8 +151,8 @@ instance C4Error SemanticError where
   getErrorComponent (MiscSemanticError _ m)   = m
   getErrorComponent (UndefinedLabel _ l)      = "undefined label " <> show l
   getErrorComponent (DuplicateLabel _ l p')   = "duplicate label " <> show l <> ", previously defined at " <> show (prettyPrintPos p')
-  getErrorComponent (RedeclaredSymbol _ n)    = "re-declared symbol: " <> show n
-  getErrorComponent (StructNotDefined _ n)    = "undefined struct " <> show n
+  getErrorComponent (DuplicateStruct _ n)   = "duplicate struct " <> show n
+  getErrorComponent (RedeclaredSymbol _ n)    = "re-declared symbol " <> show n
 
 -- | runs an analysis in a copy of the current scope without modifying the
 -- original scope, but retains the errors and defined and used labels.
@@ -489,14 +490,23 @@ typeA (Void p) = return $ Void (p, CVoid)
 typeA (Int  p) = return $ Int (p, CInt)
 typeA (Char p) = return $ Char (p, CChar)
 
-typeA (StructIdentifier p i) =
-  Map.lookup i <$> gets structures >>= \case
-    Nothing -> throwC4 $ StructNotDefined p i
-    Just _  -> return $ StructIdentifier (p, Struct i) i
+-- | Apparently struct do not need to be defined in order to be used in declarations
+typeA (StructIdentifier p i) = return $ StructIdentifier (p, Struct i) i
 
-typeA (StructInline p i l) = do
+typeA (StructInline p mi l) = do
   l' <- mapM structDeclaration l
-  return $ StructInline (p, AnonymousStruct) i l'
+  case mi of
+    Nothing -> return $ StructInline (p, AnonymousStruct) mi l'
+    Just i -> do
+      fields <- forM l' $ \(StructDeclaration _ _ ds) -> do
+        forM ds $ \d -> do
+          return (getName d, getType d)
+      let fields' = Map.fromList $ concat fields
+      Map.lookup i <$> gets structures >>= \case
+        Nothing -> do
+          modify $ \s -> s {structures = Map.insert i fields' (structures s) }
+          return $ StructInline (p, Struct i) mi l'
+        Just _ -> throwC4 $ DuplicateStruct p i
 
 
 --------------------------------------------------------------------------------
