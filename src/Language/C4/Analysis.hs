@@ -25,7 +25,7 @@ import           Language.C4.Types
 data AnalysisState = AnalysisState
   { scope               :: Scope -- ^ declared and defined variables and functions
   , labels              :: Map.Map Ident SourcePos -- ^ defined labels
-  , usedLabels          :: Map.Map Ident SourcePos -- ^ used labels
+  , usedLabels          :: Map.Map Ident SourcePos -- ^ used labels, think of this as a queue of labels to be checked
   , expectedReturnValue :: Maybe CType
   , inLoop              :: Bool
   } deriving (Show)
@@ -147,12 +147,15 @@ instance C4Error SemanticError where
   getErrorComponent (RedeclaredSymbol _ n)    = "re-declared symbol: " <> show n
 
 -- | runs an analysis in a copy of the current scope without modifying the
--- original scope, but retains the errors.
+-- original scope, but retains the errors and defined and used labels.
 enterScope :: (Monad m) => Analysis m a -> Analysis m a
 enterScope a = do
-    s <- get
+    oldState <- get
     x <- a
-    put s
+    modify $ \s -> s { scope               = scope oldState
+                     , inLoop              = inLoop oldState
+                     , expectedReturnValue = expectedReturnValue oldState
+                     }
     return x
 
 -- | Matches two types and returns the unified (more general) type. Currently: "Matching"  means equality
@@ -183,13 +186,15 @@ translationUnit :: (Monad m) => TranslationUnit SynPhase -> Analysis m (Translat
 translationUnit (TranslationUnit _ eds) = do
   eds' <- forM eds (either' declaration functionDefinition)
   s <- gets scope
-  -- check labels
+  return $ TranslationUnit s eds'
+
+checkForUndefinedLabels :: Monad m => Analysis m ()
+checkForUndefinedLabels = do
   uLbls <- gets usedLabels
   forM_ (Map.toList uLbls) $ \(u,p) -> do
     hasLabel u >>= \case
       Just _ -> return ()
       Nothing -> throwC4 $ UndefinedLabel p u
-  return $ TranslationUnit s eds'
 
 findParams :: Monad m =>  Declarator SemPhase -> Analysis m [Parameter SemPhase]
 findParams (IndirectDeclarator _ d)    = findParams d
@@ -205,10 +210,13 @@ functionDefinition (FunctionDefinition pos t d stmt)  = do
     params <- findParams d'
     stmt' <- enterScope $ do
       expectReturnType (fromType t)
-      forM_ params $ \case
+      forM_ params ( \case
         (Parameter (p, pt, n) _ _) -> define p n pt
-        (AbstractParameter _ _ _ ) -> return () -- ^ we don't have to declare abstract params
+        (AbstractParameter _ _ _ ) -> return () -- we don't have to declare abstract params
+        )
       statement stmt
+    checkForUndefinedLabels -- check labels under 'enterScope'
+    modify $ \s -> s { usedLabels = Map.empty, labels = Map.empty }
     return $ FunctionDefinition pos tx d' stmt'
 
 expectReturnType :: Monad m => CType -> Analysis m ()
