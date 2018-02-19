@@ -275,7 +275,7 @@ instance PrettyPrint (Stmt x) where
     smartBraces stmt
     newline
 
-  prettyPrint (Goto _ i) = print "goto " <> print (fromShort i) <> ";"
+  prettyPrint (Goto _ i) = print "goto " >> print (fromShort i) >> eos
   prettyPrint (Return _ me) = do
     print "return"
     whenM me $ \e -> do
