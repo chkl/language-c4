@@ -31,7 +31,7 @@ import           Language.C4.Types
 
 
 parse :: (Monad m) => FilePath -> ByteString -> C4T m (TranslationUnit SynPhase)
-parse fn s = case Text.Megaparsec.runParser translationUnit fn s of
+parse fn s = case Text.Megaparsec.runParser (setTabWidth pos1 >> translationUnit) fn s of
                    Left err  -> throwC4 err
                    Right ast -> return ast
 
