@@ -11,6 +11,7 @@ import           System.Exit        (exitFailure)
 import           System.IO          (hPutStr, stderr, stdout)
 
 import           Language.C4
+import Language.C4.Ast (undecorate)
 
 
 main :: IO ()
@@ -19,6 +20,7 @@ main = do
   case x of
         ["--parse", fn]     -> cmdParse fn
         ["--print-ast", fn] -> cmdPrint fn
+        ["--debug-ast", fn] -> cmdDebugAst fn
         ["--tokenize", fn]  -> cmdTokenize fn
         ["--compile", fn]   -> cmdCompile fn
         [fn]                -> cmdCompile fn
@@ -30,6 +32,12 @@ cmdPrint fn = do
   ast <- runC4IO $ parse fn s >>= analyse
   hPutPrettyPrint ast stdout
 
+
+cmdDebugAst :: FilePath -> IO ()
+cmdDebugAst fn = do
+  s <- BS.readFile fn
+  ast <- runC4IO $ parse fn s >>= analyse
+  Prelude.print (undecorate ast)
 
 cmdParse :: FilePath -> IO ()
 cmdParse fn = do
