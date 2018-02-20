@@ -481,7 +481,16 @@ expression (Func p l r)           = do
 
 expression (PointerAccess p l f ) = do
   l' <- expression l
-  return $ PointerAccess (p, Bottom, getLValuedness l') l' f
+  ty <- case getType l' of
+          (Pointer (Struct s)) -> do
+            Map.lookup s <$> gets structures >>= \case
+              Nothing -> throwC4 $ UndefinedStruct p s
+              (Just s') -> case Map.lookup f s' of
+                                Nothing  -> throwC4 $ UndefinedField p f
+                                (Just t) -> return t
+          (Pointer AnonymousStruct) -> return Bottom -- TODO
+          _ -> throwC4 $ TypeMismatch p (getType l') (Pointer Bottom)
+  return $ PointerAccess (p, ty , getLValuedness l') l' f
 
 expression (ArrayAccess p l r)         = do
   l' <- expression l
