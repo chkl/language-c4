@@ -67,10 +67,14 @@ lookupType n = (fmap .fmap) fst  (lookupName n)
 -- declare a name multiple times as long as they have the same declared type.
 declare :: (Monad m) => SourcePos -> Ident -> CType -> Analysis m ()
 declare pos n t = do
+  ifd <- gets inFunDef
   lookupName n >>= \case
     Nothing  -> addName n t Declared
-    Just (_, Defined) -> throwC4 $ RedeclaredSymbol pos n
-    (Just (t',_)) -> matchTypes_ pos t t'
+    Just (_, Shadowable) -> addName n t Declared
+    Just (_, Defined)    -> throwC4 $ RedeclaredSymbol pos n
+    Just (t',Declared) | ifd       -> throwC4 $ RedeclaredSymbol pos n
+                       | t == t'   -> return ()
+                       | otherwise -> throwC4 $ RedeclaredSymbolDifferentType pos n t t'
 
 -- | 'define' is similar to 'declare'. The difference is that a name can only be defined once. This function also checks that if the name has been declared, that the types correspond.
 define :: (Monad m) => SourcePos -> Ident -> CType -> Analysis m ()
@@ -81,7 +85,7 @@ define pos n t = do
     (Just (t', Declared)) -> do
       matchTypes_ pos t t'
       addName n t' Defined
-
+    (Just (t', Shadowable)) -> addName n t' Defined
 
 defineLabel :: Monad m => Ident -> SourcePos -> Analysis m ()
 defineLabel n p = do
@@ -152,6 +156,11 @@ data SemanticError = UndeclaredName
                    | AnonymousStructsDontMatch
                    { semanticErrorPosition :: !SourcePos
                    }
+                   | RedeclaredSymbolDifferentType
+                   { semanticErrorPosition :: !SourcePos
+                   , ident                 :: !Ident
+                   , typeError             :: !CType
+                   , typePrevious          :: !CType }
 
 
 instance C4Error SemanticError where
@@ -173,13 +182,14 @@ instance C4Error SemanticError where
   getErrorComponent (UndefinedStruct _ n)    = "undefined struct " <> show n
   getErrorComponent (UndefinedField _ n)     = "undefined field " <> show n
   getErrorComponent (AnonymousStructsDontMatch _)     = "anonymous structs cannot be matched"
+  getErrorComponent (RedeclaredSymbolDifferentType _ n t t') = "redeclared symbol " <> show n <> " with type " <> show t <> ", previous type " <> show t'
 
 -- | runs an analysis in a copy of the current scope without modifying the
 -- original scope, but retains the errors and defined and used labels.
 enterScope :: (Monad m) => Analysis m a -> Analysis m a
 enterScope a = do
     oldState <- get
-    put $ oldState { scope = Map.fromList $ map (\(n,(t,_)) -> (n,(t, Declared))) (Map.toList $ scope oldState)}
+    put $ oldState { scope = Map.fromList $ map (\(n,(t,_)) -> (n,(t, Shadowable))) (Map.toList $ scope oldState)}
     x <- a
     modify $ \s -> s { scope               = scope oldState
                      , inLoop              = inLoop oldState
@@ -301,9 +311,7 @@ declaration (Declaration pos t is) = do
   t' <- typeA t
   is' <- forM is $ \i -> do
      i'@(InitializedDec d _) <- initDeclarator (getType t') i
-     gets inFunDef >>= \case
-       True -> define pos (getName d) (getType d)
-       False-> declare pos (getName d) (getType d)
+     declare pos (getName d) (getType d)
      return i'
   return $ Declaration pos t' is'
 
