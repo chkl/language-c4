@@ -136,6 +136,10 @@ data SemanticError = UndeclaredName
                    { semanticErrorPosition :: !SourcePos
                    , ident                 :: !Ident
                    }
+                   | DuplicateField
+                   { semanticErrorPosition :: !SourcePos
+                   , ident                 :: !Ident
+                   }
 
 
 instance C4Error SemanticError where
@@ -153,6 +157,7 @@ instance C4Error SemanticError where
   getErrorComponent (DuplicateLabel _ l p')   = "duplicate label " <> show l <> ", previously defined at " <> show (prettyPrintPos p')
   getErrorComponent (DuplicateStruct _ n)   = "duplicate struct " <> show n
   getErrorComponent (RedeclaredSymbol _ n)    = "re-declared symbol " <> show n
+  getErrorComponent (DuplicateField _ n)    = "duplicate field " <> show n
 
 -- | runs an analysis in a copy of the current scope without modifying the
 -- original scope, but retains the errors and defined and used labels.
@@ -498,7 +503,14 @@ typeA (StructInline p mi l) = do
   case mi of
     Nothing -> return $ StructInline (p, AnonymousStruct) mi l'
     Just i -> do
-      let fields = Map.fromList [(getName d, getType d)  | (StructDeclaration _ _ ds) <- l', d <- ds]
+      fields <- execStateT (
+        forM_ l' $ \(StructDeclaration  p' _ ds) ->
+              forM_ ds $ \d -> do
+                  let n = getName d
+                  Map.lookup n <$> get >>= \case
+                    Just _ -> throwC4 $ DuplicateField p' n
+                    Nothing -> modify $ Map.insert n (getType d)
+        ) Map.empty
       Map.lookup i <$> gets structures >>= \case
         Nothing -> do
           modify $ \s -> s {structures = Map.insert i fields (structures s) }
