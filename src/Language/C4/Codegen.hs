@@ -20,6 +20,7 @@ import           Debug.Trace
 
 import           LLVM.AST                   hiding (alignment, function)
 import           LLVM.AST.AddrSpace
+import           LLVM.AST.Global
 import           LLVM.AST.IntegerPredicate  as Pred
 import           LLVM.AST.Type
 import           LLVM.IRBuilder.Constant
@@ -51,7 +52,7 @@ runCGModule :: CGModule a -> C4 Module
 runCGModule m = fst <$> runStateT (buildModuleT "blah" $ unCGModule m) emptyCGState
 
 
-addToScope :: Ident -> Operand -> CGBlock ()
+addToScope :: (MonadState CGState m) => Ident -> Operand -> m ()
 addToScope i n = trace ("adding " ++ show i ++ " to scope") $ modify $ \s -> s {_scope = Map.insert i n (_scope s)}
 
 lookupOperand :: Ident -> CGBlock (Maybe Operand)
@@ -76,7 +77,22 @@ compile (TranslationUnit _ es) = runCGModule $
 
 
 externalDeclaration :: Declaration SemPhase -> CGModule ()
-externalDeclaration (Declaration p t ids) = throwC4 (FeatureNotImplemented p "declarations")
+externalDeclaration (Declaration p t ids) = forM_ ids $ \(InitializedDec d mi)  -> do
+  case getType d of
+    (SemAst.Function b as) -> do
+      let name = Name $ getName d
+      let typedParams = map (fst . toLLVMType)  as
+          returnType = fst $ toLLVMType  b
+      x <- extern name typedParams returnType
+      addToScope (getName d) x
+      return ()
+    t -> do
+      let nm   = Name $ getName d
+          glbl = globalVariableDefaults { name = nm, LLVM.AST.Global.type' = fst (toLLVMType t)}
+      emitDefn (GlobalDefinition glbl)
+
+
+
 
 functionDefinition :: FunctionDefinition SemPhase -> CGModule ()
 functionDefinition (FunctionDefinition p t d stmt) = Control.Monad.State.void $ do
@@ -85,13 +101,15 @@ functionDefinition (FunctionDefinition p t d stmt) = Control.Monad.State.void $ 
       tyyy = [(getName p, toLLVMType (getType p)) | p <- params]
       funName                      = Name (getName d)
       (SemAst.Function returnTy _) = getType d
-  function funName txxx (fst $ toLLVMType returnTy) $ \paramsLLVM -> do
+  fn <- function funName txxx (fst $ toLLVMType returnTy) $ \paramsLLVM -> do
     _ <- block `named` "entry" -- Do not remove this
     forM_ (zip tyyy paramsLLVM)  $ \((name,(typ, alignment)), xx) -> do
         ll <- alloca typ Nothing alignment
         store ll alignment xx
         addToScope name ll
     statement stmt
+  addToScope (getName d) fn
+  return fn
 
 
 -- | Only for "internal" declarations
@@ -222,7 +240,12 @@ expression R (UExpr _ op e) = do
       x <- int32 0
       sub x e'
     Not -> undefined
-expression _ (Func _ f p) = do undefined
+
+expression _ (Func _ f (List es )) = do
+  f' <- expression L f
+  p' <- mapM (expression R) es
+  let p'' = zip p' (repeat [])
+  call f' p''
 
 expression _ (FieldAccess _ f i) = do undefined
 expression _ (PointerAccess _ p i) = do undefined
