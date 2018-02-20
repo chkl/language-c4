@@ -85,6 +85,9 @@ class HasType x where
 class HasName x where
   getName :: x -> Ident
 
+instance HasName (Parameter SemPhase) where
+  getName (Parameter (p,t,n)  _ _ ) = n
+
 class HasLValuedness x where
   getLValuedness :: x -> LValuedness
 

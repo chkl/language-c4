@@ -3,7 +3,7 @@
 int f(int);
 
 int main() {
-	int x;
-	x = f(1);
-	printf("%i", x);
+	for (int i = 0; i < 10; i++) {
+		printf("f(%i) = %i\n", i, f(i));
+	}
 }

@@ -1,3 +1,8 @@
+
 int f(int x) {
-	return (2 * x + 1 + 3 + 5);
+	if (x) {
+		return 1000;
+	} else {
+		return 2222;
+	}	
 }

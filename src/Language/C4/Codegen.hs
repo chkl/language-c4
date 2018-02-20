@@ -16,7 +16,7 @@ import           Control.Monad.Error.Class
 import           Control.Monad.State
 import qualified Data.Map                   as Map
 import           Data.Word                  (Word32)
-import Debug.Trace
+import           Debug.Trace
 
 import           LLVM.AST                   hiding (alignment, function)
 import           LLVM.AST.AddrSpace
@@ -81,23 +81,18 @@ externalDeclaration (Declaration p t ids) = throwC4 (FeatureNotImplemented p "de
 functionDefinition :: FunctionDefinition SemPhase -> CGModule ()
 functionDefinition (FunctionDefinition p t d stmt) = Control.Monad.State.void $ do
   params <- findParams d
-  let typedParams           = parameterX params
-      funName               = Name (getName d)
-      (SemAst.Function b _) = getType d
-  function funName typedParams (fst $ toLLVMType b) $ \paramsLLVM -> do
-    let namedOperands = zip (map snd typedParams) paramsLLVM
-    forM_ namedOperands $ \(ParameterName n,o) -> addToScope n o
+  let txxx = map (\p -> (fst $ toLLVMType $ getType $ p, ParameterName (getName p))) params
+      tyyy = [(getName p, toLLVMType (getType p)) | p <- params]
+      funName                      = Name (getName d)
+      (SemAst.Function returnTy _) = getType d
+  function funName txxx (fst $ toLLVMType returnTy) $ \paramsLLVM -> do
     _ <- block `named` "entry" -- Do not remove this
+    forM_ (zip tyyy paramsLLVM)  $ \((name,(typ, alignment)), xx) -> do
+        ll <- alloca typ Nothing alignment
+        store ll alignment xx
+        addToScope name ll
     statement stmt
 
- -- entry <- block `named` "entry"; do
- --      c <- add a b
- --      ret c
-
-parameterX :: [SemAst.Parameter SemPhase] -> [(LLVM.AST.Type, ParameterName)]
-parameterX = foldr f []
-  where f (AbstractParameter _ _ _) l = l
-        f (SemAst.Parameter _ _ d) l  = (fst (toLLVMType (getType d)), ParameterName (getName d)) : l
 
 -- | Only for "internal" declarations
 declaration :: Declaration SemPhase -> CGBlock ()
@@ -106,6 +101,11 @@ declaration (Declaration _ _ ids ) = forM_ ids $ \(InitializedDec d mi) -> do
       n = getName d
       (t', alignment) = toLLVMType t
   llvmName <- alloca t' Nothing alignment
+  case mi of
+    Just (InitializerAssignment e) -> do
+      e' <- expression R e
+      store llvmName alignment e'
+    Nothing -> return ()
   addToScope n llvmName
   return ()
 
@@ -118,27 +118,30 @@ declaration (Declaration _ _ ids ) = forM_ ids $ \(InitializedDec d mi) -> do
 statement :: Stmt SemPhase -> CGBlock ()
 statement (Return _ Nothing) = retVoid
 statement (Return _ (Just e)) = do
-  e' <- expression e
+  e' <- expression R e
   ret e'
 statement (CompoundStmt _ stmtsOrDecls) = mapM_ f stmtsOrDecls
   where f = either declaration statement
 
-statement (ExpressionStmt _ e) = do
-  _ <- expression e
-  return ()
+statement (ExpressionStmt _ e) = Control.Monad.State.void $ expression R e
 
 statement (IfStmt _ c s1 ms2) = mdo
-    c' <- expression c
-    condBr c' thB elB
+    c' <- expression R c
+    zero <- int32 0
+    c'' <- icmp NE c' zero
+    condBr c'' thB elB
     thB <- block
     statement s1
     elB <- block
     maybe (return ()) statement ms2
 
 statement (WhileStmt _ c s) = mdo
+  br hd
   hd <- block `named` "head"
-  e' <- expression c
-  condBr e' bd tl
+  e' <- expression R c
+  zero <- int32 0
+  e'' <- icmp NE e' zero
+  condBr e'' bd tl
   bd <- block `named` "body"
   statement s
   br hd
@@ -169,11 +172,31 @@ lookupLabel p l = do
     Just n  -> return n
 
 
-expression :: Expr SemPhase -> CGBlock Operand
---expression (ExprIdent _ i) = Name i
-expression (BExpr _ op e1 e2) = do
-  l <- expression e1
-  r <- expression e2
+
+data LR = L | R
+
+expression :: LR -> Expr SemPhase -> CGBlock Operand
+
+expression lr e@(ExprIdent _ i) = do
+  lookupOperand i >>= \case
+    Nothing -> error $ "could not lookup expression with identifier " ++ show i
+    Just n -> case lr of
+                  L -> return n
+                  R -> load n (getAlignment e)
+
+
+expression lr (BExpr _ AssignOp e1 e2) = do
+    let a = getAlignment e1
+    e1' <- expression L e1
+    e2' <- expression R e2
+    store e1' a e2'
+    case lr of
+      L -> return e1'
+      R -> return e2'
+
+expression R (BExpr _ op e1 e2) = do
+  l <- expression R e1
+  r <- expression R e2
   case op of
     Plus         -> add l r
     Minus        -> sub l r
@@ -183,14 +206,14 @@ expression (BExpr _ op e1 e2) = do
     NotEqual     -> icmp Pred.NE l r
     LAnd         -> and l r
     LOr          -> or l r
-    AssignOp     -> undefined
-expression (List l) = do undefined
-expression (Ternary _ i t e) = do undefined
-expression (Assign _ l r) = do undefined
-expression (SizeOfType _ t) = do undefined
-expression (ArrayAccess _ a i) = do undefined
-expression (UExpr _ op e) = do
-  e' <- expression e
+
+expression _ (List l) = do undefined
+expression _ (Ternary _ i t e) = do undefined
+expression _ (Assign _ l r) = do undefined
+expression _ (SizeOfType _ t) = do undefined
+expression _ (ArrayAccess _ a i) = do undefined
+expression R (UExpr _ op e) = do
+  e' <- expression R e
   case op of
     SizeOf -> int32 4
     Address -> undefined
@@ -199,18 +222,16 @@ expression (UExpr _ op e) = do
       x <- int32 0
       sub x e'
     Not -> undefined
-expression (Func _ f p) = do undefined
-expression (ExprIdent _ i) = do
-  lookupOperand i >>= \case
-    Nothing -> error $ "could not lookup expression with identifier " ++ show i
-    Just n -> return n
-expression (FieldAccess _ f i) = do undefined
-expression (PointerAccess _ p i) = do undefined
-expression (StringLiteral _ s) = do undefined
-expression (CharConstant _ c) = int32 42  -- TODO
-expression (IntConstant _ i) = int32 i  -- TODO
+expression _ (Func _ f p) = do undefined
 
+expression _ (FieldAccess _ f i) = do undefined
+expression _ (PointerAccess _ p i) = do undefined
+expression _ (StringLiteral _ s) = do undefined
+expression _ (CharConstant _ c) = int32 42  -- TODO
+expression _ (IntConstant _ i) = int32 i  -- TODO
 
+getAlignment :: HasType t => t -> Word32
+getAlignment = snd . toLLVMType . getType
 --------------------------------------------------------------------------------
 --  some constants we might need
 toLLVMType :: CType -> (LLVM.AST.Type, Word32)
