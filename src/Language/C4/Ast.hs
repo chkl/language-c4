@@ -45,6 +45,8 @@ type family AnnLabeledStmt x
 type family AnnParameter x
 type family AnnAbstractParameter x
 
+type family AnnType x
+
 --------------------------------------------------------------------------------
 -- Root / Translation Units
 --------------------------------------------------------------------------------
@@ -66,11 +68,11 @@ type Pointers = Int
 
 data Declaration x = Declaration (AnnDeclaration x) (Type x) [InitDeclarator x]
 
-data Type x = Void
-          | Char
-          | Int
-          | StructIdentifier Ident
-          | StructInline (Maybe Ident) [StructDeclaration x]
+data Type x = Void (AnnType x)
+          | Char (AnnType x)
+          | Int (AnnType x)
+          | StructIdentifier (AnnType x) Ident
+          | StructInline (AnnType x) (Maybe Ident) [StructDeclaration x]
 
 data StructDeclaration x = StructDeclaration (AnnStructDeclaration x) (Type x) [Declarator x ]
 
@@ -133,8 +135,8 @@ data Expr x = List [Expr x] -- ^ should never be empty
           | ExprIdent (AnnExprIdent x) Ident
           | CharConstant (AnnConstant x) ByteString
           | IntConstant (AnnConstant x) Integer
-          | FieldAccess (AnnFieldAccess x) (Expr x) (Expr x)
-          | PointerAccess (AnnPointerAccess x) (Expr x) (Expr x)
+          | FieldAccess (AnnFieldAccess x) (Expr x) Ident
+          | PointerAccess (AnnPointerAccess x) (Expr x) Ident
           | StringLiteral (AnnStringLiteral x) ByteString
 
 --------------------------------------------------------------------------------
@@ -176,6 +178,8 @@ type instance AnnLabeledStmt UD        = ()
 type instance AnnParameter UD          = ()
 type instance AnnAbstractParameter UD  = ()
 
+type instance AnnType UD = ()
+
 -- some pattern synonyms
 pattern LabeledStmtUD :: Ident -> Stmt UD -> Stmt UD
 pattern LabeledStmtUD l s <- LabeledStmt _ l s
@@ -185,7 +189,7 @@ pattern CompoundStmtUD :: [Either (Declaration UD) (Stmt UD)]-> Stmt UD
 pattern CompoundStmtUD ss <- CompoundStmt _ ss
   where CompoundStmtUD ss = CompoundStmt () ss
 
-pattern FieldAccessUD :: Expr UD -> Expr UD -> Expr UD
+pattern FieldAccessUD :: Expr UD -> Ident -> Expr UD
 pattern FieldAccessUD x y <- FieldAccess _ x y
   where FieldAccessUD x y = FieldAccess () x y
 
@@ -201,7 +205,7 @@ pattern IndirectDeclaratorUD ::  Declarator UD -> Declarator UD
 pattern IndirectDeclaratorUD d <- IndirectDeclarator _ d
   where IndirectDeclaratorUD d = IndirectDeclarator () d
 
-pattern PointerAccessUD :: Expr UD -> Expr UD -> Expr UD
+pattern PointerAccessUD :: Expr UD -> Ident -> Expr UD
 pattern PointerAccessUD e f <- PointerAccess _ e f
   where PointerAccessUD e f = PointerAccess () e f
 
@@ -333,10 +337,11 @@ instance Undecorate Expr where
   undecorate (Func _ e1 e2)          = Func () (undecorate e1) (undecorate e2)
   undecorate (ExprIdent _ b)         = ExprIdent () b
   undecorate (CharConstant _ b)      = CharConstant  () b
-  undecorate (IntConstant _ b)       = IntConstant  () b
-  undecorate (FieldAccess _ e1 e2)   = FieldAccess () (undecorate e1) (undecorate e2)
-  undecorate (PointerAccess _ e1 e2) = PointerAccess () (undecorate e1) (undecorate e2)
-  undecorate (StringLiteral _ b )    = StringLiteral () b
+  undecorate (IntConstant _ b)      = IntConstant  () b
+  undecorate (FieldAccess _ e1 n)   = FieldAccess () (undecorate e1) n
+  undecorate (PointerAccess _ e1 f) = PointerAccess () (undecorate e1) f
+  undecorate (StringLiteral _ b )   = StringLiteral () b
+
 
 instance Undecorate Declarator where
   undecorate (IndirectDeclarator _ d)   = IndirectDeclarator () (undecorate d)
@@ -359,11 +364,11 @@ instance Undecorate AbstractDeclarator where
   undecorate (ArrayStar _ d)                    = ArrayStar () (undecorate d)
 
 instance Undecorate Type where
-  undecorate Void                 = Void
-  undecorate Char                 = Char
-  undecorate Int                  = Int
-  undecorate (StructIdentifier b) = StructIdentifier b
-  undecorate (StructInline b d)   = StructInline b (map undecorate d)
+  undecorate (Void _)               = Void ()
+  undecorate (Char _)               = Char ()
+  undecorate (Int _)                = Int ()
+  undecorate (StructIdentifier _ b) = StructIdentifier () b
+  undecorate (StructInline _ b d)   = StructInline () b (map undecorate d)
 
 instance Undecorate StructDeclaration where
   undecorate (StructDeclaration _ t d) = StructDeclaration () (undecorate t) (map undecorate d)

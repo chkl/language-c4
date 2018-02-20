@@ -68,6 +68,8 @@ type instance AnnReturn SemPhase             = SourcePos
 type instance AnnLabeledStmt SemPhase        = SourcePos
 type instance AnnExpressionStmt SemPhase     = SourcePos
 
+type instance AnnType SemPhase = (SourcePos, CType)
+
 data DeclaratorSemAnn = DeclaratorSemAnn
   { _position :: SourcePos
   , _type     :: CType
@@ -118,6 +120,12 @@ instance HasType (AbstractDeclarator SemPhase) where -- TODO
   getType (IndirectAbstractDeclarator (_,t) _)   = t
   getType (ArrayStar (_,t) _)                    = t
 
+instance HasType (Type SemPhase) where
+  getType (Int (_,t))                = t
+  getType (Void (_,t))               = t
+  getType (Char (_,t))               = t
+  getType (StructIdentifier (_,t) _) = t
+  getType (StructInline (_,t) _ _)   = t
 
 instance HasName (Declarator SemPhase) where
   getName = _name . getDeclaratorSemAnn
@@ -163,27 +171,26 @@ data CType = CInt
            | Array CType
            | Tuple [CType]
            | Function CType [CType]
+           | Struct Ident
+           | AnonymousStruct
            | Bottom -- c.f. undefined in Haskell
            deriving (Eq)
 
 
 instance Show CType where
-  show CInt = "Int"
-  show CVoid = "Void"
-  show CChar = "Char"
-  show Bottom         = "⊥"
-  show (Pointer t)    = "*" ++ show t
-  show (Function t p) = "(" ++ pl ++ ") -> " ++ show t
-    where pl          = intercalate ", " $ map show p
-  show (Tuple p)      = "(" ++ pl ++ ")"
-    where pl          = intercalate ", " $ map show p
-  show (Array t)      = show t ++ "[]"
+  show CInt            = "Int"
+  show CVoid           = "Void"
+  show CChar           = "Char"
+  show (Struct n)      = "struct " ++ show n
+  show AnonymousStruct = "struct"
+  show Bottom          = "⊥"
+  show (Pointer t)     = "*" ++ show t
+  show (Function t p)  = "(" ++ pl ++ ") -> " ++ show t
+    where pl           = intercalate ", " $ map show p
+  show (Tuple p)       = "(" ++ pl ++ ")"
+    where pl           = intercalate ", " $ map show p
+  show (Array t)       = show t ++ "[]"
 
-fromType :: Type x -> CType
-fromType Void = CVoid
-fromType Int  = CInt
-fromType Char = CChar
-fromType _    = Bottom -- TODO:
 
 data InternalError = InternalError !SourcePos !String
 

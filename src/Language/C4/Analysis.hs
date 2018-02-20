@@ -18,7 +18,8 @@ import           Language.C4.Ast.SynAst
 import           Language.C4.Types
 
 -- The functionality of the module can be summarized as converting from a
--- syntactic AST to a semantic one. In particular this means that e.g.
+
+  -- syntactic AST to a semantic one. In particular this means that e.g.
 -- 'TranslationUnit SynPhase' gets transformed into a 'TranslationUnit
 -- SemPhase'.
 
@@ -27,13 +28,14 @@ data AnalysisState = AnalysisState
   { scope               :: Scope -- ^ declared and defined variables and functions
   , labels              :: Map.Map Ident SourcePos -- ^ defined labels
   , usedLabels          :: Map.Map Ident SourcePos -- ^ used labels, think of this as a queue of labels to be checked
+  , structures          :: Map.Map Ident (Map.Map Ident CType)
   , expectedReturnValue :: Maybe CType
   , inLoop              :: Bool
   , inFunDef            :: Bool
   } deriving (Show)
 
 emptyAnalysisState :: AnalysisState
-emptyAnalysisState = AnalysisState Map.empty Map.empty Map.empty Nothing False False
+emptyAnalysisState = AnalysisState Map.empty Map.empty Map.empty Map.empty Nothing False False
 
 type Analysis m = StateT AnalysisState (C4T m)
 
@@ -131,22 +133,46 @@ data SemanticError = UndeclaredName
                      { semanticErrorPosition :: !SourcePos
                      , ident                 :: !Ident
                      }
+                   | DuplicateStruct
+                   { semanticErrorPosition :: !SourcePos
+                   , ident                 :: !Ident
+                   }
+                   | DuplicateField
+                   { semanticErrorPosition :: !SourcePos
+                   , ident                 :: !Ident
+                   }
+                   | UndefinedStruct
+                   { semanticErrorPosition :: !SourcePos
+                   , ident                 :: !Ident
+                   }
+                   | UndefinedField
+                   { semanticErrorPosition :: !SourcePos
+                   , ident                 :: !Ident
+                   }
+                   | AnonymousStructsDontMatch
+                   { semanticErrorPosition :: !SourcePos
+                   }
 
 
 instance C4Error SemanticError where
-  getErrorPosition                            = semanticErrorPosition
-  getErrorComponent (UndeclaredName _ i)      = "undeclared name " <> show i
-  getErrorComponent (AlreadyDefinedName _ i)  = "name already defined " <> show i
-  getErrorComponent (TypeMismatch _ l r)      = "type mismatch: expected type: " <> show l <> "; actual type: " <> show r
-  getErrorComponent (NoPointer _)             = "expects a pointer"
-  getErrorComponent (UnexpectedReturn _)      = "unexpected return"
-  getErrorComponent (AssignRValue _ _)        = "assignment to rvalue"
-  getErrorComponent (BreakOutsideLoop _)      = "break can only be used inside a loop"
-  getErrorComponent (ContinueOutsideLoop _)   = "continue can only be used inside a loop"
-  getErrorComponent (MiscSemanticError _ m)   = m
-  getErrorComponent (UndefinedLabel _ l)      = "undefined label " <> show l
-  getErrorComponent (DuplicateLabel _ l p')   = "duplicate label " <> show l <> ", previously defined at " <> show (prettyPrintPos p')
-  getErrorComponent (RedeclaredSymbol _ n)    = "re-declared symbol: " <> show n
+  getErrorPosition                           = semanticErrorPosition
+  getErrorComponent (UndeclaredName _ i)     = "undeclared name " <> show i
+  getErrorComponent (AlreadyDefinedName _ i) = "name already defined " <> show i
+  getErrorComponent (TypeMismatch _ l r)     = "type mismatch: expected type: " <> show l <> "; actual type: " <> show r
+  getErrorComponent (NoPointer _)            = "expects a pointer"
+  getErrorComponent (UnexpectedReturn _)     = "unexpected return"
+  getErrorComponent (AssignRValue _ _)       = "assignment to rvalue"
+  getErrorComponent (BreakOutsideLoop _)     = "break can only be used inside a loop"
+  getErrorComponent (ContinueOutsideLoop _)  = "continue can only be used inside a loop"
+  getErrorComponent (MiscSemanticError _ m)  = m
+  getErrorComponent (UndefinedLabel _ l)     = "undefined label " <> show l
+  getErrorComponent (DuplicateLabel _ l p')  = "duplicate label " <> show l <> ", previously defined at " <> show (prettyPrintPos p')
+  getErrorComponent (DuplicateStruct _ n)    = "duplicate struct " <> show n
+  getErrorComponent (RedeclaredSymbol _ n)   = "re-declared symbol " <> show n
+  getErrorComponent (DuplicateField _ n)     = "duplicate field " <> show n
+  getErrorComponent (UndefinedStruct _ n)    = "undefined struct " <> show n
+  getErrorComponent (UndefinedField _ n)     = "undefined field " <> show n
+  getErrorComponent (AnonymousStructsDontMatch _)     = "anonymous structs cannot be matched"
 
 -- | runs an analysis in a copy of the current scope without modifying the
 -- original scope, but retains the errors and defined and used labels.
@@ -174,6 +200,7 @@ matchTypes p t@(Pointer _) CInt = return t -- ^ pointer arithmetic
 matchTypes p CInt t@(Pointer _) = return t -- ^
 matchTypes p (Tuple [t1]) t2    = matchTypes p t1 t2
 matchTypes p t1 (Tuple [t2])    = matchTypes p t1 t2
+matchTypes p AnonymousStruct AnonymousStruct = throwC4 $ AnonymousStructsDontMatch p
 matchTypes p t1 t2              = do
   when (t1 /= t2) $ throwC4 (TypeMismatch p t1 t2)
   return t1
@@ -203,13 +230,13 @@ checkForUndefinedLabels = do
 
 functionDefinition :: (Monad m) => FunctionDefinition SynPhase -> Analysis m (FunctionDefinition SemPhase)
 functionDefinition (FunctionDefinition pos t d (CompoundStmt p stmts))  = do
-    d' <- declarator (fromType t) d
-    tx <- typeA t
+    t' <- typeA t
+    d' <- declarator (getType t') d
     define pos (getName d') (getType d')
     params <- findParams d'
     stmt' <- enterScope $ do
       modify $ \s -> s { inFunDef = True}
-      expectReturnType (fromType t)
+      expectReturnType (getType t')
       forM_ params ( \case
         (Parameter (pp, pt, n) _ _) -> define pp n pt
         (AbstractParameter _ _ _ ) -> return () -- we don't have to declare abstract params
@@ -219,7 +246,7 @@ functionDefinition (FunctionDefinition pos t d (CompoundStmt p stmts))  = do
 
     checkForUndefinedLabels -- check labels under 'enterScope'
     modify $ \s -> s { usedLabels = Map.empty, labels = Map.empty }
-    return $ FunctionDefinition pos tx d' stmt'
+    return $ FunctionDefinition pos t' d' stmt'
 
 functionDefinition (FunctionDefinition pos t d _)  = throwC4 $ MiscSemanticError pos "a function definition needs a compound statement"
 
@@ -229,20 +256,12 @@ expectReturnType t = modify $ \s -> s { expectedReturnValue = Just t }
 setInLoop :: Monad m => Analysis m ()
 setInLoop = modify $ \s -> s { inLoop = True}
 
-typeA :: (Monad m) => Type SynPhase -> Analysis m (Type SemPhase)
-typeA Void = return Void
-typeA Int  = return Int
-typeA Char = return Char
-typeA (StructIdentifier i) = return (StructIdentifier i)
-typeA (StructInline i l) = do
-  l' <- mapM structDeclaration l
-  return (StructInline i l')
 
 
 structDeclaration :: (Monad m) => StructDeclaration SynPhase -> Analysis m (StructDeclaration SemPhase)
 structDeclaration (StructDeclaration p t l) = do
   t' <- typeA t
-  l' <- mapM (declarator (fromType t')) l
+  l' <- mapM (declarator (getType t')) l
   return (StructDeclaration p t' l')
 
 declarator :: (Monad m) => CType -> Declarator SynPhase -> Analysis m (Declarator SemPhase)
@@ -266,31 +285,27 @@ declarator t (ArrayDeclarator p d e) = do
 parameter :: (Monad m) => Parameter SynPhase -> Analysis m (Parameter SemPhase)
 parameter (Parameter p t d) = do
   t' <- typeA t
-  d' <- declarator (fromType t) d
+  d' <- declarator (getType t') d
   return $ Parameter (p, getType d', getName d') t' d'
+
 parameter (AbstractParameter p t d) = do
   t' <- typeA t
-  d' <- maybe' (abstractDeclarator (fromType t)) d
+  d' <- maybe' (abstractDeclarator (getType t')) d
   let typ = case d' of
-              Nothing    -> fromType t
-              (Just d'') -> getType d''
+           Nothing    -> getType t'
+           (Just d'') -> getType d''
   return $ AbstractParameter (p, typ) t' d'
 
 declaration :: (Monad m) => Declaration SynPhase -> Analysis m (Declaration SemPhase)
 declaration (Declaration pos t is) = do
+  t' <- typeA t
   is' <- forM is $ \i -> do
-     i'@(InitializedDec d _) <- initDeclarator (fromType t) i
+     i'@(InitializedDec d _) <- initDeclarator (getType t') i
      gets inFunDef >>= \case
        True -> define pos (getName d) (getType d)
        False-> declare pos (getName d) (getType d)
      return i'
-  t' <- typeA t
   return $ Declaration pos t' is'
-
---declaration :: Declaration SynPhase -> Analysis (Declaration SemPhase)
---declaration (Declaration _ t is) = forM_ is $ \i -> do
---  let (n, t') = (initDeclarator (Primitive t) i)
---  declare n t'
 
 
 initDeclarator :: (Monad m) => CType -> InitDeclarator SynPhase -> Analysis m (InitDeclarator SemPhase)
@@ -448,7 +463,7 @@ expression (UExpr p op e) = do
 
 expression (SizeOfType p t)       = do
   t' <- typeA t
-  return (SizeOfType (p, fromType t, RValue) t')
+  return $ SizeOfType (p, getType t', RValue) t'
 
 expression (Func p l r)           = do
   l' <- expression l
@@ -460,10 +475,18 @@ expression (Func p l r)           = do
     _ -> do
       throwC4 $ TypeMismatch p (Function Bottom [getType r']) (getType l')
 
-expression (PointerAccess p l r ) = do
+expression (PointerAccess p l f ) = do
   l' <- expression l
-  r' <- expression r
-  return $ PointerAccess (p, Bottom, getLValuedness l') l' r'
+  ty <- case getType l' of
+          (Pointer (Struct s)) -> do
+            Map.lookup s <$> gets structures >>= \case
+              Nothing -> throwC4 $ UndefinedStruct p s
+              (Just s') -> case Map.lookup f s' of
+                                Nothing  -> throwC4 $ UndefinedField p f
+                                (Just t) -> return t
+          (Pointer AnonymousStruct) -> return Bottom -- TODO
+          _ -> throwC4 $ TypeMismatch p (getType l') (Pointer Bottom)
+  return $ PointerAccess (p, ty , getLValuedness l') l' f
 
 expression (ArrayAccess p l r)         = do
   l' <- expression l
@@ -478,12 +501,49 @@ expression (ArrayAccess p l r)         = do
     _ -> do
       throwC4 $ TypeMismatch p (Pointer Bottom) (getType l')
 
-expression (FieldAccess p l r)   = do
+expression (FieldAccess p l f)   = do
   l' <- expression l
-  r' <- expression r
-  return (FieldAccess (p, Bottom, LValue) l' r') -- TODO: type check field access
+  ty <- case getType l' of
+          (Struct s) -> do
+            strcts <- gets structures
+            case Map.lookup s strcts of
+                Nothing -> throwC4 $ UndefinedStruct p s
+                (Just s') -> case Map.lookup f s' of
+                                  Nothing  -> throwC4 $ UndefinedField p f
+                                  (Just t) -> return t
+          _ -> throwC4 $ TypeMismatch p (getType l') AnonymousStruct
+  return (FieldAccess (p, ty, LValue) l' f) -- TODO: type check field access
 
 expression (StringLiteral p b)   = return $ StringLiteral (p, Pointer CChar, RValue) b
+
+
+typeA :: (Monad m) => Type SynPhase -> Analysis m (Type SemPhase)
+typeA (Void p) = return $ Void (p, CVoid)
+typeA (Int  p) = return $ Int (p, CInt)
+typeA (Char p) = return $ Char (p, CChar)
+
+-- | Apparently struct do not need to be defined in order to be used in declarations
+typeA (StructIdentifier p i) = return $ StructIdentifier (p, Struct i) i
+
+typeA (StructInline p mi l) = do
+  l' <- mapM structDeclaration l
+  case mi of
+    Nothing -> return $ StructInline (p, AnonymousStruct) mi l'
+    Just i -> do
+      fields <- execStateT (
+        forM_ l' $ \(StructDeclaration  p' _ ds) ->
+              forM_ ds $ \d -> do
+                  let n = getName d
+                  Map.lookup n <$> get >>= \case
+                    Just _ -> throwC4 $ DuplicateField p' n
+                    Nothing -> modify $ Map.insert n (getType d)
+        ) Map.empty
+      Map.lookup i <$> gets structures >>= \case
+        Nothing -> do
+          modify $ \s -> s {structures = Map.insert i fields (structures s) }
+          return $ StructInline (p, Struct i) mi l'
+        Just _ -> throwC4 $ DuplicateStruct p i
+
 
 --------------------------------------------------------------------------------
 -- little helpers

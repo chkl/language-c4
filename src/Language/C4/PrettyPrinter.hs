@@ -192,11 +192,11 @@ instance PrettyPrint (FunctionDefinition x) where
     prettyPrint stmt
 
 instance PrettyPrint (Type x) where
-  prettyPrint Int = "int"
-  prettyPrint Char = "char"
-  prettyPrint Void = "void"
-  prettyPrint (StructIdentifier i)  = "struct " <> print (fromShort i)
-  prettyPrint (StructInline mi decls)  = do
+  prettyPrint (Int _) = "int"
+  prettyPrint (Char _) = "char"
+  prettyPrint (Void _) = "void"
+  prettyPrint (StructIdentifier _ i)  = "struct " <> print (fromShort i)
+  prettyPrint (StructInline _ mi decls)  = do
     print "struct"
     maybe "" (\x -> space >> print x) (fromShort <$> mi)
     newline
@@ -318,8 +318,8 @@ instance PrettyPrint (Expr x) where
   prettyPrint (IntConstant _ c)     = print' (integerDec c)
   prettyPrint (CharConstant _ c)    = print "'" >> print c >> print "'"
   prettyPrint (ArrayAccess _ a b )  = prettyPrint a >> brackets (prettyPrint b)
-  prettyPrint (FieldAccess _ a b)   = parens $ prettyPrint a >> period >> prettyPrint b
-  prettyPrint (PointerAccess _ a b) = parens $ prettyPrint a >> print "->" >> prettyPrint b
+  prettyPrint (FieldAccess _ a b)   = parens $ prettyPrint a >> period >> print (fromShort b)
+  prettyPrint (PointerAccess _ a b) = parens $ prettyPrint a >> print "->" >> print (fromShort b)
   prettyPrint (StringLiteral _ s)   = print "\"" >> print s >> print "\""
   prettyPrint (List es)           = commaSep $ map prettyPrint es
 
