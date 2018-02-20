@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE TypeFamilies      #-}
 
 module Language.C4.Ast.SemAst
@@ -8,6 +9,7 @@ module Language.C4.Ast.SemAst
 
 import           Data.List         (intercalate)
 import qualified Data.Map.Strict   as Map
+import           Control.Monad.Error.Class
 
 import           Language.C4.Ast
 import           Language.C4.Types
@@ -183,3 +185,14 @@ fromType Int  = CInt
 fromType Char = CChar
 fromType _    = Bottom -- TODO:
 
+data InternalError = InternalError !SourcePos !String
+
+instance C4Error InternalError where
+ getErrorComponent (InternalError _ s) = s
+ getErrorPosition (InternalError p _)  = p
+
+findParams :: (MonadError (SourcePos, String) m, Monad m) => Declarator SemPhase -> m [Parameter SemPhase]
+findParams (IndirectDeclarator _ d)    = findParams d
+findParams (FunctionDeclarator _ _ ps) = return ps
+findParams (DeclaratorId x _ )         = throwC4 $ InternalError (_position x) "expected function declarator"
+findParams (ArrayDeclarator x _ _ )    = throwC4 $ InternalError (_position x) "expected function declarator"

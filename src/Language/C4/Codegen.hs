@@ -16,6 +16,7 @@ import           Control.Monad.Error.Class
 import           Control.Monad.State
 import qualified Data.Map                   as Map
 import           Data.Word                  (Word32)
+import Debug.Trace
 
 import           LLVM.AST                   hiding (alignment, function)
 import           LLVM.AST.AddrSpace
@@ -51,7 +52,7 @@ runCGModule m = fst <$> runStateT (buildModuleT "blah" $ unCGModule m) emptyCGSt
 
 
 addToScope :: Ident -> Operand -> CGBlock ()
-addToScope i n = modify $ \s -> s {_scope = Map.insert i n (_scope s)}
+addToScope i n = trace ("adding " ++ show i ++ " to scope") $ modify $ \s -> s {_scope = Map.insert i n (_scope s)}
 
 lookupOperand :: Ident -> CGBlock (Maybe Operand)
 lookupOperand i = Map.lookup i <$> gets _scope
@@ -78,13 +79,25 @@ externalDeclaration :: Declaration SemPhase -> CGModule ()
 externalDeclaration (Declaration p t ids) = throwC4 (FeatureNotImplemented p "declarations")
 
 functionDefinition :: FunctionDefinition SemPhase -> CGModule ()
-functionDefinition (FunctionDefinition p t d stmt) =
-  let funName = Name (getName d)
-      (SemAst.Function b a)= getType d
-      paramTypes = [(i32, "a"), (i32, "b")]
-  in do
-      _ <- function funName paramTypes (fst $ toLLVMType b) $ \params -> statement stmt
-      return ()
+functionDefinition (FunctionDefinition p t d stmt) = Control.Monad.State.void $ do
+  params <- findParams d
+  let typedParams           = parameterX params
+      funName               = Name (getName d)
+      (SemAst.Function b _) = getType d
+  function funName typedParams (fst $ toLLVMType b) $ \paramsLLVM -> do
+    let namedOperands = zip (map snd typedParams) paramsLLVM
+    forM_ namedOperands $ \(ParameterName n,o) -> addToScope n o
+    _ <- block `named` "entry" -- Do not remove this
+    statement stmt
+
+ -- entry <- block `named` "entry"; do
+ --      c <- add a b
+ --      ret c
+
+parameterX :: [SemAst.Parameter SemPhase] -> [(LLVM.AST.Type, ParameterName)]
+parameterX = foldr f []
+  where f (AbstractParameter _ _ _) l = l
+        f (SemAst.Parameter _ _ d) l  = (fst (toLLVMType (getType d)), ParameterName (getName d)) : l
 
 -- | Only for "internal" declarations
 declaration :: Declaration SemPhase -> CGBlock ()
@@ -189,7 +202,7 @@ expression (UExpr _ op e) = do
 expression (Func _ f p) = do undefined
 expression (ExprIdent _ i) = do
   lookupOperand i >>= \case
-    Nothing -> error "sollte nicht  passieren"
+    Nothing -> error $ "could not lookup expression with identifier " ++ show i
     Just n -> return n
 expression (FieldAccess _ f i) = do undefined
 expression (PointerAccess _ p i) = do undefined

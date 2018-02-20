@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase       #-}
 {-# LANGUAGE MultiWayIf       #-}
+{-# LANGUAGE TypeFamilies     #-}
 
 module Language.C4.Analysis
  ( SemanticError(..)
@@ -199,11 +200,6 @@ checkForUndefinedLabels = do
       Just _ -> return ()
       Nothing -> throwC4 $ UndefinedLabel p u
 
-findParams :: Monad m =>  Declarator SemPhase -> Analysis m [Parameter SemPhase]
-findParams (IndirectDeclarator _ d)    = findParams d
-findParams (FunctionDeclarator _ _ ps) = return ps
-findParams (DeclaratorId x _ )         = throwC4 $ MiscSemanticError (_position x) "expected function declarator"
-findParams (ArrayDeclarator x _ _ )    = throwC4 $ MiscSemanticError (_position x) "expected function declarator"
 
 functionDefinition :: (Monad m) => FunctionDefinition SynPhase -> Analysis m (FunctionDefinition SemPhase)
 functionDefinition (FunctionDefinition pos t d (CompoundStmt p stmts))  = do
