@@ -7,6 +7,6 @@ struct S {
 
 int f(struct S *AS) {
   struct S LS;
-  return LS.d->c;
+  return GS.a + AS->b + LS.c + LS.d->c;
 }
 int main() { }

@@ -135,7 +135,7 @@ data Expr x = List [Expr x] -- ^ should never be empty
           | ExprIdent (AnnExprIdent x) Ident
           | CharConstant (AnnConstant x) ByteString
           | IntConstant (AnnConstant x) Integer
-          | FieldAccess (AnnFieldAccess x) (Expr x) (Expr x)
+          | FieldAccess (AnnFieldAccess x) (Expr x) Ident
           | PointerAccess (AnnPointerAccess x) (Expr x) (Expr x)
           | StringLiteral (AnnStringLiteral x) ByteString
 
@@ -189,7 +189,7 @@ pattern CompoundStmtUD :: [Either (Declaration UD) (Stmt UD)]-> Stmt UD
 pattern CompoundStmtUD ss <- CompoundStmt _ ss
   where CompoundStmtUD ss = CompoundStmt () ss
 
-pattern FieldAccessUD :: Expr UD -> Expr UD -> Expr UD
+pattern FieldAccessUD :: Expr UD -> Ident -> Expr UD
 pattern FieldAccessUD x y <- FieldAccess _ x y
   where FieldAccessUD x y = FieldAccess () x y
 
@@ -338,7 +338,7 @@ instance Undecorate Expr where
   undecorate (ExprIdent _ b)         = ExprIdent () b
   undecorate (CharConstant _ b)      = CharConstant  () b
   undecorate (IntConstant _ b)       = IntConstant  () b
-  undecorate (FieldAccess _ e1 e2)   = FieldAccess () (undecorate e1) (undecorate e2)
+  undecorate (FieldAccess _ e1 n)   = FieldAccess () (undecorate e1) n
   undecorate (PointerAccess _ e1 e2) = PointerAccess () (undecorate e1) (undecorate e2)
   undecorate (StringLiteral _ b )    = StringLiteral () b
 

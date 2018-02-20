@@ -497,19 +497,18 @@ expression (ArrayAccess p l r)         = do
     _ -> do
       throwC4 $ TypeMismatch p (Pointer Bottom) (getType l')
 
-expression (FieldAccess p l r)   = do
+expression (FieldAccess p l f)   = do
   l' <- expression l
-  r' <- expression r
-  ty <- case (getType l', r') of
-          (Struct s, ExprIdent _ f) -> do
+  ty <- case getType l' of
+          (Struct s) -> do
             strcts <- gets structures
             case Map.lookup s strcts of
                 Nothing -> throwC4 $ UndefinedStruct p s
                 (Just s') -> case Map.lookup f s' of
-                                  Nothing  -> throwC4 $ UndefinedField (sourcePos r) f-- unknown field
+                                  Nothing  -> throwC4 $ UndefinedField p f
                                   (Just t) -> return t
           _ -> throwC4 $ TypeMismatch p (getType l') AnonymousStruct
-  return (FieldAccess (p, ty, LValue) l' r') -- TODO: type check field access
+  return (FieldAccess (p, ty, LValue) l' f) -- TODO: type check field access
 
 expression (StringLiteral p b)   = return $ StringLiteral (p, Pointer CChar, RValue) b
 

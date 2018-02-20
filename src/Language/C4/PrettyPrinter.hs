@@ -318,7 +318,7 @@ instance PrettyPrint (Expr x) where
   prettyPrint (IntConstant _ c)     = print' (integerDec c)
   prettyPrint (CharConstant _ c)    = print "'" >> print c >> print "'"
   prettyPrint (ArrayAccess _ a b )  = prettyPrint a >> brackets (prettyPrint b)
-  prettyPrint (FieldAccess _ a b)   = parens $ prettyPrint a >> period >> prettyPrint b
+  prettyPrint (FieldAccess _ a b)   = parens $ prettyPrint a >> period >> print (fromShort b)
   prettyPrint (PointerAccess _ a b) = parens $ prettyPrint a >> print "->" >> prettyPrint b
   prettyPrint (StringLiteral _ s)   = print "\"" >> print s >> print "\""
   prettyPrint (List es)           = commaSep $ map prettyPrint es
