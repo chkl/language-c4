@@ -140,24 +140,38 @@ data SemanticError = UndeclaredName
                    { semanticErrorPosition :: !SourcePos
                    , ident                 :: !Ident
                    }
+                   | UndefinedStruct
+                   { semanticErrorPosition :: !SourcePos
+                   , ident                 :: !Ident
+                   }
+                   | UndefinedField
+                   { semanticErrorPosition :: !SourcePos
+                   , ident                 :: !Ident
+                   }
+                   | AnonymousStructsDontMatch
+                   { semanticErrorPosition :: !SourcePos
+                   }
 
 
 instance C4Error SemanticError where
-  getErrorPosition                            = semanticErrorPosition
-  getErrorComponent (UndeclaredName _ i)      = "undeclared name " <> show i
-  getErrorComponent (AlreadyDefinedName _ i)  = "name already defined " <> show i
-  getErrorComponent (TypeMismatch _ l r)      = "type mismatch: expected type: " <> show l <> "; actual type: " <> show r
-  getErrorComponent (NoPointer _)             = "expects a pointer"
-  getErrorComponent (UnexpectedReturn _)      = "unexpected return"
-  getErrorComponent (AssignRValue _ _)        = "assignment to rvalue"
-  getErrorComponent (BreakOutsideLoop _)      = "break can only be used inside a loop"
-  getErrorComponent (ContinueOutsideLoop _)   = "continue can only be used inside a loop"
-  getErrorComponent (MiscSemanticError _ m)   = m
-  getErrorComponent (UndefinedLabel _ l)      = "undefined label " <> show l
-  getErrorComponent (DuplicateLabel _ l p')   = "duplicate label " <> show l <> ", previously defined at " <> show (prettyPrintPos p')
-  getErrorComponent (DuplicateStruct _ n)   = "duplicate struct " <> show n
-  getErrorComponent (RedeclaredSymbol _ n)    = "re-declared symbol " <> show n
-  getErrorComponent (DuplicateField _ n)    = "duplicate field " <> show n
+  getErrorPosition                           = semanticErrorPosition
+  getErrorComponent (UndeclaredName _ i)     = "undeclared name " <> show i
+  getErrorComponent (AlreadyDefinedName _ i) = "name already defined " <> show i
+  getErrorComponent (TypeMismatch _ l r)     = "type mismatch: expected type: " <> show l <> "; actual type: " <> show r
+  getErrorComponent (NoPointer _)            = "expects a pointer"
+  getErrorComponent (UnexpectedReturn _)     = "unexpected return"
+  getErrorComponent (AssignRValue _ _)       = "assignment to rvalue"
+  getErrorComponent (BreakOutsideLoop _)     = "break can only be used inside a loop"
+  getErrorComponent (ContinueOutsideLoop _)  = "continue can only be used inside a loop"
+  getErrorComponent (MiscSemanticError _ m)  = m
+  getErrorComponent (UndefinedLabel _ l)     = "undefined label " <> show l
+  getErrorComponent (DuplicateLabel _ l p')  = "duplicate label " <> show l <> ", previously defined at " <> show (prettyPrintPos p')
+  getErrorComponent (DuplicateStruct _ n)    = "duplicate struct " <> show n
+  getErrorComponent (RedeclaredSymbol _ n)   = "re-declared symbol " <> show n
+  getErrorComponent (DuplicateField _ n)     = "duplicate field " <> show n
+  getErrorComponent (UndefinedStruct _ n)    = "undefined struct " <> show n
+  getErrorComponent (UndefinedField _ n)     = "undefined field " <> show n
+  getErrorComponent (AnonymousStructsDontMatch _)     = "anonymous structs cannot be matched"
 
 -- | runs an analysis in a copy of the current scope without modifying the
 -- original scope, but retains the errors and defined and used labels.
@@ -185,6 +199,7 @@ matchTypes p t@(Pointer _) CInt = return t -- ^ pointer arithmetic
 matchTypes p CInt t@(Pointer _) = return t -- ^
 matchTypes p (Tuple [t1]) t2    = matchTypes p t1 t2
 matchTypes p t1 (Tuple [t2])    = matchTypes p t1 t2
+matchTypes p AnonymousStruct AnonymousStruct = throwC4 $ AnonymousStructsDontMatch p
 matchTypes p t1 t2              = do
   when (t1 /= t2) $ throwC4 (TypeMismatch p t1 t2)
   return t1
@@ -485,7 +500,16 @@ expression (ArrayAccess p l r)         = do
 expression (FieldAccess p l r)   = do
   l' <- expression l
   r' <- expression r
-  return (FieldAccess (p, Bottom, LValue) l' r') -- TODO: type check field access
+  ty <- case (getType l', r') of
+          (Struct s, ExprIdent _ f) -> do
+            strcts <- gets structures
+            case Map.lookup s strcts of
+                Nothing -> throwC4 $ UndefinedStruct p s
+                (Just s') -> case Map.lookup f s' of
+                                  Nothing  -> throwC4 $ UndefinedField (sourcePos r) f-- unknown field
+                                  (Just t) -> return t
+          _ -> throwC4 $ TypeMismatch p (getType l') AnonymousStruct
+  return (FieldAccess (p, ty, LValue) l' r') -- TODO: type check field access
 
 expression (StringLiteral p b)   = return $ StringLiteral (p, Pointer CChar, RValue) b
 
