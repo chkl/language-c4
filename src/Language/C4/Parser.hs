@@ -91,7 +91,7 @@ postfixUnaryExpr = chainl1unary primaryExpr postElem
   where postElem = getPosition >>= \p ->
               (L.punctuator "["  >> flip (ArrayAccess p) <$> expression <* L.punctuator "]")
           <|> (L.punctuator "."  >> flip (FieldAccess p) <$> L.identifier)
-          <|> (L.punctuator "->" >> flip (PointerAccess p) <$> identifier)
+          <|> (L.punctuator "->" >> flip (PointerAccess p) <$> L.identifier)
           <|> (L.punctuator "("  >> flip (Func p) <$> expressionList  <* L.punctuator ")")
           -- <|> (L.punctuator "("  >> L.punctuator ")" >> return (flip (Func p) (List [])))
 

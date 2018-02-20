@@ -70,11 +70,10 @@ testExpressions :: SpecWith ()
 testExpressions = describe "expression parser" $ do
   it "should parse field and pointer accesses" $ do
       undecorate <$> testParser postfixUnaryExpr "x.foo" `shouldBe` Right (FieldAccessUD (ExprIdentUD "x") ("foo"))
-      undecorate <$> testParser postfixUnaryExpr "x->foo" `shouldBe` Right (PointerAccessUD (ExprIdentUD "x") (ExprIdentUD "foo"))
+      undecorate <$> testParser postfixUnaryExpr "x->foo" `shouldBe` Right (PointerAccessUD (ExprIdentUD "x") "foo")
       undecorate <$> testParser postfixUnaryExpr "x.y.z.foo" `shouldBe` Right (FieldAccessUD (FieldAccessUD
                                                  (FieldAccessUD (ExprIdentUD "x") ("y")) ("z")) ("foo"))
-      undecorate <$> testParser postfixUnaryExpr "x.y->z.foo" `shouldBe` Right (FieldAccessUD (PointerAccessUD
-                                                 (FieldAccessUD (ExprIdentUD "x") ("y")) (ExprIdentUD "z")) ("foo"))
+      undecorate <$> testParser postfixUnaryExpr "x.y->z.foo" `shouldBe` Right (FieldAccessUD (PointerAccessUD (FieldAccessUD (ExprIdentUD "x") "y") "z") "foo")
   it "should parse function calls and array accesses" $ do
       undecorate <$> testParser postfixUnaryExpr "func(x, y)" `shouldBe` Right (FuncUD (ExprIdentUD "func") (List [ExprIdentUD "x",ExprIdentUD "y"]))
       undecorate <$> testParser postfixUnaryExpr "func()" `shouldBe` Right (FuncUD (ExprIdentUD "func") (List []))

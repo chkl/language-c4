@@ -479,10 +479,9 @@ expression (Func p l r)           = do
     _ -> do
       throwC4 $ TypeMismatch p (Function Bottom [getType r']) (getType l')
 
-expression (PointerAccess p l r ) = do
+expression (PointerAccess p l f ) = do
   l' <- expression l
-  r' <- expression r
-  return $ PointerAccess (p, Bottom, getLValuedness l') l' r'
+  return $ PointerAccess (p, Bottom, getLValuedness l') l' f
 
 expression (ArrayAccess p l r)         = do
   l' <- expression l

@@ -136,7 +136,7 @@ data Expr x = List [Expr x] -- ^ should never be empty
           | CharConstant (AnnConstant x) ByteString
           | IntConstant (AnnConstant x) Integer
           | FieldAccess (AnnFieldAccess x) (Expr x) Ident
-          | PointerAccess (AnnPointerAccess x) (Expr x) (Expr x)
+          | PointerAccess (AnnPointerAccess x) (Expr x) Ident
           | StringLiteral (AnnStringLiteral x) ByteString
 
 --------------------------------------------------------------------------------
@@ -205,7 +205,7 @@ pattern IndirectDeclaratorUD ::  Declarator UD -> Declarator UD
 pattern IndirectDeclaratorUD d <- IndirectDeclarator _ d
   where IndirectDeclaratorUD d = IndirectDeclarator () d
 
-pattern PointerAccessUD :: Expr UD -> Expr UD -> Expr UD
+pattern PointerAccessUD :: Expr UD -> Ident -> Expr UD
 pattern PointerAccessUD e f <- PointerAccess _ e f
   where PointerAccessUD e f = PointerAccess () e f
 
@@ -337,10 +337,11 @@ instance Undecorate Expr where
   undecorate (Func _ e1 e2)          = Func () (undecorate e1) (undecorate e2)
   undecorate (ExprIdent _ b)         = ExprIdent () b
   undecorate (CharConstant _ b)      = CharConstant  () b
-  undecorate (IntConstant _ b)       = IntConstant  () b
+  undecorate (IntConstant _ b)      = IntConstant  () b
   undecorate (FieldAccess _ e1 n)   = FieldAccess () (undecorate e1) n
-  undecorate (PointerAccess _ e1 e2) = PointerAccess () (undecorate e1) (undecorate e2)
-  undecorate (StringLiteral _ b )    = StringLiteral () b
+  undecorate (PointerAccess _ e1 f) = PointerAccess () (undecorate e1) f
+  undecorate (StringLiteral _ b )   = StringLiteral () b
+
 
 instance Undecorate Declarator where
   undecorate (IndirectDeclarator _ d)   = IndirectDeclarator () (undecorate d)
