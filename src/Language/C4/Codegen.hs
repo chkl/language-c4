@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE PartialTypeSignatures      #-}
 {-# LANGUAGE RecursiveDo                #-}
@@ -21,6 +22,7 @@ import           Debug.Trace
 import           LLVM.AST                   hiding (alignment, function)
 import           LLVM.AST.AddrSpace
 import           LLVM.AST.Global
+import           LLVM.AST.Constant
 import           LLVM.AST.IntegerPredicate  as Pred
 import           LLVM.AST.Type
 import           LLVM.IRBuilder.Constant
@@ -81,48 +83,48 @@ externalDeclaration (Declaration p t ids) = forM_ ids $ \(InitializedDec d mi)  
   case getType d of
     (SemAst.Function b as) -> do
       let name = Name $ getName d
-      let typedParams = map (fst . toLLVMType)  as
-          returnType = fst $ toLLVMType  b
+      let typedParams = map toLLVMType  as
+          returnType = toLLVMType  b
       x <- extern name typedParams returnType
       addToScope (getName d) x
       return ()
     t -> do
       let nm   = Name $ getName d
-          glbl = globalVariableDefaults { name = nm, LLVM.AST.Global.type' = fst (toLLVMType t)}
+          glbl = globalVariableDefaults { name = nm, LLVM.AST.Global.type' = toLLVMType t}
       emitDefn (GlobalDefinition glbl)
 
 
 
 
 functionDefinition :: FunctionDefinition SemPhase -> CGModule ()
-functionDefinition (FunctionDefinition p t d stmt) = Control.Monad.State.void $ do
+functionDefinition (FunctionDefinition p t d stmt) = Control.Monad.State.void $ mdo
   params <- findParams d
-  let txxx = map (\p -> (fst $ toLLVMType $ getType $ p, ParameterName (getName p))) params
-      tyyy = [(getName p, toLLVMType (getType p)) | p <- params]
+  let paramList = map (\p -> (toLLVMType $ getType p, ParameterName (getName p))) params
       funName                      = Name (getName d)
       (SemAst.Function returnTy _) = getType d
-  fn <- function funName txxx (fst $ toLLVMType returnTy) $ \paramsLLVM -> do
+
+  fn <- function funName paramList (toLLVMType returnTy) $ \paramsLLVM -> mdo
     _ <- block `named` "entry" -- Do not remove this
-    forM_ (zip tyyy paramsLLVM)  $ \((name,(typ, alignment)), xx) -> do
-        ll <- alloca typ Nothing alignment
-        store ll alignment xx
-        addToScope name ll
+    forM_ (zip params paramsLLVM)  $ \(param, operand) -> mdo
+        ll <- alloca (toLLVMType (getType param)) Nothing (getAlignment param) 
+        store ll (getAlignment param) operand
+        addToScope (getName param) ll
     statement stmt
-  addToScope (getName d) fn
   return fn
 
 
 -- | Only for "internal" declarations
 declaration :: Declaration SemPhase -> CGBlock ()
 declaration (Declaration _ _ ids ) = forM_ ids $ \(InitializedDec d mi) -> do
-  let t = getType d
-      n = getName d
-      (t', alignment) = toLLVMType t
-  llvmName <- alloca t' Nothing alignment
+  let t   = getType d
+      n   = getName d
+      t'  = toLLVMType t
+      alg = getAlignment d
+  llvmName <- alloca t' Nothing alg
   case mi of
     Just (InitializerAssignment e) -> do
       e' <- expression R e
-      store llvmName alignment e'
+      store llvmName alg e'
     Nothing -> return ()
   addToScope n llvmName
   return ()
@@ -197,10 +199,11 @@ expression :: LR -> Expr SemPhase -> CGBlock Operand
 
 expression lr e@(ExprIdent _ i) = do
   lookupOperand i >>= \case
-    Nothing -> error $ "could not lookup expression with identifier " ++ show i
     Just n -> case lr of
                   L -> return n
                   R -> load n (getAlignment e)
+    Nothing -> return (ConstantOperand (GlobalReference (toLLVMType (getType e)) (Name i)))
+
 
 
 expression lr (BExpr _ AssignOp e1 e2) = do
@@ -247,17 +250,25 @@ expression _ (Func _ f (List es )) = do
   let p'' = zip p' (repeat [])
   call f' p''
 
+-- hackish
+expression lr (Func a f e) = expression  lr (Func  a f (List [e]))
+
 expression _ (FieldAccess _ f i) = do undefined
 expression _ (PointerAccess _ p i) = do undefined
 expression _ (StringLiteral _ s) = do undefined
 expression _ (CharConstant _ c) = int32 42  -- TODO
 expression _ (IntConstant _ i) = int32 i  -- TODO
 
+
 getAlignment :: HasType t => t -> Word32
-getAlignment = snd . toLLVMType . getType
+getAlignment x = case getType x  of
+                   CInt -> 4
+                   Pointer _ -> 8
 --------------------------------------------------------------------------------
 --  some constants we might need
-toLLVMType :: CType -> (LLVM.AST.Type, Word32)
-toLLVMType (CInt) = (i32, 4)
-toLLVMType (Pointer t) = let (t', _) = toLLVMType t
-                         in (PointerType t' (AddrSpace 0), 8)
+
+
+toLLVMType :: CType -> LLVM.AST.Type
+toLLVMType (CInt)      = i32
+toLLVMType (Pointer t) = PointerType (toLLVMType t) (AddrSpace 0)
+toLLVMType (SemAst.Function r ptys) = FunctionType (toLLVMType r) (map toLLVMType ptys) False 
