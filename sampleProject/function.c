@@ -1,8 +1,10 @@
 
-int f(int x) {
-	if (x) {
-		return 1000;
+int f(int n) {
+	if (n < 2) {
+		return 1;
 	} else {
-		return 2222;
-	}	
+		int x;
+		int y;
+		return ( f(n-1) + f (n-2));
+	}
 }
