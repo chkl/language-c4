@@ -17,6 +17,7 @@ import           Control.Monad.Error.Class
 import           Control.Monad.State
 import qualified Data.Map                   as Map
 import           Data.Word                  (Word32)
+import qualified Data.ByteString as BS
 import           Debug.Trace
 
 import           LLVM.AST                   hiding (alignment, function)
@@ -289,11 +290,23 @@ expression lr (Func a f e) = expression  lr (Func  a f (List [e]))
 
 expression _ (FieldAccess _ f i)   = do undefined
 expression _ (PointerAccess _ p i) = do undefined
-expression _ (StringLiteral _ s)   = do undefined
-expression _ (CharConstant _ c)    = int32 42  -- TODO
-expression _ (IntConstant _ i)     = int32 i  -- TODO
+expression R (StringLiteral _ s)   = do
+  val <- array $ map toConstant  (BS.unpack s ++ [0])
+  let n = BS.length s + 1
+      ty = ArrayType (fromIntegral n) (LLVM.AST.Type.IntegerType 8)
+      alg = fromIntegral (alignmentOfType CChar)
+  alloca ty (Just val) alg
+
+expression R (CharConstant _ c)    = int8 (fromIntegral $ head $ BS.unpack c)
+expression R (IntConstant _ i)     = int32 i
 
 
+int8 = pure . ConstantOperand . LLVM.AST.Constant.Int 8
+
+toConstant :: _ -> Constant 
+toConstant c = LLVM.AST.Constant.Int 8 (fromIntegral c)
+
+alignmentOfType CChar       = 1
 alignmentOfType CInt        = 4
 alignmentOfType (Pointer _) = 8
 
@@ -304,6 +317,7 @@ getAlignment = alignmentOfType . getType
 
 
 toLLVMType :: CType -> LLVM.AST.Type
+toLLVMType CChar                    = LLVM.AST.Type.IntegerType 8
 toLLVMType CVoid                    = LLVM.AST.Type.void
 toLLVMType CInt                     = i32
 toLLVMType (Pointer t)              = PointerType (toLLVMType t) (AddrSpace 0)
