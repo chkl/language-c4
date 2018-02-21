@@ -247,17 +247,25 @@ expression R (BExpr _ op e1 e2) = do
     LAnd         -> and l r
     LOr          -> or l r
 
-expression _ (List l) = do undefined
-expression _ (Ternary _ i t e) = do undefined
-expression _ (Assign _ l r) = do undefined
-expression _ (SizeOfType _ t) = do undefined
+expression _ (List l) = error "cannot handle lists of expressions"
+expression _ (Ternary _ i t e)   = do undefined
+expression _ (Assign _ l r)      = error "this kind of assign expression should not appear in the AST anymore anyway"
+expression _ (SizeOfType _ t)    = do undefined
 expression _ (ArrayAccess _ a i) = do undefined
+
+
+expression _ (UExpr _ Address e) = expression L e
+
+expression _ (UExpr _ Deref e) = do
+  let (Pointer t)  = getType e
+  e' <- expression R e
+  load e' (alignmentOfType t)
+
 expression R (UExpr _ op e) = do
   e' <- expression R e
   case op of
     SizeOf -> int32 4
     Address -> undefined
-    Deref -> undefined
     Neg -> do
       x <- int32 0
       sub x e'
@@ -272,18 +280,19 @@ expression _ (Func _ f (List es )) = do
 -- hackish
 expression lr (Func a f e) = expression  lr (Func  a f (List [e]))
 
-expression _ (FieldAccess _ f i) = do undefined
+expression _ (FieldAccess _ f i)   = do undefined
 expression _ (PointerAccess _ p i) = do undefined
-expression _ (StringLiteral _ s) = do undefined
-expression _ (CharConstant _ c) = int32 42  -- TODO
-expression _ (IntConstant _ i) = int32 i  -- TODO
+expression _ (StringLiteral _ s)   = do undefined
+expression _ (CharConstant _ c)    = int32 42  -- TODO
+expression _ (IntConstant _ i)     = int32 i  -- TODO
 
+
+alignmentOfType CInt        = 4
+alignmentOfType (Pointer _) = 8
 
 getAlignment :: HasType t => t -> Word32
-getAlignment x = case getType x  of
-                   CInt -> 4
-                   Pointer _ -> 8
---------------------------------------------------------------------------------
+getAlignment = alignmentOfType . getType
+  --------------------------------------------------------------------------------
 --  some constants we might need
 
 
