@@ -1,10 +1,7 @@
 
-int g(int* p) {
-	return *p;
-}
-
 int f(int x) {
-	int* p = &x; // &x;
-	return g(p);
+	int y = x < 5 ? 1 : 2;
+	return y;
+
 
 }

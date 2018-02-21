@@ -247,8 +247,15 @@ expression R (BExpr _ op e1 e2) = do
     LAnd         -> and l r
     LOr          -> or l r
 
-expression _ (List l) = error "cannot handle lists of expressions"
-expression _ (Ternary _ i t e)   = do undefined
+expression _ (List _) = error "cannot handle lists of expressions"
+expression _ (Ternary _ i t e)   = do
+  i' <- expression R i
+  zero <- int32 0
+  i'' <- icmp NE i' zero
+  t' <- expression R t
+  e' <- expression R e
+  select i'' t' e'
+
 expression _ (Assign _ l r)      = error "this kind of assign expression should not appear in the AST anymore anyway"
 expression _ (SizeOfType _ t)    = do undefined
 expression _ (ArrayAccess _ a i) = do undefined
