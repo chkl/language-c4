@@ -97,7 +97,7 @@ externalDeclaration (Declaration p t ids) = forM_ ids $ \(InitializedDec d mi)  
 
 
 functionDefinition :: FunctionDefinition SemPhase -> CGModule ()
-functionDefinition (FunctionDefinition p t d stmt) = Control.Monad.State.void $ mdo
+functionDefinition (FunctionDefinition _ _ d stmt) = Control.Monad.State.void $ mdo
   params <- findParams d
   let paramList = map (\p -> (toLLVMType $ getType p, ParameterName (getName p))) params
       funName                      = Name (getName d)
@@ -110,7 +110,19 @@ functionDefinition (FunctionDefinition p t d stmt) = Control.Monad.State.void $ 
         store ll (getAlignment param) operand
         addToScope (getName param) ll
     statement stmt
+    addDefaultReturn returnTy
   return fn
+
+addDefaultReturn CVoid = retVoid
+addDefaultReturn CInt = do
+  zero <- int32 0
+  modifyBlock $ \b -> case partialBlockTerm b of
+    Just _ -> b
+    Nothing -> b { partialBlockTerm = Just (Do (Ret {returnOperand = Just zero, metadata' = []})) }
+
+
+
+-- addDefaultReturnInt = modifyBlock $ \b -> trace (show (partialBlockTerm b)) b
 
 
 -- | Only for "internal" declarations
@@ -150,10 +162,17 @@ statement (IfStmt _ c s1 ms2) = mdo
     zero <- int32 0
     c'' <- icmp NE c' zero
     condBr c'' thB elB
-    thB <- block
+    thB <- block `named` "then"
     statement s1
-    elB <- block
-    maybe (return ()) statement ms2
+    br fi
+    elB <- block `named` "else"
+    case ms2 of
+      Nothing -> return ()
+      Just s2 -> do
+        statement s2
+        br fi
+    fi <- block `named` "fi"
+    return ()
 
 statement (WhileStmt _ c s) = mdo
   br hd
@@ -269,6 +288,7 @@ getAlignment x = case getType x  of
 
 
 toLLVMType :: CType -> LLVM.AST.Type
-toLLVMType (CInt)      = i32
-toLLVMType (Pointer t) = PointerType (toLLVMType t) (AddrSpace 0)
+toLLVMType CVoid                    = LLVM.AST.Type.void
+toLLVMType CInt                     = i32
+toLLVMType (Pointer t)              = PointerType (toLLVMType t) (AddrSpace 0)
 toLLVMType (SemAst.Function r ptys) = FunctionType (toLLVMType r) (map toLLVMType ptys) False 
