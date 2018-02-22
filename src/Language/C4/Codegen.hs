@@ -73,12 +73,13 @@ instance C4Error CodegenError where
   getErrorComponent (FeatureNotImplemented _ fn ) = "feature not implemented: " ++ fn
   getErrorComponent (UnknownLabel _ l) = "label unknown : " ++ l ++ " (this should have been detected during semantic analysis (TODO!))"
 
+-- | takes the translationunit from the semantic analysis and translates it to LLVM code
 compile :: TranslationUnit SemPhase -> C4 LLVM.AST.Module
 compile (TranslationUnit _ es) = runCGModule $
   mapM_ (either externalDeclaration functionDefinition) es
 
 
-
+-- | produces code for external declaration which is either a function or a global variable.
 externalDeclaration :: Declaration SemPhase -> CGModule ()
 externalDeclaration (Declaration p t ids) = forM_ ids $ \(InitializedDec d mi)  -> do
   case getType d of
@@ -95,8 +96,8 @@ externalDeclaration (Declaration p t ids) = forM_ ids $ \(InitializedDec d mi)  
       emitDefn (GlobalDefinition glbl)
 
 
-
-
+-- | produces code for function definitions by copying formal parameters in registers
+--   and add a default return statement if necessary.
 functionDefinition :: FunctionDefinition SemPhase -> CGModule ()
 functionDefinition (FunctionDefinition _ _ d stmt) = Control.Monad.State.void $ mdo
   params <- findParams d
@@ -114,6 +115,7 @@ functionDefinition (FunctionDefinition _ _ d stmt) = Control.Monad.State.void $ 
     addDefaultReturn returnTy
   return fn
 
+-- | adds default statement if necessary. TODO: add type
 addDefaultReturn CVoid = retVoid
 addDefaultReturn CInt = do
   zero <- int32 0
@@ -123,10 +125,7 @@ addDefaultReturn CInt = do
 
 
 
--- addDefaultReturnInt = modifyBlock $ \b -> trace (show (partialBlockTerm b)) b
-
-
--- | Only for "internal" declarations
+-- | is used for "internal" declarations only and initializes it if necessary.
 declaration :: Declaration SemPhase -> CGBlock ()
 declaration (Declaration _ _ ids ) = forM_ ids $ \(InitializedDec d mi) -> do
   let t   = getType d
@@ -143,11 +142,7 @@ declaration (Declaration _ _ ids ) = forM_ ids $ \(InitializedDec d mi) -> do
   return ()
 
 
--- declaration (Declaration _ Int [InitializedDec (DeclaratorId _ n) Nothing]) = do
---   llvmName <- alloca i32 Nothing 4
---   addToScope n llvmName
---   return ()
-
+-- | translates statements into LLVM code.
 statement :: Stmt SemPhase -> CGBlock ()
 statement (Return _ Nothing) = retVoid
 statement (Return _ (Just e)) = do
@@ -197,13 +192,14 @@ statement (Goto p l) = mdo
   n <- lookupLabel p l
   br n
 
+-- | adds label to scope.
 addLabel :: Ident -> Name -> CGBlock ()
 addLabel l b = do
   s <- get
   let s' = s {_labels = Map.insert l b (_labels s)} -- TODO: Use lenses?
   put s'
 
-
+-- | checks whether used label was defined.
 lookupLabel :: SourcePos -> Ident -> CGBlock Name
 lookupLabel p l = do
   st <- get
@@ -211,10 +207,9 @@ lookupLabel p l = do
     Nothing -> throwC4 $ UnknownLabel p (show l)
     Just n  -> return n
 
-
-
 data LR = L | R
 
+-- | produces code for expression so that it can be used as operand. TODO: check
 expression :: LR -> Expr SemPhase -> CGBlock Operand
 
 expression lr e@(ExprIdent _ i) = do
@@ -260,8 +255,6 @@ expression _ (Ternary _ i t e)   = do
 expression _ (Assign _ l r)      = error "this kind of assign expression should not appear in the AST anymore anyway"
 expression _ (SizeOfType _ t)    = do undefined
 expression _ (ArrayAccess _ a i) = do undefined
-
-
 expression _ (UExpr _ Address e) = expression L e
 
 expression _ (UExpr _ Deref e) = do
@@ -285,7 +278,6 @@ expression _ (Func _ f (List es )) = do
   let p'' = zip p' (repeat [])
   call f' p''
 
--- hackish
 expression lr (Func a f e) = expression  lr (Func  a f (List [e]))
 
 expression _ (FieldAccess _ f i)   = do undefined
@@ -300,9 +292,10 @@ expression R (StringLiteral _ s)   = do
 expression R (CharConstant _ c)    = int8 (fromIntegral $ head $ BS.unpack c)
 expression R (IntConstant _ i)     = int32 i
 
-
+-- | produces a int8 for char, TODO: add type
 int8 = pure . ConstantOperand . LLVM.AST.Constant.Int 8
 
+-- | produces a constant from an integral type.
 toConstant :: _ -> Constant 
 toConstant c = LLVM.AST.Constant.Int 8 (fromIntegral c)
 
@@ -310,12 +303,13 @@ alignmentOfType CChar       = 1
 alignmentOfType CInt        = 4
 alignmentOfType (Pointer _) = 8
 
+-- | gives alignment of types.
 getAlignment :: HasType t => t -> Word32
 getAlignment = alignmentOfType . getType
   --------------------------------------------------------------------------------
 --  some constants we might need
 
-
+-- | translates type into LLVMType.
 toLLVMType :: CType -> LLVM.AST.Type
 toLLVMType CChar                    = LLVM.AST.Type.IntegerType 8
 toLLVMType CVoid                    = LLVM.AST.Type.void

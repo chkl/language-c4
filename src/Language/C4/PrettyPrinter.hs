@@ -47,6 +47,8 @@ defaultPrinterEnv :: PrinterEnv
 defaultPrinterEnv = PrinterEnv 0 True mempty
 
 
+-- | describes the current environment with a level of intendation, whether it is the start of a line
+--   and a Builder.
 data PrinterEnv = PrinterEnv { level     :: Int
                              , startLine :: Bool
                              , builder   :: Builder
@@ -83,27 +85,31 @@ instance (Monoid a) => Monoid (Printer a) where
 instance IsString (Printer ()) where
   fromString s = print (C8.pack s)
 
+-- | indentates a Printer by n tabulators, TODO
 nest :: Int -> Printer a -> Printer a
 nest n p = Printer $ \env ->
   let (x, env') = runPrinter p (env{level = level env + n})
   in (x, env' {level = level env})
 
+-- | TODO
 noNest :: Printer a -> Printer a
 noNest p = Printer $ \env ->
   let (x, env') = runPrinter p (env{level = 0})
   in (x, env' {level = level env})
 
+-- | puts indentation of one level.
 indent :: Printer a -> Printer a
 indent = nest 1
 
 
--- | "smart" newline: only inserts a "\n" character if the cursor is not the first position in a line.
+-- | "smart" newline: only inserts a new line if the cursor is not the first position in a line.
 newline :: Printer ()
 newline = do
   b <- gets startLine
   unless b $ do
     modify $ \s -> s { builder = builder s <> "\n" , startLine = True }
 
+-- | "smart" empty line: inserts two new line iff the cursor is not at the beginning in a line.
 emptyLine :: Printer ()
 emptyLine = do
   at0 <- gets startLine
@@ -111,15 +117,17 @@ emptyLine = do
     then modify $ \s -> s {builder = builder s <> "\n", startLine = True}
     else modify $ \s -> s {builder = builder s <> "\n\n", startLine = True}
 
-
+-- | intercalate p lp takes intersperses p in between elements of lp.
 intercalate :: Printer () -> [Printer ()] -> Printer ()
 intercalate _ []     = return ()
 intercalate _ [p]    = p
 intercalate s (p:ps) = p >> mapM_ (\x -> s >> x) ps
 
+-- | puts commas in between elements of the given list.
 commaSep :: [Printer ()] -> Printer ()
 commaSep = intercalate $ print ", "
 
+-- | puts new lines in between elements of the given list.
 unlines :: [Printer ()] -> Printer ()
 unlines = intercalate newline
 
@@ -128,6 +136,7 @@ unlines = intercalate newline
 print :: BS.ByteString -> Printer ()
 print = print' . byteString
 
+-- | TODO
 print' :: Builder -> Printer ()
 print' bs = state f
   where f env = ((), env')
@@ -138,6 +147,7 @@ print' bs = state f
                   then tabs (level env)
                   else mempty
 
+-- | tabs n prints a number of n tabulators.
 tabs :: Int -> Builder
 tabs n = mconcat $ replicate n "\t"
 
@@ -148,13 +158,15 @@ printLn s = print s >> newline
 ---- Some combinators
 ----------------------------------------------------------------------------------
 
+-- | prettyPrintLn p invokes prettyPrint p and adds a new line.
 prettyPrintLn :: PrettyPrint p => p -> Printer ()
 prettyPrintLn p = prettyPrint p >> newline
 
--- | K&R style braces
+-- | prints K&R style braces.
 braces :: Printer () -> Printer ()
 braces p = bracesNN p >> newline
 
+-- | prints braces without new line at the end.
 bracesNN :: Printer () -> Printer ()
 bracesNN p =  do
   printLn "{"
@@ -226,11 +238,13 @@ instance PrettyPrint (AbstractDeclarator x) where
   prettyPrint _ = print "/* TODO: complicated Abstract declarators */"
 
 
+-- | TODO
 whenM :: Monad m => Maybe a -> (a -> m ()) -> m ()
 whenM Nothing _  = return ()
 whenM (Just x) f = f x
 
 -- TODO: Investigate
+-- | prints braces with regard to the printed element before, e.g. if(-).
 smartBraces :: Stmt x -> Printer()
 smartBraces stmt =
   case stmt of
@@ -347,6 +361,8 @@ instance PrettyPrint UOp where
 -- This has nothing to do with the rest of PrettyPrinter
 -- TODO: find a better place
 --------------------------------------------------------------------------------
+
+-- | prints usual error messages.
 myParseErrorPretty :: ParseError -> String
 myParseErrorPretty e = sourcePosStackPretty (errorPos e) <>
                        ": error: " <>
