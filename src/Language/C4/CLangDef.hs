@@ -21,6 +21,7 @@ sortByLengthDesc = sortBy (flip $ comparing SBS.length)
 sortByLengthDesc' :: [ByteString] -> [ByteString]
 sortByLengthDesc' = sortBy (flip $ comparing BS.length)
 
+-- | describes all C keywords.
 allCKeywords :: [ShortByteString]
 allCKeywords = sortByLengthDesc ["auto", "if", "unsigned", "break", "inline", "void", "case",
                 "int", "volatile", "char", "long", "while", "const", "register", "_Alignas",
@@ -29,7 +30,7 @@ allCKeywords = sortByLengthDesc ["auto", "if", "unsigned", "break", "inline", "v
                 "enum", "static", "_Imaginary", "extern", "struct", "_Noreturn", "float",
                 "switch", "_Static_assert", "for", "typedef", "_Thread_local", "goto", "union"]
 
-
+-- | describes all C punctuators.
 allCPunctuators :: [ByteString]
 allCPunctuators = sortByLengthDesc' $
   map (BS.singleton . w) "{}()[].&*+-~!/%<>^|?:;=,#" ++
@@ -37,22 +38,26 @@ allCPunctuators = sortByLengthDesc' $
   "/=", "%=", "+=", "-=", "<<=", ">>=", "&=", "^=", "|=", "##", "<:", ":>", "<%",
   "%>", "%:", "%:%:"]
 
+-- | describes all non-digit symbols.
 cNonDigit :: [ByteString]
 cNonDigit =  map (BS.singleton . w) $ ['_'] ++ ['A'..'Z'] ++ ['a'..'z']
 
+-- | describes C digits.
 cDigit :: [ByteString]
 cDigit = map (BS.singleton . w) ['1'..'9']
 
+-- | describes non-zero C digits.
 cNonZeroDigit :: [ByteString]
 cNonZeroDigit = map (BS.singleton . w) ['1'..'9']
 
+-- | describes different possible white space.
 cWhitespace :: [ByteString]
 cWhitespace = map (BS.singleton . w) [' ', '\t', '\n', '\r', '\f', '\v']
 
 
 -- | a simple map that maps the second character of a simple escape sequence
--- | (e.g. the n in "\n") to the actual character that is represented by the
--- | escape sequence.
+--  (e.g. the n in "\n") to the actual character that is represented by the
+--  escape sequence.
 cSimpleEscapeSequences :: [(Word8, Word8)]
 cSimpleEscapeSequences =  [ (w '\'',w  '\'')
                           , (w '"', w '"')

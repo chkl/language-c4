@@ -228,13 +228,14 @@ matchTypes_ p t s = void (matchTypes p t s)
 -- Analyses
 --------------------------------------------------------------------------------
 
--- analyses a translation unit. Also ensures that all used labels are defined
+-- | analyses a translation unit. Also ensures that all used labels are defined.
 translationUnit :: (Monad m) => TranslationUnit SynPhase -> Analysis m (TranslationUnit SemPhase)
 translationUnit (TranslationUnit _ eds) = do
   eds' <- forM eds (either' declaration functionDefinition)
   s <- gets scope
   return $ TranslationUnit s eds'
 
+-- | checks that all used labels are defined.
 checkForUndefinedLabels :: Monad m => Analysis m ()
 checkForUndefinedLabels = do
   uLbls <- gets usedLabels
@@ -243,7 +244,7 @@ checkForUndefinedLabels = do
       Just _ -> return ()
       Nothing -> throwC4 $ UndefinedLabel p u
 
-
+-- | analyses a function and meanwhile checks e.g. whether all labels are defined. 
 functionDefinition :: (Monad m) => FunctionDefinition SynPhase -> Analysis m (FunctionDefinition SemPhase)
 functionDefinition (FunctionDefinition pos t d (CompoundStmt p stmts))  = do
     t' <- typeA t
@@ -266,9 +267,11 @@ functionDefinition (FunctionDefinition pos t d (CompoundStmt p stmts))  = do
 
 functionDefinition (FunctionDefinition pos t d _)  = throwC4 $ MiscSemanticError pos "a function definition needs a compound statement"
 
+-- | changes the state to the expected return type.
 expectReturnType :: Monad m => CType -> Analysis m ()
 expectReturnType t = modify $ \s -> s { expectedReturnValue = Just t }
 
+-- | sets flag for inLoop in state to true.
 setInLoop :: Monad m => Analysis m ()
 setInLoop = modify $ \s -> s { inLoop = True}
 
@@ -351,6 +354,7 @@ abstractDeclarator t (AbstractFunctionDeclarator p d params) = do
   let t' = Tuple $ map getType params'
   return $ AbstractFunctionDeclarator (p, t') d' params'
 
+-- | checks for a return statement whether the type fits, for continue and break whether it is in a loop.
 statement :: (Monad m) => Stmt SynPhase -> Analysis m (Stmt SemPhase)
 statement (LabeledStmt p lbl stmt)      = do
   defineLabel lbl p
@@ -404,6 +408,7 @@ statement (ExpressionStmt p e) = do
   return $ ExpressionStmt p e'
 
 
+-- | checks for assignment whether left operand is a lvalue and for deref whether it is a pointer.
 expression :: (Monad m) => Expr SynPhase -> Analysis m (Expr SemPhase)
 expression (IntConstant p x) = do
   return (IntConstant (p, CInt, RValue) x)
@@ -536,7 +541,7 @@ typeA (Void p) = return $ Void (p, CVoid)
 typeA (Int  p) = return $ Int (p, CInt)
 typeA (Char p) = return $ Char (p, CChar)
 
--- | Apparently struct do not need to be defined in order to be used in declarations
+-- Apparently struct do not need to be defined in order to be used in declarations
 typeA (StructIdentifier p i) = return $ StructIdentifier (p, Struct i) i
 
 typeA (StructInline p mi l) = do
