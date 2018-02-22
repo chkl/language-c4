@@ -24,6 +24,11 @@ import           Language.C4.Types
 -- SemPhase'.
 
 
+-- | incorporates a scope of declared, defined and shadowable variables and functions,
+--                a map of defined labels, used labels and structures, 
+--                an option for a return type,
+--                a map of structures,
+--                two flags for being in a loop or a function definition.
 data AnalysisState = AnalysisState
   { scope               :: Scope -- ^ declared and defined variables and functions
   , labels              :: Map.Map Ident SourcePos -- ^ defined labels
@@ -34,6 +39,7 @@ data AnalysisState = AnalysisState
   , inFunDef            :: Bool
   } deriving (Show)
 
+-- | is the initial analysis state
 emptyAnalysisState :: AnalysisState
 emptyAnalysisState = AnalysisState Map.empty Map.empty Map.empty Map.empty Nothing False False
 
@@ -206,8 +212,8 @@ matchTypes :: (Monad m) => SourcePos -- ^ the position displayed in case of a ty
 matchTypes _ Bottom _           = return Bottom
 matchTypes _ _ Bottom           = return Bottom
 matchTypes p (Pointer a) (Pointer b) = matchTypes p a b
-matchTypes p t@(Pointer _) CInt = return t -- ^ pointer arithmetic
-matchTypes p CInt t@(Pointer _) = return t -- ^
+matchTypes p t@(Pointer _) CInt = return t -- pointer arithmetic
+matchTypes p CInt t@(Pointer _) = return t --
 matchTypes p (Tuple [t1]) t2    = matchTypes p t1 t2
 matchTypes p t1 (Tuple [t2])    = matchTypes p t1 t2
 matchTypes p AnonymousStruct AnonymousStruct = throwC4 $ AnonymousStructsDontMatch p
@@ -463,7 +469,7 @@ expression (UExpr p op e) = do
         t <- case t' of
                (Pointer t0) -> return t0
                _            -> throwC4 $ NoPointer p
-        return $ UExpr (p, t, LValue) op e' -- ^ TODO: Deref always results in an lvalue?
+        return $ UExpr (p, t, LValue) op e' -- TODO: Deref always results in an lvalue?
 
     | op == SizeOf -> return $ UExpr (p, CInt, RValue) op e' -- TODO is that correct?
 

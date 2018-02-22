@@ -54,7 +54,7 @@ data CToken = Keyword ShortByteString
            deriving (Show, Eq)
 
 
--- | "space consumer"
+-- | consumes space and comments
 sc :: Parser m ()
 sc = MBL.space space1 lineCmnt blockCmnt
   where
@@ -62,7 +62,7 @@ sc = MBL.space space1 lineCmnt blockCmnt
     lineCmnt  =  lineCmntC
     blockCmnt = MBL.skipBlockComment "/*" "*/"
 
-
+-- | consumes a line-comment  
 lineCmntC :: Parser m ()
 lineCmntC = do
       _ <- string "//"
@@ -92,15 +92,18 @@ braces    = between (symbol "{") (symbol "}")
 brackets :: Parser m a -> Parser m a
 brackets  = between (symbol "[") (symbol "]")
 
+-- | commaSep parses a possibly empty list separated by commas 
 commaSep :: Parser m a -> Parser m [a]
 commaSep p = p `sepBy` comma
 
+-- | commaSep parses a non-empty list separated by commas
 commaSep1 :: Parser m a -> Parser m [a]
 commaSep1 p = p `sepBy1` comma
 
 comma :: Parser m ()
 comma = void (symbol ",")
 
+-- | semicolSep parses a possibly empty list separated by semicolons
 semicolSep :: Parser m a -> Parser m [a]
 semicolSep p = p `sepBy` symbol ";"
 
@@ -120,9 +123,7 @@ charConstant = lexeme $ do
   _ <- char $ w '\''
   return x
 
-
-
-
+-- | simpleEscapeSequence parses all possible escape sequences
 simpleEscapeSequence :: Parser m ByteString
 simpleEscapeSequence = do -- refer to 'simple escape sequence'
     c1 <- char (w '\\')
@@ -144,12 +145,14 @@ sChar = allowedCharacter <|>
   where
     allowedCharacter = BS.singleton <$> noneOf [w '\\', w '"', w '\n']
 
+-- | identifierOrKeyword parses an identifier or keyword.
 identifierOrKeyword :: Parser m ShortByteString
 identifierOrKeyword =  do
   x <- letterChar <|> char (w '_')
   y <- many (alphaNumChar <|> char (w '_'))
   return $  SBS.pack (x : y)
 
+-- | identifier ensures that an identifier is no keyword.
 identifier :: Parser m ShortByteString
 identifier = lexeme $ try $ do
   name <- identifierOrKeyword
@@ -157,6 +160,7 @@ identifier = lexeme $ try $ do
   then fail "not an identifier"
   else return name
 
+-- | anyKeyword ensures that a keyword is indeed such a one.
 anyKeyword :: Parser m ShortByteString
 anyKeyword = lexeme $ try $ do
   name <- identifierOrKeyword
@@ -164,6 +168,7 @@ anyKeyword = lexeme $ try $ do
   then return name
   else fail "not a keyword"
 
+-- | anyPunctuator parses all possible punctuators.
 anyPunctuator :: Parser m ByteString
 anyPunctuator = lexeme $ asum $ map string allCPunctuators
 
@@ -177,6 +182,7 @@ keyword s = try $ void $ lexeme $ string s
 punctuator :: ByteString -> Parser m ()
 punctuator = void . lexeme . string
 
+-- | cToken parses decimal and char constants, stringliterals, identifier, keywords or punctuators.
 cToken :: Parser m CToken
 cToken = DecConstant <$> integerConstant <|>
          CharConstant <$> charConstant <|>
@@ -185,7 +191,7 @@ cToken = DecConstant <$> integerConstant <|>
          Keyword <$> anyKeyword <|>
          Punctuator <$> anyPunctuator
 
--- " parses a cToken and immediately outputs it in IO and discards the result"
+-- | cToken parses a cToken and immediately outputs it in IO and discards the result.
 cToken_ :: Parser IO ()
 cToken_ =  do
       p <- getPosition
@@ -209,8 +215,8 @@ runLexer :: String -> ByteString -> Either ParseError [(CToken, SourcePos)]
 runLexer = runParser lexer
 
 
--- | this tokenizer just outputs directly to stdout and discards any tokens.
--- | (this one has basically no use other than benchmarking)
+-- | just outputs directly to stdout and discards any tokens 
+-- (this one has basically no use other than benchmarking)
 tokenize :: FilePath -> ByteString -> IO (C4 ())
 tokenize fn s = do
   res <- runParserT (do

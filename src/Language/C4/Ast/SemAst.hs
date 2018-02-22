@@ -136,7 +136,7 @@ instance HasName (Declarator SemPhase) where
 instance HasLValuedness (Expr SemPhase) where -- TODO
   getLValuedness (BExpr (_,_,l) _ _ _)       = l
   getLValuedness (Assign (_,_,l)  _ _)       = l
-  getLValuedness (List _)                    = RValue -- ^ a list of expressions can never be lvalued
+  getLValuedness (List _)                    = RValue -- a list of expressions can never be lvalued
   getLValuedness (Ternary (_,_,l) _ _ _)     = l
   getLValuedness (UExpr (_,_,l) _ _)         = l
   getLValuedness (Func (_,_,l) _ _ )         = l
