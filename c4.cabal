@@ -5,7 +5,7 @@ version:             0.1.0.0
 homepage:            https://cc.cdl.uni-saarland.de/rfc/c4
 author:              Robert Schenck, Felix Stutz, Christian Klinger
 maintainer:          cklinger@mpi-inf.mpg.de 
-copyright:           All Rights Reserved
+license:             MIT
 category:            Compiler 
 build-type:          Simple
 extra-source-files:  README.md
